@@ -130,8 +130,3 @@ export async function POST(req: NextRequest) {
     skipped: { invalid: skippedInvalid, duplicateInFile: skippedDuplicate },
   });
 }
-
-// Vercel default 4MB limit can be too small for big lists - bump it.
-export const config = {
-  api: { bodyParser: { sizeLimit: "20mb" } },
-};
