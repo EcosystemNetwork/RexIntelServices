@@ -14,72 +14,104 @@ export default async function CampaignsPage() {
     <div className="p-10 max-w-6xl">
       <header className="mb-8 flex items-end justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest text-neutral-500 mb-1">
+          <p
+            className="text-xs uppercase tracking-widest mb-1"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
             Outbox
           </p>
-          <h1 className="font-display text-4xl font-medium">Campaigns</h1>
+          <h1 className="font-display text-4xl font-medium text-white">
+            Campaigns
+          </h1>
         </div>
-        <Link
-          href="/campaigns/new"
-          className="bg-black text-white text-sm px-4 py-2 rounded-md hover:bg-neutral-800"
-        >
+        <Link href="/campaigns/new" className="rex-btn">
           New campaign
         </Link>
       </header>
 
       {rows.length === 0 ? (
-        <div className="border border-dashed border-neutral-300 rounded-lg p-16 text-center text-neutral-500 bg-grid">
-          <p className="font-display text-xl mb-1">Nothing here yet</p>
-          <p className="text-sm">Create your first campaign to start sending.</p>
+        <div
+          className="border border-dashed rounded-lg p-16 text-center bg-grid"
+          style={{
+            borderColor: "var(--rex-border)",
+            color: "var(--rex-text-dim)",
+          }}
+        >
+          <p className="font-display text-xl mb-1 text-white">
+            Nothing here yet
+          </p>
+          <p className="text-sm" style={{ color: "var(--rex-text-muted)" }}>
+            Create your first campaign to start sending.
+          </p>
         </div>
       ) : (
-        <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500">
+        <div className="rex-card">
+          <table className="rex-table">
+            <thead>
               <tr>
-                <th className="px-4 py-3 font-medium">Campaign</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium text-right">Sent</th>
-                <th className="px-4 py-3 font-medium text-right">Opened</th>
-                <th className="px-4 py-3 font-medium text-right">Clicked</th>
-                <th className="px-4 py-3 font-medium text-right">Bounced</th>
-                <th className="px-4 py-3 font-medium">Created</th>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Sent</th>
+                <th style={{ textAlign: "right" }}>Opened</th>
+                <th style={{ textAlign: "right" }}>Clicked</th>
+                <th style={{ textAlign: "right" }}>Bounced</th>
+                <th>Created</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id} className="border-t border-neutral-100 hover:bg-neutral-50">
-                  <td className="px-4 py-3">
+                <tr key={c.id}>
+                  <td>
                     <Link
                       href={`/campaigns/new?id=${c.id}`}
-                      className="font-medium hover:underline"
+                      className="font-medium text-white hover:text-[var(--rex-accent)]"
                     >
                       {c.name}
                     </Link>
-                    <div className="text-xs text-neutral-500">{c.subject}</div>
+                    <div
+                      className="text-xs mt-0.5"
+                      style={{ color: "var(--rex-text-dim)" }}
+                    >
+                      {c.subject}
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={c.status} />
+                  <td>
+                    <span className={`pill pill-${c.status}`}>{c.status}</span>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
+                  <td
+                    className="text-right font-mono text-xs"
+                    style={{ color: "var(--rex-text-muted)" }}
+                  >
                     {c.sentCount ?? 0}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
+                  <td
+                    className="text-right font-mono text-xs"
+                    style={{ color: "var(--rex-text-muted)" }}
+                  >
                     {c.openedCount ?? 0}{" "}
-                    <span className="text-neutral-400">
+                    <span style={{ color: "var(--rex-text-dim)" }}>
                       ({pct(c.openedCount, c.sentCount)})
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
+                  <td
+                    className="text-right font-mono text-xs"
+                    style={{ color: "var(--rex-text-muted)" }}
+                  >
                     {c.clickedCount ?? 0}{" "}
-                    <span className="text-neutral-400">
+                    <span style={{ color: "var(--rex-text-dim)" }}>
                       ({pct(c.clickedCount, c.sentCount)})
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
+                  <td
+                    className="text-right font-mono text-xs"
+                    style={{ color: "var(--rex-text-muted)" }}
+                  >
                     {c.bouncedCount ?? 0}
                   </td>
-                  <td className="px-4 py-3 text-neutral-500 text-xs">
+                  <td
+                    className="text-xs"
+                    style={{ color: "var(--rex-text-dim)" }}
+                  >
                     {new Date(c.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
@@ -95,23 +127,4 @@ export default async function CampaignsPage() {
 function pct(n: number | null, d: number | null): string {
   if (!n || !d || d === 0) return "0%";
   return `${Math.round((n / d) * 100)}%`;
-}
-
-function StatusPill({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: "bg-neutral-100 text-neutral-700",
-    scheduled: "bg-blue-50 text-blue-700",
-    sending: "bg-amber-50 text-amber-700",
-    sent: "bg-green-50 text-green-700",
-    failed: "bg-red-50 text-red-700",
-  };
-  return (
-    <span
-      className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
-        styles[status] ?? "bg-neutral-100"
-      }`}
-    >
-      {status}
-    </span>
-  );
 }

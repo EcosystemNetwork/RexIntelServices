@@ -8,7 +8,7 @@ export default function NewCampaignPage() {
   const [form, setForm] = useState({
     name: "",
     subject: "",
-    fromName: "Web3 Conferences",
+    fromName: "RexIntel",
     fromEmail: "",
     replyTo: "",
     previewText: "",
@@ -65,20 +65,29 @@ export default function NewCampaignPage() {
   return (
     <div className="p-10 max-w-5xl">
       <header className="mb-8">
-        <p className="text-xs uppercase tracking-widest text-neutral-500 mb-1">
+        <p
+          className="text-xs uppercase tracking-widest mb-1"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
           Compose
         </p>
-        <h1 className="font-display text-4xl font-medium">New campaign</h1>
+        <h1 className="font-display text-4xl font-medium text-white">
+          New Campaign
+        </h1>
       </header>
 
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <Field label="Internal name" hint="Just for your records — recipients won't see this">
+          <Field
+            label="Internal name"
+            hint="Just for your records — recipients won't see this"
+          >
             <input
               value={form.name}
               onChange={(e) => update("name", e.target.value)}
-              className="input"
-              placeholder="Devcon SEA recap — Nov edition"
+              className="rex-input"
+              placeholder="May 2026 Monthly Intel Briefing"
+              id="campaign-name"
             />
           </Field>
 
@@ -86,16 +95,21 @@ export default function NewCampaignPage() {
             <input
               value={form.subject}
               onChange={(e) => update("subject", e.target.value)}
-              className="input"
-              placeholder="The 12 hackathons we're watching this month"
+              className="rex-input"
+              placeholder="The signals we're watching this month"
+              id="campaign-subject"
             />
           </Field>
 
-          <Field label="Preview text" hint="Shown after subject in inbox preview">
+          <Field
+            label="Preview text"
+            hint="Shown after subject in inbox preview"
+          >
             <input
               value={form.previewText}
               onChange={(e) => update("previewText", e.target.value)}
-              className="input"
+              className="rex-input"
+              id="campaign-preview"
             />
           </Field>
 
@@ -104,15 +118,17 @@ export default function NewCampaignPage() {
               <input
                 value={form.fromName}
                 onChange={(e) => update("fromName", e.target.value)}
-                className="input"
+                className="rex-input"
+                id="campaign-from-name"
               />
             </Field>
             <Field label="From email">
               <input
                 value={form.fromEmail}
                 onChange={(e) => update("fromEmail", e.target.value)}
-                className="input"
-                placeholder="hello@yourdomain.com"
+                className="rex-input"
+                placeholder="intel@yourdomain.com"
+                id="campaign-from-email"
               />
             </Field>
           </div>
@@ -121,7 +137,8 @@ export default function NewCampaignPage() {
             <input
               value={form.replyTo}
               onChange={(e) => update("replyTo", e.target.value)}
-              className="input"
+              className="rex-input"
+              id="campaign-reply-to"
             />
           </Field>
 
@@ -132,38 +149,59 @@ export default function NewCampaignPage() {
             <textarea
               value={form.htmlBody}
               onChange={(e) => update("htmlBody", e.target.value)}
-              className="input font-mono text-xs h-72"
+              className="rex-input font-mono text-xs"
+              style={{ height: "288px", resize: "vertical" }}
+              id="campaign-html-body"
             />
           </Field>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl">Preview</h2>
+            <h2 className="font-display text-xl text-white">Preview</h2>
             <button
               type="button"
               onClick={() => setShowPreview((s) => !s)}
-              className="text-xs text-neutral-500 hover:text-neutral-900"
+              className="text-xs hover:text-white transition-colors"
+              style={{ color: "var(--rex-text-dim)" }}
             >
               {showPreview ? "Hide" : "Show"} rendered
             </button>
           </div>
 
-          <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
-            <div className="border-b border-neutral-100 p-4 text-sm">
-              <div className="text-xs text-neutral-500 mb-0.5">From</div>
-              <div>
+          <div className="rex-card">
+            <div
+              className="p-4 text-sm border-b"
+              style={{ borderColor: "var(--rex-border-subtle)" }}
+            >
+              <div
+                className="text-xs mb-0.5"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                From
+              </div>
+              <div style={{ color: "var(--rex-text)" }}>
                 {form.fromName} &lt;{form.fromEmail || "you@example.com"}&gt;
               </div>
-              <div className="text-xs text-neutral-500 mt-2 mb-0.5">Subject</div>
-              <div className="font-medium">{form.subject || "(no subject)"}</div>
+              <div
+                className="text-xs mt-2 mb-0.5"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                Subject
+              </div>
+              <div className="font-medium text-white">
+                {form.subject || "(no subject)"}
+              </div>
               {form.previewText && (
-                <div className="text-xs text-neutral-500 mt-1 italic">
+                <div
+                  className="text-xs mt-1 italic"
+                  style={{ color: "var(--rex-text-dim)" }}
+                >
                   {form.previewText}
                 </div>
               )}
             </div>
-            <div className="p-4 bg-white">
+            <div className="p-4" style={{ background: "white" }}>
               {showPreview ? (
                 <div
                   dangerouslySetInnerHTML={{
@@ -174,7 +212,10 @@ export default function NewCampaignPage() {
                   }}
                 />
               ) : (
-                <pre className="text-xs text-neutral-600 whitespace-pre-wrap font-mono">
+                <pre
+                  className="text-xs whitespace-pre-wrap font-mono"
+                  style={{ color: "#444" }}
+                >
                   {form.htmlBody.slice(0, 600)}
                   {form.htmlBody.length > 600 && "…"}
                 </pre>
@@ -182,55 +223,53 @@ export default function NewCampaignPage() {
             </div>
           </div>
 
-          <div className="border border-neutral-200 rounded-lg p-4 bg-white">
-            <h3 className="text-sm font-medium mb-3">Actions</h3>
+          <div className="rex-card p-4">
+            <h3 className="text-sm font-medium text-white mb-3">Actions</h3>
             <div className="flex flex-col gap-2">
               <button
                 onClick={saveDraft}
                 disabled={busy || !form.name || !form.subject}
-                className="px-4 py-2 text-sm border border-neutral-300 rounded-md hover:bg-neutral-50 disabled:opacity-50"
+                className="rex-btn-ghost"
+                id="save-draft-btn"
               >
-                {campaignId ? "Saved as draft" : "Save draft"}
+                {campaignId ? "✓ Saved as draft" : "Save draft"}
               </button>
               <button
                 onClick={send}
                 disabled={busy || !form.htmlBody || !form.fromEmail}
-                className="px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-neutral-800 disabled:opacity-50"
+                className="rex-btn"
+                id="send-campaign-btn"
               >
                 {busy ? "Sending…" : "Send to all active subscribers"}
               </button>
             </div>
-            <p className="text-xs text-neutral-500 mt-3">
+            <p
+              className="text-xs mt-3"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
               Sends in batches of 100. Hard bounces and complaints are
               auto-suppressed.
             </p>
           </div>
 
           {sendResult ? (
-            <div className="border border-green-200 bg-green-50 rounded-lg p-4 text-sm">
-              <pre className="font-mono text-xs whitespace-pre-wrap">
+            <div
+              className="rex-card p-4"
+              style={{
+                borderColor: "rgba(52,211,153,0.3)",
+                background: "rgba(52,211,153,0.05)",
+              }}
+            >
+              <pre
+                className="font-mono text-xs whitespace-pre-wrap"
+                style={{ color: "var(--rex-success)" }}
+              >
                 {JSON.stringify(sendResult, null, 2)}
               </pre>
             </div>
           ) : null}
         </div>
       </div>
-
-      <style jsx>{`
-        .input {
-          width: 100%;
-          padding: 0.5rem 0.75rem;
-          border: 1px solid rgb(212 212 212);
-          border-radius: 6px;
-          font-size: 14px;
-          outline: none;
-          background: white;
-        }
-        .input:focus {
-          border-color: rgb(23 23 23);
-          box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
-        }
-      `}</style>
     </div>
   );
 }
@@ -246,11 +285,18 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs uppercase tracking-wider text-neutral-700 mb-1.5">
+      <label
+        className="block text-xs uppercase tracking-wider mb-1.5"
+        style={{ color: "var(--rex-text-muted)" }}
+      >
         {label}
       </label>
       {children}
-      {hint && <p className="text-xs text-neutral-500 mt-1">{hint}</p>}
+      {hint && (
+        <p className="text-xs mt-1" style={{ color: "var(--rex-text-dim)" }}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -258,13 +304,13 @@ function Field({
 const DEFAULT_TEMPLATE = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;line-height:1.6;">
   <h1 style="font-size:28px;margin:0 0 16px;font-weight:600;">Hey {{firstName}},</h1>
 
-  <p>Welcome to this week's roundup of web3 conferences and hackathons worth knowing about.</p>
+  <p>Here's your monthly intelligence briefing from RexIntel.</p>
 
-  <h2 style="font-size:20px;margin:32px 0 8px;">Upcoming this month</h2>
+  <h2 style="font-size:20px;margin:32px 0 8px;">Key Signals This Month</h2>
   <ul style="padding-left:20px;">
-    <li><a href="https://example.com/event1">Event one</a> — short description</li>
-    <li><a href="https://example.com/event2">Event two</a> — short description</li>
+    <li><a href="https://example.com/signal1">Signal one</a> — brief analysis</li>
+    <li><a href="https://example.com/signal2">Signal two</a> — brief analysis</li>
   </ul>
 
-  <p style="margin-top:32px;">— The team</p>
+  <p style="margin-top:32px;">— The RexIntel Team</p>
 </div>`;

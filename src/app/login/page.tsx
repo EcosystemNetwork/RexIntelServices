@@ -25,19 +25,41 @@ export default function LoginPage() {
       setError(data.error ?? "Login failed");
       return;
     }
-    router.push("/");
+    router.push("/dashboard");
     router.refresh();
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-grid">
-      <div className="w-full max-w-sm bg-white border border-neutral-200 rounded-lg p-8 shadow-sm">
-        <h1 className="font-display text-3xl font-medium mb-1">Welcome back</h1>
-        <p className="text-sm text-neutral-500 mb-6">Sign in to your newsletter.</p>
+    <div className="min-h-screen flex items-center justify-center hero-gradient relative overflow-hidden px-4">
+      {/* Decorative glow */}
+      <div className="glow-orb" style={{ top: "-200px", left: "50%", transform: "translateX(-50%)" }} />
+
+      <div className="rex-modal animate-fade-in relative z-10" style={{ maxWidth: "400px" }}>
+        <div className="flex items-center gap-2.5 mb-6">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+            style={{ background: "linear-gradient(135deg, var(--rex-accent), var(--rex-accent-2))" }}
+          >
+            R
+          </div>
+          <span className="font-display text-xl font-semibold tracking-tight text-white">
+            RexIntel
+          </span>
+        </div>
+
+        <h1 className="font-display text-3xl font-medium text-white mb-1">
+          Welcome back
+        </h1>
+        <p className="text-sm mb-6" style={{ color: "var(--rex-text-muted)" }}>
+          Sign in to your command center.
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-neutral-700 mb-1.5 uppercase tracking-wider">
+            <label
+              className="block text-xs font-medium uppercase tracking-wider mb-1.5"
+              style={{ color: "var(--rex-text-muted)" }}
+            >
               Email
             </label>
             <input
@@ -45,11 +67,15 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-900 text-sm"
+              className="rex-input"
+              id="login-email"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-neutral-700 mb-1.5 uppercase tracking-wider">
+            <label
+              className="block text-xs font-medium uppercase tracking-wider mb-1.5"
+              style={{ color: "var(--rex-text-muted)" }}
+            >
               Password
             </label>
             <input
@@ -57,12 +83,20 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-900 text-sm"
+              className="rex-input"
+              id="login-password"
             />
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
+            <div
+              className="text-sm px-3 py-2 rounded-lg"
+              style={{
+                color: "var(--rex-danger)",
+                background: "rgba(248,113,113,0.1)",
+                border: "1px solid rgba(248,113,113,0.2)",
+              }}
+            >
               {error}
             </div>
           )}
@@ -70,9 +104,20 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white text-sm font-medium py-2.5 rounded-md hover:bg-neutral-800 disabled:opacity-50"
+            className="rex-btn w-full"
+            id="login-submit"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Signing in…
+              </span>
+            ) : (
+              "Sign in"
+            )}
           </button>
         </form>
       </div>

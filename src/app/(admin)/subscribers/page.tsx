@@ -39,17 +39,26 @@ export default function SubscribersPage() {
     <div className="p-10 max-w-6xl">
       <header className="mb-8 flex items-end justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest text-neutral-500 mb-1">
+          <p
+            className="text-xs uppercase tracking-widest mb-1"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
             People
           </p>
-          <h1 className="font-display text-4xl font-medium">Subscribers</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <h1 className="font-display text-4xl font-medium text-white">
+            Subscribers
+          </h1>
+          <p
+            className="text-sm mt-1"
+            style={{ color: "var(--rex-text-muted)" }}
+          >
             {total.toLocaleString()} total
           </p>
         </div>
         <button
           onClick={() => setShowImport(true)}
-          className="bg-black text-white text-sm px-4 py-2 rounded-md hover:bg-neutral-800"
+          className="rex-btn"
+          id="import-csv-btn"
         >
           Import CSV
         </button>
@@ -60,50 +69,86 @@ export default function SubscribersPage() {
           placeholder="Search by email or name…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="w-full max-w-md px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-900"
+          className="rex-input max-w-md"
+          id="subscriber-search"
         />
       </div>
 
-      <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500">
+      <div className="rex-card">
+        <table className="rex-table">
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Source</th>
-              <th className="px-4 py-3 font-medium">Added</th>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Source</th>
+              <th>Added</th>
             </tr>
           </thead>
           <tbody>
             {loading && subs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-neutral-400">
-                  Loading…
+                <td
+                  colSpan={5}
+                  className="text-center py-12"
+                  style={{ color: "var(--rex-text-dim)" }}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <svg
+                      className="animate-spin w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    Loading…
+                  </span>
                 </td>
               </tr>
             ) : subs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-neutral-400">
+                <td
+                  colSpan={5}
+                  className="text-center py-12"
+                  style={{ color: "var(--rex-text-dim)" }}
+                >
                   No subscribers found.
                 </td>
               </tr>
             ) : (
               subs.map((s) => (
-                <tr key={s.id} className="border-t border-neutral-100">
-                  <td className="px-4 py-3 font-mono text-xs">{s.email}</td>
-                  <td className="px-4 py-3">
+                <tr key={s.id}>
+                  <td className="font-mono text-xs text-white">{s.email}</td>
+                  <td style={{ color: "var(--rex-text-muted)" }}>
                     {[s.firstName, s.lastName].filter(Boolean).join(" ") || (
-                      <span className="text-neutral-400">—</span>
+                      <span style={{ color: "var(--rex-text-dim)" }}>—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={s.status} />
+                  <td>
+                    <span className={`pill pill-${s.status}`}>{s.status}</span>
                   </td>
-                  <td className="px-4 py-3 text-neutral-500 text-xs">
+                  <td
+                    className="text-xs"
+                    style={{ color: "var(--rex-text-dim)" }}
+                  >
                     {s.source || "—"}
                   </td>
-                  <td className="px-4 py-3 text-neutral-500 text-xs">
+                  <td
+                    className="text-xs"
+                    style={{ color: "var(--rex-text-dim)" }}
+                  >
                     {new Date(s.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
@@ -153,23 +198,67 @@ function ImportModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 className="font-display text-2xl font-medium mb-1">Import CSV</h2>
-        <p className="text-sm text-neutral-500 mb-4">
-          File should have an <code className="font-mono text-xs bg-neutral-100 px-1">email</code>{" "}
-          column, plus optional <code className="font-mono text-xs bg-neutral-100 px-1">first_name</code>{" "}
-          and <code className="font-mono text-xs bg-neutral-100 px-1">last_name</code>.
+    <div className="rex-modal-backdrop" onClick={onClose}>
+      <div className="rex-modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="font-display text-2xl font-medium text-white mb-1">
+          Import CSV
+        </h2>
+        <p className="text-sm mb-4" style={{ color: "var(--rex-text-muted)" }}>
+          File should have an{" "}
+          <code
+            className="font-mono text-xs px-1 py-0.5 rounded"
+            style={{
+              background: "var(--rex-surface-2)",
+              color: "var(--rex-accent)",
+            }}
+          >
+            email
+          </code>{" "}
+          column, plus optional{" "}
+          <code
+            className="font-mono text-xs px-1 py-0.5 rounded"
+            style={{
+              background: "var(--rex-surface-2)",
+              color: "var(--rex-accent)",
+            }}
+          >
+            first_name
+          </code>{" "}
+          and{" "}
+          <code
+            className="font-mono text-xs px-1 py-0.5 rounded"
+            style={{
+              background: "var(--rex-surface-2)",
+              color: "var(--rex-accent)",
+            }}
+          >
+            last_name
+          </code>
+          .
         </p>
 
         {result ? (
-          <div className="bg-neutral-50 rounded p-3 text-sm font-mono text-xs whitespace-pre-wrap mb-4">
-            {JSON.stringify(result, null, 2)}
-          </div>
+          <>
+            <div
+              className="rounded-lg p-3 text-sm font-mono text-xs whitespace-pre-wrap mb-4"
+              style={{
+                background: "var(--rex-surface-2)",
+                color: "var(--rex-success)",
+              }}
+            >
+              {JSON.stringify(result, null, 2)}
+            </div>
+            <button onClick={onClose} className="rex-btn w-full">
+              Done
+            </button>
+          </>
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-neutral-700 mb-1.5">
+              <label
+                className="block text-xs uppercase tracking-wider mb-1.5"
+                style={{ color: "var(--rex-text-muted)" }}
+              >
                 CSV file
               </label>
               <input
@@ -177,66 +266,45 @@ function ImportModal({
                 accept=".csv"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="block w-full text-sm"
+                style={{ color: "var(--rex-text-muted)" }}
                 required
+                id="csv-file-input"
               />
             </div>
             <div>
-              <label className="block text-xs uppercase tracking-wider text-neutral-700 mb-1.5">
+              <label
+                className="block text-xs uppercase tracking-wider mb-1.5"
+                style={{ color: "var(--rex-text-muted)" }}
+              >
                 Source label
               </label>
               <input
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
+                className="rex-input"
+                id="import-source"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm rounded-md hover:bg-neutral-100"
+                className="rex-btn-ghost"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!file || busy}
-                className="px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-neutral-800 disabled:opacity-50"
+                className="rex-btn"
+                id="import-submit"
               >
                 {busy ? "Importing…" : "Import"}
               </button>
             </div>
           </form>
         )}
-
-        {result ? (
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-neutral-800"
-          >
-            Done
-          </button>
-        ) : null}
       </div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    active: "bg-green-50 text-green-700",
-    pending: "bg-amber-50 text-amber-700",
-    unsubscribed: "bg-neutral-100 text-neutral-700",
-    bounced: "bg-red-50 text-red-700",
-    complained: "bg-red-50 text-red-700",
-  };
-  return (
-    <span
-      className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${
-        styles[status] ?? "bg-neutral-100"
-      }`}
-    >
-      {status}
-    </span>
   );
 }

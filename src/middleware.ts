@@ -2,22 +2,26 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { unsealData } from "iron-session";
 
+// Admin pages and API routes that require authentication
 const PROTECTED_PREFIXES = ["/api/subscribers", "/api/campaigns"];
-const PROTECTED_PAGES_REGEX = /^\/(subscribers|campaigns)(\/|$)|^\/$/;
+const PROTECTED_PAGES_REGEX = /^\/(dashboard|subscribers|campaigns)(\/|$)/;
 
-const PUBLIC_API = [
+// Public routes that should never be blocked
+const PUBLIC_ROUTES = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/webhooks/",
   "/api/track/",
+  "/api/subscribe",
 ];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow webhooks, tracking, login, unsubscribe, and static pages through.
+  // Allow public pages and APIs through
   if (
-    PUBLIC_API.some((p) => pathname.startsWith(p)) ||
+    PUBLIC_ROUTES.some((p) => pathname.startsWith(p)) ||
+    pathname === "/" ||
     pathname.startsWith("/unsubscribe") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/_next") ||

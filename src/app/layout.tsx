@@ -2,8 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Newsletter",
-  description: "Send better email.",
+  title: "RexIntel — Intelligence Services",
+  description:
+    "Monthly intelligence briefings delivered straight to your inbox. Market analysis, alpha signals, and curated intel from the front lines.",
+  keywords: ["intelligence", "newsletter", "briefing", "analysis", "RexIntel"],
+  openGraph: {
+    title: "RexIntel — Intelligence Services",
+    description:
+      "Monthly intelligence briefings delivered straight to your inbox.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -13,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased text-neutral-900 bg-white">{children}</body>
+      <body className="antialiased noise-bg">{children}</body>
     </html>
   );
 }
