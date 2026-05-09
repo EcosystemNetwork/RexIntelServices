@@ -11,7 +11,21 @@ import {
 } from "../db";
 import { renderCampaignForRecipient } from "./render";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize so importing this module doesn't throw when RESEND_API_KEY
+// is unset (e.g. during the cron route's auth check, or local dev without
+// email configured). The error surfaces only when something actually sends.
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    throw new Error(
+      "RESEND_API_KEY is not set — cannot send. Add it to .env / Vercel env.",
+    );
+  }
+  _resend = new Resend(key);
+  return _resend;
+}
 
 // Resend free tier: 100 emails/day, 2 req/sec
 // Pro tier: 50k/day, 10 req/sec.
@@ -28,23 +42,24 @@ const BASE_URL = process.env.APP_URL ?? "http://localhost:3000";
  * - subscribers we've already sent this campaign to
  */
 async function getRecipients(campaign: Campaign): Promise<string[]> {
-  // 1. Already-sent subscriber IDs for this campaign (for resume safety)
+  // Already-sent subscriber IDs for this campaign (so re-runs resume correctly)
   const alreadySent = await db
     .select({ id: sends.subscriberId })
     .from(sends)
     .where(eq(sends.campaignId, campaign.id));
   const alreadySentIds = alreadySent.map((r) => r.id);
 
-  // 2. Suppression list (emails to never send to, globally)
+  // Global suppression list (hard bounces, complaints, manual blocks). Stored
+  // by email rather than subscriber id, so we filter in JS after the SQL pass.
   const suppressedRows = await db
     .select({ email: suppressions.email })
     .from(suppressions);
-  const suppressedEmails = suppressedRows.map((r) => r.email.toLowerCase());
+  const suppressedEmails = new Set(suppressedRows.map((r) => r.email.toLowerCase()));
 
-  // 3. Build base query for active subscribers, optionally filtered by tag
+  // Resolve the candidate set by tag intersection (or "all active" if no tags).
+  // null means "no tag filter — every active subscriber is a candidate".
   const targetTags = (campaign.targetTagIds ?? []) as string[];
-  let candidateIds: string[];
-
+  let candidateIds: string[] | null = null;
   if (targetTags.length > 0) {
     const rows = await db
       .selectDistinct({ id: subscriberTags.subscriberId })
@@ -52,41 +67,25 @@ async function getRecipients(campaign: Campaign): Promise<string[]> {
       .where(inArray(subscriberTags.tagId, targetTags));
     candidateIds = rows.map((r) => r.id);
     if (candidateIds.length === 0) return [];
-  } else {
-    const rows = await db
-      .select({ id: subscribers.id })
-      .from(subscribers)
-      .where(eq(subscribers.status, "active"));
-    return rows
-      .filter((r) => !alreadySentIds.includes(r.id))
-      .filter((r) => true) // suppression filtered below by email join
-      .map((r) => r.id)
-      .filter(async (id) => {
-        const sub = await db
-          .select({ email: subscribers.email })
-          .from(subscribers)
-          .where(eq(subscribers.id, id))
-          .limit(1);
-        return !suppressedEmails.includes(sub[0]?.email.toLowerCase() ?? "");
-      });
   }
 
-  // Filter the candidate list down to active + not already sent + not suppressed
-  const final = await db
+  // One unified query — applies status, tag-membership (if any), and the
+  // already-sent exclusion in SQL; suppression list is filtered in JS below.
+  const rows = await db
     .select({ id: subscribers.id, email: subscribers.email })
     .from(subscribers)
     .where(
       and(
-        inArray(subscribers.id, candidateIds),
         eq(subscribers.status, "active"),
+        candidateIds !== null ? inArray(subscribers.id, candidateIds) : sql`true`,
         alreadySentIds.length > 0
           ? notInArray(subscribers.id, alreadySentIds)
           : sql`true`,
       ),
     );
 
-  return final
-    .filter((r) => !suppressedEmails.includes(r.email.toLowerCase()))
+  return rows
+    .filter((r) => !suppressedEmails.has(r.email.toLowerCase()))
     .map((r) => r.id);
 }
 
@@ -192,7 +191,7 @@ export async function sendCampaign(campaignId: string): Promise<{
 
     // Send via Resend's batch endpoint (one HTTP call for up to 100 emails).
     try {
-      const result = await resend.batch.send(
+      const result = await getResend().batch.send(
         payloads.map(({ sendId, subscriberId, ...p }) => p),
       );
 

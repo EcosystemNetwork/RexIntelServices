@@ -52,6 +52,9 @@ export default async function AdminLayout({
           <NavLink href="/campaigns" icon="◆">
             Campaigns
           </NavLink>
+          <NavLink href="/submissions" icon="▣">
+            Submissions
+          </NavLink>
         </nav>
 
         {/* Footer */}

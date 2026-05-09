@@ -18,6 +18,11 @@ export default function NewCampaignPage() {
   const [busy, setBusy] = useState(false);
   const [sendResult, setSendResult] = useState<unknown>(null);
   const [showPreview, setShowPreview] = useState(false);
+  // Local datetime-local string ("YYYY-MM-DDTHH:mm"). Empty = not scheduled.
+  const [scheduleAt, setScheduleAt] = useState<string>("");
+  const [scheduleStatus, setScheduleStatus] = useState<
+    "idle" | "scheduled" | "error"
+  >("idle");
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -59,6 +64,47 @@ export default function NewCampaignPage() {
     setSendResult(data);
     if (res.ok) {
       setTimeout(() => router.push("/campaigns"), 2000);
+    }
+  }
+
+  async function schedule() {
+    if (!scheduleAt) {
+      setScheduleStatus("error");
+      return;
+    }
+    let id = campaignId;
+    if (!id) {
+      // Save draft first to get an id, then schedule it
+      const draftRes = await fetch("/api/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const draft = await draftRes.json();
+      if (!draftRes.ok) {
+        alert(draft.error ?? "could not save draft");
+        return;
+      }
+      id = draft.campaign.id;
+      setCampaignId(id);
+    }
+
+    setBusy(true);
+    // datetime-local has no timezone — interpret as the operator's local time.
+    const iso = new Date(scheduleAt).toISOString();
+    const res = await fetch(`/api/campaigns/${id}/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledFor: iso }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (res.ok) {
+      setScheduleStatus("scheduled");
+      setSendResult({ scheduled: true, scheduledFor: iso, ...data });
+    } else {
+      setScheduleStatus("error");
+      alert(data.error ?? "could not schedule");
     }
   }
 
@@ -243,6 +289,51 @@ export default function NewCampaignPage() {
                 {busy ? "Sending…" : "Send to all active subscribers"}
               </button>
             </div>
+
+            <div
+              className="mt-4 pt-4 border-t"
+              style={{ borderColor: "var(--rex-border-subtle)" }}
+            >
+              <label
+                className="block text-xs uppercase tracking-wider mb-1.5"
+                style={{ color: "var(--rex-text-muted)" }}
+                htmlFor="schedule-at"
+              >
+                Or schedule for later
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="schedule-at"
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  className="rex-input flex-1"
+                />
+                <button
+                  onClick={schedule}
+                  disabled={
+                    busy ||
+                    !scheduleAt ||
+                    !form.htmlBody ||
+                    !form.fromEmail ||
+                    !form.name ||
+                    !form.subject
+                  }
+                  className="rex-btn-ghost whitespace-nowrap"
+                  id="schedule-btn"
+                >
+                  {scheduleStatus === "scheduled" ? "✓ Scheduled" : "Schedule"}
+                </button>
+              </div>
+              <p
+                className="text-xs mt-2"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                Cron checks every 5 minutes — actual send may run up to 5 min
+                after the chosen time. Time is your local timezone.
+              </p>
+            </div>
+
             <p
               className="text-xs mt-3"
               style={{ color: "var(--rex-text-dim)" }}

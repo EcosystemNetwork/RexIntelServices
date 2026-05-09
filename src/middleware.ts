@@ -3,8 +3,13 @@ import type { NextRequest } from "next/server";
 import { unsealData } from "iron-session";
 
 // Admin pages and API routes that require authentication
-const PROTECTED_PREFIXES = ["/api/subscribers", "/api/campaigns"];
-const PROTECTED_PAGES_REGEX = /^\/(dashboard|subscribers|campaigns)(\/|$)/;
+const PROTECTED_PREFIXES = [
+  "/api/subscribers",
+  "/api/campaigns",
+  "/api/submissions",
+];
+const PROTECTED_PAGES_REGEX =
+  /^\/(dashboard|subscribers|campaigns|submissions)(\/|$)/;
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [
@@ -13,6 +18,10 @@ const PUBLIC_ROUTES = [
   "/api/webhooks/",
   "/api/track/",
   "/api/subscribe",
+  "/api/submit",
+  // Vercel Cron requests don't carry a session — protected instead by a
+  // CRON_SECRET bearer token validated inside each /api/cron/* route.
+  "/api/cron/",
 ];
 
 export async function middleware(req: NextRequest) {

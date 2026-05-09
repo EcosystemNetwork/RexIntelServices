@@ -1,0 +1,220 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { and, eq } from "drizzle-orm";
+import { db, submissions } from "@/lib/db";
+import type { EventPayload } from "@/lib/db/schema";
+import { PublicHeader } from "@/components/public-header";
+
+export const dynamic = "force-dynamic";
+
+async function loadEvent(publicId: string) {
+  const [row] = await db
+    .select({
+      payload: submissions.payload,
+      submitterHandle: submissions.submitterHandle,
+      publishedAt: submissions.publishedAt,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.publicId, publicId),
+        eq(submissions.type, "event"),
+        eq(submissions.status, "approved"),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { publicId: string };
+}): Promise<Metadata> {
+  const row = await loadEvent(params.publicId);
+  if (!row) {
+    return { title: "Event not found — Rex Intel Services" };
+  }
+  const p = row.payload as EventPayload;
+  const startLabel = new Date(p.startsAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const location = [p.city, p.country].filter(Boolean).join(", ");
+  const desc = [
+    startLabel,
+    location,
+    p.eventType,
+    p.description?.slice(0, 140),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const title = `${p.name} — Rex Intel Services`;
+  return {
+    title,
+    description: desc || `Event listing on Rex Intel Services.`,
+    openGraph: { title, description: desc, type: "article" },
+    twitter: { card: "summary", title, description: desc },
+  };
+}
+
+export default async function EventDetailPage({
+  params,
+}: {
+  params: { publicId: string };
+}) {
+  const row = await loadEvent(params.publicId);
+  if (!row) notFound();
+
+  const payload = row.payload as EventPayload;
+  const start = new Date(payload.startsAt);
+  const end = payload.endsAt ? new Date(payload.endsAt) : null;
+
+  return (
+    <div className="min-h-screen tactical-bg relative overflow-hidden">
+      <div className="classification-bar relative z-20">
+        <span>● Open Channel // Field Calendar Detail</span>
+      </div>
+
+      <PublicHeader />
+
+      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
+        <Link
+          href="/events"
+          className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
+        >
+          <span>←</span>
+          <span>All events</span>
+        </Link>
+
+        <div className="rex-card p-8">
+          <div className="flex items-center gap-2 mb-3">
+            {payload.eventType && (
+              <span
+                className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-sm"
+                style={{
+                  background: "rgba(31,168,224,0.1)",
+                  color: "var(--rex-accent-2)",
+                  border: "1px solid rgba(31,168,224,0.25)",
+                }}
+              >
+                {payload.eventType}
+              </span>
+            )}
+            {payload.priceTier && (
+              <span
+                className="text-[10px] font-mono uppercase tracking-widest"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                · {payload.priceTier}
+              </span>
+            )}
+          </div>
+
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-6">
+            {payload.name}
+          </h1>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+            <DetailField label="Starts">
+              {start.toLocaleString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </DetailField>
+            {end && (
+              <DetailField label="Ends">
+                {end.toLocaleString(undefined, {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </DetailField>
+            )}
+            {(payload.venue || payload.city || payload.country) && (
+              <DetailField label="Location">
+                {[payload.venue, payload.city, payload.country]
+                  .filter(Boolean)
+                  .join(", ")}
+              </DetailField>
+            )}
+            {payload.url && (
+              <DetailField label="Link">
+                <a
+                  href={payload.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--rex-accent)] hover:underline font-mono text-xs break-all"
+                >
+                  {payload.url}
+                </a>
+              </DetailField>
+            )}
+          </div>
+
+          {payload.description && (
+            <div
+              className="border-t pt-5"
+              style={{ borderColor: "var(--rex-border-subtle)" }}
+            >
+              <p className="text-[var(--rex-text-muted)] leading-relaxed whitespace-pre-wrap">
+                {payload.description}
+              </p>
+            </div>
+          )}
+
+          {payload.url && (
+            <div className="mt-6">
+              <a
+                href={payload.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rex-btn"
+              >
+                Visit event ▸
+              </a>
+            </div>
+          )}
+        </div>
+
+        {row.submitterHandle && (
+          <p
+            className="text-[11px] font-mono mt-4 text-center"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            Submitted by @{row.submitterHandle}
+          </p>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function DetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div
+        className="text-[10px] font-mono uppercase tracking-widest mb-1"
+        style={{ color: "var(--rex-text-dim)" }}
+      >
+        {label}
+      </div>
+      <div className="text-white text-sm">{children}</div>
+    </div>
+  );
+}

@@ -29,33 +29,38 @@ export default function LandingPage() {
 
       if (res.ok) {
         setStatus("success");
-        setMessage("You're in. Expect your first briefing soon.");
+        setMessage("Clearance granted. Next transmission inbound.");
         setEmail("");
         setFirstName("");
         setWebsite("");
       } else {
         setStatus("error");
-        setMessage(data.error || "Something went wrong. Try again.");
+        setMessage(data.error || "Transmission failed. Retry.");
       }
     } catch {
       setStatus("error");
-      setMessage("Connection failed. Please try again.");
+      setMessage("Channel disrupted. Retry.");
     }
   }
 
+  const year = new Date().getFullYear();
+  const transmissionId = `RX-${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+
   return (
-    <div className="min-h-screen hero-gradient relative overflow-hidden">
-      {/* Decorative glow orbs */}
-      <div className="glow-orb" style={{ top: "-200px", right: "-100px" }} />
-      <div
-        className="glow-orb"
-        style={{ bottom: "-250px", left: "-150px", opacity: 0.5 }}
-      />
+    <div className="min-h-screen tactical-bg relative overflow-hidden">
+      {/* Classification banner */}
+      <div className="classification-bar relative z-20">
+        <span>● Classified // Eyes Only</span>
+        <span className="sep hidden sm:inline">▾</span>
+        <span className="hidden sm:inline">Crypto Intelligence Division</span>
+        <span className="sep hidden md:inline">▾</span>
+        <span className="hidden md:inline">Transmission {transmissionId}</span>
+      </div>
 
       {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 max-w-7xl mx-auto">
+      <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-5 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/95 ring-1 ring-[var(--rex-border)] flex items-center justify-center">
+          <div className="w-9 h-9 rounded-sm overflow-hidden bg-white/95 ring-1 ring-[var(--rex-accent)]/40 flex items-center justify-center">
             <Image
               src="/rex-mascot.jpg"
               alt=""
@@ -65,70 +70,81 @@ export default function LandingPage() {
               className="w-full h-full object-cover object-top"
             />
           </div>
-          <span className="font-display text-xl font-semibold tracking-tight text-white">
-            Rex Intel Services
-          </span>
+          <div className="flex flex-col leading-none">
+            <span className="font-display text-lg font-semibold tracking-tight text-white">
+              Rex Intel Services
+            </span>
+            <span className="mono-label mt-0.5 text-[9.5px]">
+              Crypto Intelligence ／ DIV-001
+            </span>
+          </div>
         </div>
-        <a
-          href="/login"
-          className="text-sm text-[var(--rex-text-muted)] hover:text-white transition-colors"
-        >
-          Admin →
-        </a>
+        <div className="flex items-center gap-5 text-xs font-mono uppercase tracking-widest">
+          <a
+            href="/intel"
+            className="hover:text-white transition-colors"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            Intel
+          </a>
+          <a
+            href="/events"
+            className="hover:text-white transition-colors"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            Events
+          </a>
+          <a
+            href="/submit"
+            className="hover:text-white transition-colors"
+            style={{ color: "var(--rex-accent)" }}
+          >
+            Submit ▸
+          </a>
+        </div>
       </nav>
 
       {/* Hero */}
-      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-10 md:pt-16 pb-24 text-center">
-        <div className="animate-fade-in mb-10 md:mb-14">
-          <div className="rounded-2xl overflow-hidden border border-[var(--rex-border)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]">
-            <Image
-              src="/rex-banner.png"
-              alt="Rex Intel Services — Intelligence. Innovation. Impact."
-              width={2000}
-              height={667}
-              priority
-              sizes="(max-width: 768px) 100vw, 768px"
-              className="w-full h-auto"
-            />
+      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-12 md:pt-20 pb-24 text-center">
+        {/* Briefing meta — coordinate / status row */}
+        <div className="animate-fade-in flex flex-wrap items-center justify-center gap-3 mb-10">
+          <div className="briefing-meta">
+            <span className="dot" />
+            <span>Channel</span>
+            <span className="v">OPEN</span>
+          </div>
+          <div className="briefing-meta">
+            <span>File</span>
+            <span className="v">{transmissionId}</span>
+          </div>
+          <div className="briefing-meta">
+            <span>Cadence</span>
+            <span className="v">Monthly · 1st</span>
           </div>
         </div>
 
-        <div className="animate-fade-in">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[var(--rex-border)] bg-[var(--rex-surface)] text-xs text-[var(--rex-text-muted)] mb-8">
-            <span className="pulse-dot" />
-            Monthly briefings — Delivered the 1st of each month
-          </div>
-        </div>
-
-        <h1 className="font-display text-5xl md:text-7xl font-semibold tracking-tight text-white mb-6 animate-fade-in animate-fade-in-delay-1">
-          Intelligence,{" "}
-          <span
-            style={{
-              background:
-                "linear-gradient(135deg, var(--rex-accent), var(--rex-accent-2))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            delivered.
-          </span>
+        <h1 className="font-display text-5xl md:text-7xl font-semibold tracking-tight text-white leading-[1.05] mb-6 animate-fade-in animate-fade-in-delay-1">
+          Crypto intelligence,
+          <br />
+          <span className="text-[var(--rex-accent)]">on the record.</span>
         </h1>
 
-        <p className="text-lg md:text-xl text-[var(--rex-text-muted)] leading-relaxed max-w-2xl mx-auto mb-12 animate-fade-in animate-fade-in-delay-2">
-          Curated market analysis, alpha signals, and strategic intel — condensed
-          into one monthly briefing that cuts through the noise.
+        <p className="text-base md:text-lg text-[var(--rex-text-muted)] leading-relaxed max-w-xl mx-auto mb-12 animate-fade-in animate-fade-in-delay-2">
+          A monthly intelligence brief on the digital asset markets — on-chain
+          signals, capital flows, and adversary moves. Compiled by analysts.
+          Delivered without the noise.
         </p>
 
-        {/* Signup Form */}
+        {/* Signup form */}
         <div className="animate-fade-in animate-fade-in-delay-3">
           {status === "success" ? (
-            <div className="inline-flex items-center gap-3 px-6 py-4 rounded-xl border border-[rgba(52,211,153,0.3)] bg-[rgba(52,211,153,0.08)]">
+            <div className="inline-flex items-center gap-3 px-5 py-3.5 rounded-sm border border-[rgba(95,185,31,0.35)] bg-[rgba(95,185,31,0.06)]">
               <svg
-                className="w-5 h-5 text-[var(--rex-success)]"
+                className="w-4 h-4 text-[var(--rex-accent)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
-                strokeWidth={2}
+                strokeWidth={2.5}
               >
                 <path
                   strokeLinecap="round"
@@ -136,13 +152,11 @@ export default function LandingPage() {
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              <span className="text-[var(--rex-success)] font-medium">
-                {message}
-              </span>
+              <span className="mono-label-accent text-[11px]">{message}</span>
             </div>
           ) : (
             <form onSubmit={handleSubscribe} className="max-w-lg mx-auto">
-              {/* Honeypot — hidden from real users, irresistible to bots */}
+              {/* Honeypot */}
               <div
                 aria-hidden="true"
                 style={{
@@ -164,18 +178,24 @@ export default function LandingPage() {
                   onChange={(e) => setWebsite(e.target.value)}
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 mb-3">
+
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="mono-label-accent">▸ Request Clearance</span>
+                <span className="mono-label">No.{transmissionId}</span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
-                  placeholder="First name (optional)"
+                  placeholder="Operator name (opt.)"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="rex-input sm:max-w-[160px]"
+                  className="rex-input sm:max-w-[170px]"
                   id="subscribe-first-name"
                 />
                 <input
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder="secure.channel@domain"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -191,7 +211,7 @@ export default function LandingPage() {
                   {status === "loading" ? (
                     <>
                       <svg
-                        className="animate-spin w-4 h-4"
+                        className="animate-spin w-3.5 h-3.5"
                         fill="none"
                         viewBox="0 0 24 24"
                       >
@@ -209,71 +229,96 @@ export default function LandingPage() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                         />
                       </svg>
-                      Joining…
+                      Authorizing
                     </>
                   ) : (
-                    "Get Intel →"
+                    "Authorize ▸"
                   )}
                 </button>
               </div>
 
               {status === "error" && (
-                <p className="text-sm text-[var(--rex-danger)]">{message}</p>
+                <p className="mt-3 text-xs font-mono text-[var(--rex-danger)]">
+                  ✕ {message}
+                </p>
               )}
 
-              <p className="text-xs text-[var(--rex-text-dim)] mt-4">
-                Free. Once a month. No spam. Unsubscribe anytime.
+              <p className="text-[11px] font-mono tracking-wider text-[var(--rex-text-dim)] mt-4">
+                NO COST · ONE TRANSMISSION / MONTH · REVOKE ANYTIME
               </p>
             </form>
           )}
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-20 animate-fade-in animate-fade-in-delay-4">
-          <FeatureCard
-            icon={<MarketIcon className="w-7 h-7" />}
-            title="Market Analysis"
-            desc="Deep dives into trends, patterns, and emerging opportunities."
-          />
-          <FeatureCard
-            icon={<SignalIcon className="w-7 h-7" />}
-            title="Alpha Signals"
-            desc="Early indicators and insights before they hit the mainstream."
-          />
-          <FeatureCard
-            icon={<ShieldIcon className="w-7 h-7" />}
-            title="Strategic Intel"
-            desc="Actionable intelligence to inform your decision-making."
-          />
+        {/* Divisions */}
+        <div className="mt-24 animate-fade-in animate-fade-in-delay-4">
+          <div className="rex-divider mb-8">
+            <span>Intelligence Divisions</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
+            <DivisionCard
+              code="DIV-01"
+              icon={<MarketIcon className="w-5 h-5" />}
+              title="Market Analysis"
+              desc="Capital rotation, liquidity maps, and structural reads on the digital asset complex."
+            />
+            <DivisionCard
+              code="DIV-02"
+              icon={<SignalIcon className="w-5 h-5" />}
+              title="Alpha Signals"
+              desc="On-chain anomalies and early indicators surfaced from the wires before consensus catches up."
+            />
+            <DivisionCard
+              code="DIV-03"
+              icon={<ShieldIcon className="w-5 h-5" />}
+              title="Strategic Intel"
+              desc="Adversary tradecraft, regulatory posture, and the strategic context behind the tape."
+            />
+          </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-[var(--rex-border-subtle)] py-8 px-6 text-center text-xs text-[var(--rex-text-dim)]">
-        © {new Date().getFullYear()} Rex Intel Services. All rights reserved.
+      <footer className="relative z-10 border-t border-[var(--rex-border-subtle)] py-6 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="mono-label flex items-center gap-3">
+            <span>© {year} Rex Intel Services</span>
+            <span className="text-[var(--rex-border)]">│</span>
+            <span>All transmissions reserved</span>
+          </div>
+          <div className="mono-label flex items-center gap-3">
+            <span className="pulse-dot" />
+            <span>Briefing Room {transmissionId}</span>
+          </div>
+        </div>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({
+function DivisionCard({
+  code,
   icon,
   title,
   desc,
 }: {
+  code: string;
   icon: React.ReactNode;
   title: string;
   desc: string;
 }) {
   return (
-    <div className="rex-card p-6 text-left hover:border-[var(--rex-accent)] transition-all group cursor-default">
-      <div className="mb-4 inline-flex items-center justify-center w-11 h-11 rounded-lg bg-[var(--rex-surface-2)] border border-[var(--rex-border-subtle)] group-hover:border-[var(--rex-accent)] group-hover:scale-105 transition-all">
-        {icon}
+    <div className="rex-card-flat p-5 group cursor-default">
+      <div className="flex items-center justify-between mb-4">
+        <div className="inline-flex items-center justify-center w-9 h-9 rounded-sm bg-[var(--rex-bg)] border border-[var(--rex-border-subtle)] text-[var(--rex-accent)] group-hover:border-[var(--rex-accent)] transition-all">
+          {icon}
+        </div>
+        <span className="mono-label-accent text-[10px]">{code}</span>
       </div>
-      <h3 className="font-display text-lg font-medium text-white mb-1 group-hover:text-[var(--rex-accent-hover)]">
+      <h3 className="font-display text-lg font-semibold text-white mb-1.5 tracking-tight">
         {title}
       </h3>
-      <p className="text-sm text-[var(--rex-text-muted)] leading-relaxed">
+      <p className="text-[13px] text-[var(--rex-text-muted)] leading-relaxed">
         {desc}
       </p>
     </div>

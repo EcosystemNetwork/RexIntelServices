@@ -51,6 +51,15 @@ export const suppressionReasonEnum = pgEnum("suppression_reason", [
   "unsubscribe_global",
 ]);
 
+export const submissionTypeEnum = pgEnum("submission_type", ["intel", "event"]);
+
+export const submissionStatusEnum = pgEnum("submission_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "spam",
+]);
+
 // =====================================================================
 // USERS (admin accounts)
 // =====================================================================
@@ -239,6 +248,78 @@ export const suppressions = pgTable(
 );
 
 // =====================================================================
+// SUBMISSIONS - public-facing intake for both intel tips and event listings.
+// One table, two payload shapes (discriminated by `type`). Approved rows are
+// what the public /intel and /events pages read from.
+// =====================================================================
+
+export type IntelPayload = {
+  headline: string;
+  body: string;
+  links?: string[];
+  sources?: string[];
+  category?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  anonymous?: boolean;
+};
+
+export type EventPayload = {
+  name: string;
+  startsAt: string; // ISO date string
+  endsAt?: string;
+  venue?: string;
+  city?: string;
+  country?: string;
+  url?: string;
+  description?: string;
+  tags?: string[];
+  priceTier?: "free" | "paid" | "invite";
+  eventType?: "conference" | "workshop" | "meetup" | "hackathon" | "other";
+};
+
+export type SubmissionPayload = IntelPayload | EventPayload;
+
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: submissionTypeEnum("type").notNull(),
+    status: submissionStatusEnum("status").notNull().default("pending"),
+    payload: jsonb("payload").$type<SubmissionPayload>().notNull(),
+    // Optional — submitters can stay anonymous. Email is for credit + follow-up.
+    submitterEmail: text("submitter_email"),
+    submitterHandle: text("submitter_handle"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    honeypotTripped: boolean("honeypot_tripped").default(false).notNull(),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewNotes: text("review_notes"),
+    publishedAt: timestamp("published_at"),
+    // Short, URL-safe id for public canonical URLs (/intel/abc123, /events/abc123)
+    publicId: text("public_id")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(8), 'hex')`),
+    // Denormalized from payload.startsAt for event submissions so we can sort
+    // by date in SQL with an index instead of pulling everything and sorting
+    // in app code. NULL for intel submissions.
+    eventStartsAt: timestamp("event_starts_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index("submissions_status_idx").on(t.status),
+    typeStatusIdx: index("submissions_type_status_idx").on(t.type, t.status),
+    publicIdIdx: uniqueIndex("submissions_public_id_idx").on(t.publicId),
+    publishedAtIdx: index("submissions_published_at_idx").on(t.publishedAt),
+    eventStartsAtIdx: index("submissions_event_starts_at_idx").on(
+      t.status,
+      t.eventStartsAt,
+    ),
+  }),
+);
+
+// =====================================================================
 // RELATIONS
 // =====================================================================
 
@@ -282,6 +363,13 @@ export const sendsRelations = relations(sends, ({ one }) => ({
   }),
 }));
 
+export const submissionsRelations = relations(submissions, ({ one }) => ({
+  reviewer: one(users, {
+    fields: [submissions.reviewedBy],
+    references: [users.id],
+  }),
+}));
+
 // Type exports for use in app code
 export type Subscriber = typeof subscribers.$inferSelect;
 export type NewSubscriber = typeof subscribers.$inferInsert;
@@ -290,3 +378,5 @@ export type NewCampaign = typeof campaigns.$inferInsert;
 export type Send = typeof sends.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Suppression = typeof suppressions.$inferSelect;
+export type Submission = typeof submissions.$inferSelect;
+export type NewSubscriberSubmission = typeof submissions.$inferInsert;

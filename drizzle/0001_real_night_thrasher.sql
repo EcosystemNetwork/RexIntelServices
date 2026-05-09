@@ -1,0 +1,2 @@
+ALTER TABLE "submissions" ADD COLUMN "event_starts_at" timestamp;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "submissions_event_starts_at_idx" ON "submissions" USING btree ("status","event_starts_at");
