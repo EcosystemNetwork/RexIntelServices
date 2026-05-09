@@ -55,7 +55,7 @@ export default function LandingPage() {
         { text: `Transmission ${transmissionId}`, show: "md" },
       ]}
     >
-      <main className="max-w-3xl mx-auto px-6 pt-32 sm:pt-36 md:pt-44 pb-24 text-center">
+      <main className="max-w-3xl mx-auto px-6 pt-12 sm:pt-16 md:pt-24 pb-24 text-center">
         <p className="font-display italic text-base sm:text-lg md:text-xl text-[var(--rex-text-muted)]/80 tracking-tight mb-5 animate-fade-in animate-fade-in-delay-1">
           We stay deep in the trenches so you don&apos;t have to.
         </p>
