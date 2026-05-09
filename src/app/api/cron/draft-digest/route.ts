@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, asc, desc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { db, submissions, campaigns } from "@/lib/db";
 import type { IntelPayload, EventPayload } from "@/lib/db/schema";
 import { renderDigest } from "@/lib/email/digest-template";
@@ -51,9 +51,13 @@ export async function GET(req: Request) {
     });
   }
 
+  // Exclude submissions already featured in a previous digest. This keeps
+  // each item from showing up week after week if it's still in the lookback
+  // window, and means an empty week is genuinely empty (not a re-run).
   const [intelRows, eventRows] = await Promise.all([
     db
       .select({
+        id: submissions.id,
         publicId: submissions.publicId,
         payload: submissions.payload,
         publishedAt: submissions.publishedAt,
@@ -64,12 +68,14 @@ export async function GET(req: Request) {
           eq(submissions.type, "intel"),
           eq(submissions.status, "approved"),
           gte(submissions.publishedAt, sevenDaysAgo),
+          isNull(submissions.featuredInCampaignId),
         ),
       )
       .orderBy(desc(submissions.publishedAt))
       .limit(20),
     db
       .select({
+        id: submissions.id,
         publicId: submissions.publicId,
         payload: submissions.payload,
         eventStartsAt: submissions.eventStartsAt,
@@ -81,6 +87,7 @@ export async function GET(req: Request) {
           eq(submissions.status, "approved"),
           gte(submissions.eventStartsAt, now),
           lt(submissions.eventStartsAt, fourteenDaysOut),
+          isNull(submissions.featuredInCampaignId),
         ),
       )
       .orderBy(asc(submissions.eventStartsAt))
@@ -136,6 +143,20 @@ export async function GET(req: Request) {
       status: "draft",
     })
     .returning({ id: campaigns.id });
+
+  // Stamp every featured submission with the campaign id. This both (a)
+  // prevents next week's cron from re-picking the same items and (b) lets
+  // the post-send hook find the right submitters to credit.
+  const featuredIds = [
+    ...intelRows.map((r) => r.id),
+    ...eventRows.map((r) => r.id),
+  ];
+  if (featuredIds.length > 0) {
+    await db
+      .update(submissions)
+      .set({ featuredInCampaignId: draft.id, updatedAt: new Date() })
+      .where(inArray(submissions.id, featuredIds));
+  }
 
   return NextResponse.json({
     ok: true,

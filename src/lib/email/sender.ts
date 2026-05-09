@@ -10,6 +10,7 @@ import {
   type Campaign,
 } from "../db";
 import { renderCampaignForRecipient } from "./render";
+import { sendCreditEmails } from "./credit-emails";
 
 // Lazy-initialize so importing this module doesn't throw when RESEND_API_KEY
 // is unset (e.g. during the cron route's auth check, or local dev without
@@ -248,15 +249,33 @@ export async function sendCampaign(campaignId: string): Promise<{
     }
   }
 
+  const finalStatus = totalFailed === recipientIds.length ? "failed" : "sent";
+  const sentAt = new Date();
   await db
     .update(campaigns)
     .set({
-      status: totalFailed === recipientIds.length ? "failed" : "sent",
-      sentAt: new Date(),
+      status: finalStatus,
+      sentAt,
       sentCount: totalSent,
-      updatedAt: new Date(),
+      updatedAt: sentAt,
     })
     .where(eq(campaigns.id, campaignId));
+
+  // Submitter-credit emails — only when the campaign actually went out.
+  // Wrapped so a transactional-email failure can never fail the campaign
+  // result we return to the caller (worst case: a creditable submitter
+  // doesn't get their thank-you email; the briefing itself still shipped).
+  if (finalStatus === "sent") {
+    try {
+      const sentCampaign = { ...campaign, sentAt, status: "sent" as const };
+      const credit = await sendCreditEmails(sentCampaign);
+      console.log(
+        `[campaign ${campaignId}] credit emails: ${credit.sent}/${credit.attempted} sent, ${credit.failed} failed`,
+      );
+    } catch (err) {
+      console.error(`[campaign ${campaignId}] credit-email hook failed:`, err);
+    }
+  }
 
   return {
     totalQueued: recipientIds.length,

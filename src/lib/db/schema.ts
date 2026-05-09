@@ -304,6 +304,14 @@ export const submissions = pgTable(
     // by date in SQL with an index instead of pulling everything and sorting
     // in app code. NULL for intel submissions.
     eventStartsAt: timestamp("event_starts_at"),
+    // Set by the digest cron when a submission is bundled into a draft
+    // newsletter. Used to (a) avoid re-featuring the same item in the next
+    // week's digest and (b) drive submitter-credit emails when the campaign
+    // actually sends.
+    featuredInCampaignId: uuid("featured_in_campaign_id").references(
+      () => campaigns.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -318,6 +326,10 @@ export const submissions = pgTable(
       t.type,
       t.status,
       t.eventStartsAt,
+    ),
+    // Fast lookup for "all submissions in campaign X" when sending credit emails.
+    featuredCampaignIdx: index("submissions_featured_campaign_idx").on(
+      t.featuredInCampaignId,
     ),
   }),
 );
