@@ -55,7 +55,10 @@ export default function LandingPage() {
         { text: `Transmission ${transmissionId}`, show: "md" },
       ]}
     >
-      <main className="max-w-3xl mx-auto px-6 pt-[44vh] md:pt-[52vh] pb-24 text-center">
+      <main className="max-w-3xl mx-auto px-6 pt-[26vh] md:pt-[30vh] pb-24 text-center">
+        <p className="font-display italic text-base sm:text-lg md:text-xl text-[var(--rex-text-muted)]/80 tracking-tight mb-[16vh] md:mb-[20vh] animate-fade-in animate-fade-in-delay-2">
+          We stay deep in the trenches so you don&apos;t have to.
+        </p>
         <div className="animate-fade-in animate-fade-in-delay-3">
           {status === "success" ? (
             <div className="inline-flex items-center gap-3 px-5 py-3.5 rounded-sm border border-[rgba(95,185,31,0.35)] bg-[rgba(95,185,31,0.06)]">
