@@ -8,7 +8,7 @@ export default function NewCampaignPage() {
   const [form, setForm] = useState({
     name: "",
     subject: "",
-    fromName: "RexIntel",
+    fromName: "Rex Intel Services",
     fromEmail: "",
     replyTo: "",
     previewText: "",
@@ -304,7 +304,7 @@ function Field({
 const DEFAULT_TEMPLATE = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;line-height:1.6;">
   <h1 style="font-size:28px;margin:0 0 16px;font-weight:600;">Hey {{firstName}},</h1>
 
-  <p>Here's your monthly intelligence briefing from RexIntel.</p>
+  <p>Here's your monthly intelligence briefing from Rex Intel Services.</p>
 
   <h2 style="font-size:20px;margin:32px 0 8px;">Key Signals This Month</h2>
   <ul style="padding-left:20px;">
@@ -312,5 +312,5 @@ const DEFAULT_TEMPLATE = `<div style="font-family:system-ui,-apple-system,sans-s
     <li><a href="https://example.com/signal2">Signal two</a> — brief analysis</li>
   </ul>
 
-  <p style="margin-top:32px;">— The RexIntel Team</p>
+  <p style="margin-top:32px;">— The Rex Intel Services Team</p>
 </div>`;

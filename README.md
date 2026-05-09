@@ -1,4 +1,4 @@
-# RexIntel Services — self-hosted newsletter & intelligence platform
+# Rex Intel Services — self-hosted newsletter & intelligence platform
 
 A production-ready Next.js app that powers your monthly intelligence briefing newsletter. Features a public landing page for subscriber acquisition, a full admin backend for email management, campaign composition, and sending — all with premium dark-mode UI.
 

@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
 import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -7,13 +7,16 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
-// Use a single connection for serverless / edge friendliness.
-// For self-hosted Node servers, you can raise `max` for a real pool.
-const client = postgres(connectionString, {
-  max: process.env.NODE_ENV === "production" ? 10 : 1,
-  prepare: false, // required for transaction pooling (e.g. Supabase pgbouncer)
-});
+// In Node.js runtimes (e.g. `next dev`, Vercel Node functions) there is no
+// native WebSocket, so we polyfill with `ws`. In Edge runtime / browsers the
+// native global is used and this branch is skipped.
+if (typeof globalThis.WebSocket === "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  neonConfig.webSocketConstructor = require("ws");
+}
 
-export const db = drizzle(client, { schema });
+const pool = new Pool({ connectionString });
+
+export const db = drizzle(pool, { schema });
 
 export * from "./schema";

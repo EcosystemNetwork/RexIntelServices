@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RexIntel — Intelligence Services",
+  title: "Rex Intel Services",
   description:
     "Monthly intelligence briefings delivered straight to your inbox. Market analysis, alpha signals, and curated intel from the front lines.",
-  keywords: ["intelligence", "newsletter", "briefing", "analysis", "RexIntel"],
+  keywords: ["intelligence", "newsletter", "briefing", "analysis", "Rex Intel Services"],
   openGraph: {
-    title: "RexIntel — Intelligence Services",
+    title: "Rex Intel Services",
     description:
       "Monthly intelligence briefings delivered straight to your inbox.",
     type: "website",

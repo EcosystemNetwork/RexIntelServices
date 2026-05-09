@@ -1,37 +1,13 @@
 import { eq } from "drizzle-orm";
-import { db, subscribers, suppressions } from "@/lib/db";
+import { db, subscribers } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { processUnsubscribe } from "@/lib/email/unsubscribe";
 
 export const dynamic = "force-dynamic";
 
 async function unsubscribeAction(token: string) {
   "use server";
-  const [sub] = await db
-    .select()
-    .from(subscribers)
-    .where(eq(subscribers.unsubscribeToken, token))
-    .limit(1);
-
-  if (!sub) return;
-
-  if (sub.status !== "unsubscribed") {
-    await db
-      .update(subscribers)
-      .set({
-        status: "unsubscribed",
-        unsubscribedAt: new Date(),
-      })
-      .where(eq(subscribers.id, sub.id));
-
-    await db
-      .insert(suppressions)
-      .values({
-        email: sub.email.toLowerCase(),
-        reason: "unsubscribe_global",
-      })
-      .onConflictDoNothing();
-  }
-
+  await processUnsubscribe(token);
   redirect(`/unsubscribe/${token}?done=1`);
 }
 
@@ -94,16 +70,6 @@ export default async function UnsubscribePage({
       </form>
     </Centered>
   );
-}
-
-// Handle the RFC 8058 one-click POST.
-// Gmail and Yahoo send a POST to this URL when users click "Unsubscribe" in their UI.
-export async function POST(
-  _req: Request,
-  { params }: { params: { token: string } },
-) {
-  await unsubscribeAction(params.token);
-  return new Response(null, { status: 200 });
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

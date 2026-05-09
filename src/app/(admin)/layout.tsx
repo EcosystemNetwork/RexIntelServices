@@ -36,7 +36,7 @@ export default async function AdminLayout({
               R
             </div>
             <span className="font-display text-lg font-semibold tracking-tight text-white">
-              RexIntel
+              Rex Intel Services
             </span>
           </Link>
         </div>

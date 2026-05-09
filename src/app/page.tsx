@@ -5,6 +5,8 @@ import { useState } from "react";
 export default function LandingPage() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
+  // Honeypot — bots autofill any visible/known field. Real users never see this.
+  const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -19,7 +21,7 @@ export default function LandingPage() {
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, firstName }),
+        body: JSON.stringify({ email, firstName, website }),
       });
       const data = await res.json();
 
@@ -28,6 +30,7 @@ export default function LandingPage() {
         setMessage("You're in. Expect your first briefing soon.");
         setEmail("");
         setFirstName("");
+        setWebsite("");
       } else {
         setStatus("error");
         setMessage(data.error || "Something went wrong. Try again.");
@@ -59,7 +62,7 @@ export default function LandingPage() {
             R
           </div>
           <span className="font-display text-xl font-semibold tracking-tight text-white">
-            RexIntel
+            Rex Intel Services
           </span>
         </div>
         <a
@@ -121,6 +124,28 @@ export default function LandingPage() {
             </div>
           ) : (
             <form onSubmit={handleSubscribe} className="max-w-lg mx-auto">
+              {/* Honeypot — hidden from real users, irresistible to bots */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: "-10000px",
+                  width: "1px",
+                  height: "1px",
+                  overflow: "hidden",
+                }}
+              >
+                <label htmlFor="website">Website (leave empty)</label>
+                <input
+                  type="text"
+                  id="website"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                />
+              </div>
               <div className="flex flex-col sm:flex-row gap-3 mb-3">
                 <input
                   type="text"
@@ -207,7 +232,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-[var(--rex-border-subtle)] py-8 px-6 text-center text-xs text-[var(--rex-text-dim)]">
-        © {new Date().getFullYear()} RexIntel. All rights reserved.
+        © {new Date().getFullYear()} Rex Intel Services. All rights reserved.
       </footer>
     </div>
   );

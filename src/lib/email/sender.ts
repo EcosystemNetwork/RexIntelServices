@@ -183,7 +183,7 @@ export async function sendCampaign(campaignId: string): Promise<{
             replyTo: campaign.replyTo ?? undefined,
             headers: {
               // RFC 8058 one-click unsubscribe - critical for Gmail/Yahoo bulk sender rules.
-              "List-Unsubscribe": `<${BASE_URL}/unsubscribe/${sub.unsubscribeToken}>`,
+              "List-Unsubscribe": `<${BASE_URL}/api/unsubscribe/${sub.unsubscribeToken}>`,
               "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
             },
           };

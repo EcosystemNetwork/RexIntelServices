@@ -1,5 +1,5 @@
 {
-  "name": "rexintel-services",
+  "name": "rex-intel-services",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -14,6 +14,7 @@
     "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.33.0",
@@ -21,11 +22,11 @@
     "nanoid": "^5.0.7",
     "next": "^14.2.0",
     "papaparse": "^5.4.1",
-    "postgres": "^3.4.4",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "resend": "^4.0.0",
-    "svix": "^1.30.0"
+    "svix": "^1.30.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -33,6 +34,7 @@
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.24.0",
     "eslint": "^8.57.0",

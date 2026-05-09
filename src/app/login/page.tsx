@@ -43,7 +43,7 @@ export default function LoginPage() {
             R
           </div>
           <span className="font-display text-xl font-semibold tracking-tight text-white">
-            RexIntel
+            Rex Intel Services
           </span>
         </div>
 
