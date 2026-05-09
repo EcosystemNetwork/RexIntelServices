@@ -312,7 +312,10 @@ export const submissions = pgTable(
     typeStatusIdx: index("submissions_type_status_idx").on(t.type, t.status),
     publicIdIdx: uniqueIndex("submissions_public_id_idx").on(t.publicId),
     publishedAtIdx: index("submissions_published_at_idx").on(t.publishedAt),
+    // Covers the public /events query (filters by type+status, ranges +
+    // sorts on eventStartsAt) and the digest cron's upcoming-events lookup.
     eventStartsAtIdx: index("submissions_event_starts_at_idx").on(
+      t.type,
       t.status,
       t.eventStartsAt,
     ),
@@ -379,4 +382,4 @@ export type Send = typeof sends.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Suppression = typeof suppressions.$inferSelect;
 export type Submission = typeof submissions.$inferSelect;
-export type NewSubscriberSubmission = typeof submissions.$inferInsert;
+export type NewSubmission = typeof submissions.$inferInsert;

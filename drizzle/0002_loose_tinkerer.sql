@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS "submissions_event_starts_at_idx";--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "submissions_event_starts_at_idx" ON "submissions" USING btree ("type","status","event_starts_at");

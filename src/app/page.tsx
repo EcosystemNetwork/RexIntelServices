@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { MarketIcon, SignalIcon, ShieldIcon } from "@/components/icons";
+import { HeroScene } from "@/components/hero-scene";
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
@@ -48,6 +49,11 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen tactical-bg relative overflow-hidden">
+      {/* Animated hero background — sits behind the classification bar, nav,
+          and main content. Sized to one viewport so it doesn't render
+          beneath the cards/footer that scroll into view below. */}
+      <HeroScene />
+
       {/* Classification banner */}
       <div className="classification-bar relative z-20">
         <span>● Classified // Eyes Only</span>

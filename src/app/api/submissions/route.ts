@@ -19,16 +19,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "invalid status" }, { status: 400 });
   }
 
-  const conditions = [eq(submissions.status, status as (typeof validStatuses)[number])];
-  if (type === "intel" || type === "event") {
-    conditions.push(eq(submissions.type, type));
-  }
+  const isTypeFilter = type === "intel" || type === "event";
+  const rowConditions = [
+    eq(submissions.status, status as (typeof validStatuses)[number]),
+  ];
+  if (isTypeFilter) rowConditions.push(eq(submissions.type, type));
 
   const [rows, [{ counts }]] = await Promise.all([
     db
       .select()
       .from(submissions)
-      .where(and(...conditions))
+      .where(and(...rowConditions))
       .orderBy(desc(submissions.createdAt))
       .limit(limit),
     db
@@ -45,7 +46,8 @@ export async function GET(req: NextRequest) {
           'spam', count(*) filter (where status = 'spam')::int
         )`,
       })
-      .from(submissions),
+      .from(submissions)
+      .where(isTypeFilter ? eq(submissions.type, type) : undefined),
   ]);
 
   return NextResponse.json({ submissions: rows, counts });

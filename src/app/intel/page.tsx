@@ -132,13 +132,13 @@ export default async function IntelPage({
           >
             SEVERITY ▸
           </span>
-          <FilterChip href="/intel" active={!sevFilter}>
+          <FilterChip href={filterHref({ category: catFilter })} active={!sevFilter}>
             All
           </FilterChip>
           {(["low", "medium", "high", "critical"] as const).map((s) => (
             <FilterChip
               key={s}
-              href={`/intel?severity=${s}`}
+              href={filterHref({ severity: s, category: catFilter })}
               active={sevFilter === s}
             >
               {s}
@@ -154,26 +154,18 @@ export default async function IntelPage({
             >
               CATEGORY ▸
             </span>
-            <FilterChip
-              href={sevFilter ? `/intel?severity=${sevFilter}` : "/intel"}
-              active={!catFilter}
-            >
+            <FilterChip href={filterHref({ severity: sevFilter })} active={!catFilter}>
               All
             </FilterChip>
-            {categories.map((c) => {
-              const params = new URLSearchParams();
-              if (sevFilter) params.set("severity", sevFilter);
-              params.set("category", c);
-              return (
-                <FilterChip
-                  key={c}
-                  href={`/intel?${params}`}
-                  active={catFilter?.toLowerCase() === c}
-                >
-                  {c}
-                </FilterChip>
-              );
-            })}
+            {categories.map((c) => (
+              <FilterChip
+                key={c}
+                href={filterHref({ severity: sevFilter, category: c })}
+                active={catFilter?.toLowerCase() === c}
+              >
+                {c}
+              </FilterChip>
+            ))}
           </div>
         )}
 
@@ -205,6 +197,17 @@ export default async function IntelPage({
       </main>
     </div>
   );
+}
+
+function filterHref(args: {
+  severity?: string;
+  category?: string;
+}): string {
+  const params = new URLSearchParams();
+  if (args.severity) params.set("severity", args.severity);
+  if (args.category) params.set("category", args.category);
+  const qs = params.toString();
+  return qs ? `/intel?${qs}` : "/intel";
 }
 
 function FilterChip({

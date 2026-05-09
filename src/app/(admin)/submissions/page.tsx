@@ -25,6 +25,11 @@ export default function SubmissionsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Set of submission ids currently in flight, so the UI can disable their
+  // action buttons and ignore double-clicks. Multiple rows can be reviewed
+  // concurrently (rare, but possible) so we track per-id rather than a single
+  // boolean.
+  const [reviewing, setReviewing] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -42,17 +47,27 @@ export default function SubmissionsPage() {
   }, [fetchData]);
 
   async function review(id: string, action: "approve" | "reject" | "spam") {
-    const res = await fetch(`/api/submissions/${id}/review`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    if (res.ok) {
-      setExpandedId(null);
-      fetchData();
-    } else {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error ?? "Review failed");
+    if (reviewing.has(id)) return;
+    setReviewing((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/submissions/${id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        setExpandedId(null);
+        await fetchData();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Review failed");
+      }
+    } finally {
+      setReviewing((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -147,6 +162,7 @@ export default function SubmissionsPage() {
               key={s.id}
               submission={s}
               expanded={expandedId === s.id}
+              busy={reviewing.has(s.id)}
               onToggle={() =>
                 setExpandedId(expandedId === s.id ? null : s.id)
               }
@@ -214,11 +230,13 @@ function FilterChip({
 function SubmissionRow({
   submission,
   expanded,
+  busy,
   onToggle,
   onReview,
 }: {
   submission: Submission;
   expanded: boolean;
+  busy: boolean;
   onToggle: () => void;
   onReview: (action: "approve" | "reject" | "spam") => void;
 }) {
@@ -308,30 +326,38 @@ function SubmissionRow({
           </div>
 
           {isPending && (
-            <div className="mt-5 flex gap-2">
+            <div className="mt-5 flex items-center gap-2">
               <button
                 onClick={() => onReview("approve")}
+                disabled={busy}
                 className="rex-btn"
                 style={{
                   background: "var(--rex-accent)",
                   borderColor: "var(--rex-accent)",
                   color: "var(--rex-bg)",
+                  opacity: busy ? 0.5 : 1,
+                  cursor: busy ? "wait" : undefined,
                 }}
               >
-                Approve ▸
+                {busy ? "Working…" : "Approve ▸"}
               </button>
               <button
                 onClick={() => onReview("reject")}
+                disabled={busy}
                 className="rex-btn"
+                style={{ opacity: busy ? 0.5 : 1, cursor: busy ? "wait" : undefined }}
               >
                 Reject
               </button>
               <button
                 onClick={() => onReview("spam")}
+                disabled={busy}
                 className="rex-btn"
                 style={{
                   borderColor: "var(--rex-danger)",
                   color: "var(--rex-danger)",
+                  opacity: busy ? 0.5 : 1,
+                  cursor: busy ? "wait" : undefined,
                 }}
               >
                 Mark Spam

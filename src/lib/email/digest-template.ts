@@ -118,7 +118,10 @@ function renderIntelItem(i: DigestIntel, baseUrl: string): string {
   const url = `${baseUrl}/intel/${i.publicId}`;
   const sevTag =
     i.payload.severity != null
-      ? `<span style="display:inline-block;font:600 9px/1 ui-monospace,monospace;letter-spacing:0.16em;text-transform:uppercase;color:${severityColor(i.payload.severity)};border:1px solid ${severityColor(i.payload.severity)}40;background:${severityColor(i.payload.severity)}15;padding:3px 6px;border-radius:2px;margin-right:6px;">${escape(i.payload.severity)}</span>`
+      ? (() => {
+          const c = severityColor(i.payload.severity!);
+          return `<span style="display:inline-block;font:600 9px/1 ui-monospace,monospace;letter-spacing:0.16em;text-transform:uppercase;color:${c.hex};border:1px solid ${c.border};background:${c.bg};padding:3px 6px;border-radius:2px;margin-right:6px;">${escape(i.payload.severity!)}</span>`;
+        })()
       : "";
   const catTag = i.payload.category
     ? `<span style="font:600 10px/1 ui-monospace,monospace;color:#55556a;">${escape(i.payload.category)}</span>`
@@ -217,16 +220,37 @@ function renderText(args: {
   return lines.join("\n");
 }
 
-function severityColor(sev: NonNullable<IntelPayload["severity"]>): string {
+// Email-client-safe severity tones. We deliberately use rgba() instead of
+// 8-digit hex (#rrggbbaa) because Outlook on Windows ignores the alpha byte
+// and renders the badge fully opaque, which clobbers the dark email shell.
+function severityColor(
+  sev: NonNullable<IntelPayload["severity"]>,
+): { hex: string; bg: string; border: string } {
   switch (sev) {
     case "low":
-      return "#8888a0";
+      return {
+        hex: "#8888a0",
+        bg: "rgba(136,136,160,0.10)",
+        border: "rgba(136,136,160,0.30)",
+      };
     case "medium":
-      return "#60a5fa";
+      return {
+        hex: "#60a5fa",
+        bg: "rgba(96,165,250,0.10)",
+        border: "rgba(96,165,250,0.30)",
+      };
     case "high":
-      return "#fbbf24";
+      return {
+        hex: "#fbbf24",
+        bg: "rgba(251,191,36,0.10)",
+        border: "rgba(251,191,36,0.30)",
+      };
     case "critical":
-      return "#f87171";
+      return {
+        hex: "#f87171",
+        bg: "rgba(248,113,113,0.10)",
+        border: "rgba(248,113,113,0.30)",
+      };
   }
 }
 

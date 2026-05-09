@@ -24,12 +24,24 @@ const PUBLIC_ROUTES = [
   "/api/cron/",
 ];
 
+/**
+ * Path-prefix match that respects route boundaries. Prefer this over a raw
+ * `startsWith` on a route prefix, because e.g. `/api/subscribers` literally
+ * begins with the string `/api/subscribe` — a naive `startsWith` would let
+ * an admin endpoint through whatever rule we wrote for the public subscribe
+ * route. A prefix listed with a trailing `/` is treated as a directory match.
+ */
+function pathMatches(pathname: string, prefix: string): boolean {
+  if (prefix.endsWith("/")) return pathname.startsWith(prefix);
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow public pages and APIs through
   if (
-    PUBLIC_ROUTES.some((p) => pathname.startsWith(p)) ||
+    PUBLIC_ROUTES.some((p) => pathMatches(pathname, p)) ||
     pathname === "/" ||
     pathname.startsWith("/unsubscribe") ||
     pathname.startsWith("/login") ||
@@ -40,7 +52,7 @@ export async function middleware(req: NextRequest) {
   }
 
   const isProtectedApi = PROTECTED_PREFIXES.some((p) =>
-    pathname.startsWith(p),
+    pathMatches(pathname, p),
   );
   const isProtectedPage = PROTECTED_PAGES_REGEX.test(pathname);
   if (!isProtectedApi && !isProtectedPage) return NextResponse.next();

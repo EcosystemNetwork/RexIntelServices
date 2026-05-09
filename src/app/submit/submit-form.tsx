@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { HeroScene } from "@/components/hero-scene";
 
 type Tab = "intel" | "event";
 type FormStatus = "idle" | "loading" | "success" | "error";
@@ -12,6 +13,10 @@ export default function SubmitForm() {
 
   return (
     <div className="min-h-screen tactical-bg relative overflow-hidden">
+      {/* Animated background — sized to cover the title/intro/tab band only,
+          so the form card below sits cleanly on the static tactical-bg. */}
+      <HeroScene height="520px" />
+
       <div className="classification-bar relative z-20">
         <span>● Classified // Drop Channel</span>
         <span className="sep hidden sm:inline">▾</span>
