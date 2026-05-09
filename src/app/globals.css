@@ -116,13 +116,32 @@ body {
   white-space: nowrap;
   overflow: hidden;
 }
-.classification-bar > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+/* Wrapped in `components` layer + `:where()` so this baseline display rule
+ * sits before Tailwind utilities at zero-extra specificity. That lets the
+ * `hidden sm:inline` utilities on the responsive segments actually take effect
+ * — bare `> span` (specificity 0,0,1,1) or unlayered placement would both
+ * outrank `.hidden` (0,0,1,0). */
+@layer components {
+  .classification-bar > :where(span) {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
 }
 .classification-bar .sep {
   color: rgba(95, 185, 31, 0.35);
+}
+
+/* TEMP: UnicornStudio scene `tlOtPGd5onVJvvZ6KcoD` ships the subtitle text
+ * layer ("We stay deep in the trenches…") with `position: absolute` and
+ * `left:` set but no `top:`, so it defaults to top:0 and overlaps the
+ * wordmark. The wordmark + per-page H1 already serve as the tagline on every
+ * page, so hide the broken subtitle until the scene file is fixed in the
+ * UnicornStudio editor (also fix the typo: "have too" → "have to"). UUID
+ * comes from the scene's exported `data-us-text` attribute — this rule
+ * silently no-ops if the scene is republished with new IDs. */
+[data-us-text="323456c4-015f-492c-aa72-4ed5427c65de"] {
+  display: none !important;
 }
 
 /* Mono metadata label — used everywhere for that intel-agency vibe */

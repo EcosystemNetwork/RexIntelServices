@@ -16,12 +16,19 @@ const PROJECT_ID = "tlOtPGd5onVJvvZ6KcoD";
 const SDK_URL =
   "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.12/dist/unicornStudio.umd.js";
 
+// Wordmark + subtitle are baked into the scene at these exact pixel positions.
+// Stretching the canvas to other aspect ratios collapses the gap between them
+// and produces visible text overlap, so we render at native size and CSS-scale
+// uniformly to fit narrower viewports.
+const NATIVE_W = 1440;
+const NATIVE_H = 900;
+
 /**
- * Animated background scene for hero areas. Sized to fill its parent band
- * via ResizeObserver so the scene tracks viewport changes instead of being
- * clipped at the native 1440×900. Falls back to nothing when the user
- * prefers reduced motion — the underlying `tactical-bg` keeps the page
- * on-brand even without the scene.
+ * Animated background scene for hero areas. Renders at native 1440×900 and
+ * uniformly scales down (via CSS transform) to fit the container width so the
+ * baked wordmark/subtitle keep their designed spacing on every breakpoint.
+ * Falls back to nothing when the user prefers reduced motion — the underlying
+ * `tactical-bg` keeps the page on-brand even without the scene.
  */
 export function HeroScene({
   height = "100vh",
@@ -34,7 +41,7 @@ export function HeroScene({
   topOffset?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const [scale, setScale] = useState(1);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
@@ -50,8 +57,10 @@ export function HeroScene({
     const el = wrapRef.current;
     const update = () => {
       const r = el.getBoundingClientRect();
-      // Round up to avoid sub-pixel blur on the canvas backing store.
-      setSize({ w: Math.ceil(r.width), h: Math.ceil(r.height) });
+      // Fit by width so the wordmark + subtitle never get cropped horizontally.
+      // Cap at 1 so we don't upscale the scene above its native resolution on
+      // ultra-wide displays.
+      setScale(Math.min(1, r.width / NATIVE_W));
     };
     update();
     const ro = new ResizeObserver(update);
@@ -64,9 +73,6 @@ export function HeroScene({
       ref={wrapRef}
       aria-hidden="true"
       className="absolute left-0 right-0 overflow-hidden pointer-events-none"
-      // Constrain to the requested height so the canvas doesn't run for the
-      // whole scrollable page (anything below this band falls back to the
-      // static tactical-bg). Sits above the base bg, below all text/UI.
       style={{
         zIndex: 0,
         top: topOffset,
@@ -75,15 +81,25 @@ export function HeroScene({
           : height,
       }}
     >
-      {!reducedMotion && size && (
-        <UnicornScene
-          projectId={PROJECT_ID}
-          width={`${size.w}px`}
-          height={`${size.h}px`}
-          scale={1}
-          dpi={1.5}
-          sdkUrl={SDK_URL}
-        />
+      {!reducedMotion && (
+        <div
+          className="absolute left-1/2 top-0"
+          style={{
+            width: `${NATIVE_W}px`,
+            height: `${NATIVE_H}px`,
+            transform: `translateX(-50%) scale(${scale})`,
+            transformOrigin: "top center",
+          }}
+        >
+          <UnicornScene
+            projectId={PROJECT_ID}
+            width={`${NATIVE_W}px`}
+            height={`${NATIVE_H}px`}
+            scale={1}
+            dpi={1.5}
+            sdkUrl={SDK_URL}
+          />
+        </div>
       )}
       {/* Soft fade so hero text stays readable over busy areas of the scene */}
       <div
