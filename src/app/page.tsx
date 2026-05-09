@@ -56,9 +56,36 @@ export default function LandingPage() {
       ]}
     >
       <main className="max-w-3xl mx-auto px-6 pt-[26vh] md:pt-[30vh] pb-24 text-center">
-        <p className="font-display italic text-base sm:text-lg md:text-xl text-[var(--rex-text-muted)]/80 tracking-tight mb-[16vh] md:mb-[20vh] animate-fade-in animate-fade-in-delay-2">
+        <p className="font-display italic text-base sm:text-lg md:text-xl text-[var(--rex-text-muted)]/80 tracking-tight mb-6 animate-fade-in animate-fade-in-delay-1">
           We stay deep in the trenches so you don&apos;t have to.
         </p>
+
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-sm border border-[var(--rex-border-subtle)] bg-[var(--rex-surface)]/60 mb-6 animate-fade-in animate-fade-in-delay-2">
+          <span className="pulse-dot" />
+          <span className="mono-label-accent text-[10.5px]">
+            Monthly briefing · Delivered the 1st of each month
+          </span>
+        </div>
+
+        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4 animate-fade-in animate-fade-in-delay-2">
+          Intelligence,{" "}
+          <span
+            style={{
+              background:
+                "linear-gradient(135deg, var(--rex-accent), var(--rex-accent-2))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            delivered.
+          </span>
+        </h1>
+
+        <p className="text-sm sm:text-base md:text-lg text-[var(--rex-text-muted)] leading-relaxed max-w-xl mx-auto mb-10 animate-fade-in animate-fade-in-delay-3">
+          Curated market analysis, alpha signals, and strategic intel —
+          condensed into one monthly briefing that cuts through the noise.
+        </p>
+
         <div className="animate-fade-in animate-fade-in-delay-3">
           {status === "success" ? (
             <div className="inline-flex items-center gap-3 px-5 py-3.5 rounded-sm border border-[rgba(95,185,31,0.35)] bg-[rgba(95,185,31,0.06)]">
