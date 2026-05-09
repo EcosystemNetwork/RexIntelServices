@@ -2,11 +2,14 @@
 
 import dynamic from "next/dynamic";
 
-// UnicornStudio touches `window` on mount, so it can't be SSR'd. Dynamic
-// import with ssr:false keeps the SDK out of the initial JS bundle too.
-const UnicornScene = dynamic(() => import("unicornstudio-react"), {
-  ssr: false,
-});
+// Use the package's Next.js-specific entry — already marked "use client" by
+// the author and tuned for Next's render lifecycle. Wrapped in dynamic() with
+// ssr:false so the bundled UnicornStudio SDK (~1MB) stays out of the initial
+// JS payload and doesn't try to touch `window` during the server render pass.
+const UnicornScene = dynamic(
+  () => import("unicornstudio-react/next").then((m) => m.UnicornScene),
+  { ssr: false },
+);
 
 /**
  * Animated background scene for hero areas. Renders the UnicornStudio scene
