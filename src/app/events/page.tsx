@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
-import { PublicHeader } from "@/components/public-header";
+import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -72,16 +72,14 @@ export default async function EventsPage({
   }));
 
   return (
-    <div className="min-h-screen tactical-bg relative overflow-hidden">
-      <div className="classification-bar relative z-20">
-        <span>● Open Channel // Field Calendar</span>
-        <span className="sep hidden sm:inline">▾</span>
-        <span className="hidden sm:inline">Curated Events / Crypto Intel</span>
-      </div>
-
-      <PublicHeader />
-
-      <main className="relative z-10 max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
+    <PublicShell
+      sceneHeight="420px"
+      classification={[
+        { text: "● Open Channel // Field Calendar" },
+        { text: "Curated Events / Crypto Intel", show: "sm" },
+      ]}
+    >
+      <main className="max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
         <div className="mb-8">
           <p
             className="text-xs uppercase tracking-widest mb-2"
@@ -137,7 +135,7 @@ export default async function EventsPage({
           </div>
         )}
       </main>
-    </div>
+    </PublicShell>
   );
 }
 

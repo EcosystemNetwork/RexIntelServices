@@ -1,55 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { HeroScene } from "@/components/hero-scene";
+import { useEffect, useState } from "react";
+import { PublicShell } from "@/components/public-shell";
 
 type Tab = "intel" | "event";
 type FormStatus = "idle" | "loading" | "success" | "error";
 
 export default function SubmitForm() {
   const [tab, setTab] = useState<Tab>("intel");
-  const transmissionId = `RX-DROP-${String(Date.now()).slice(-6)}`;
+  // Compute on mount only — Date.now() at render time differs between SSR and
+  // client and triggers a hydration mismatch on this purely cosmetic value.
+  const [transmissionId, setTransmissionId] = useState("RX-DROP-------");
+  useEffect(() => {
+    setTransmissionId(`RX-DROP-${String(Date.now()).slice(-6)}`);
+  }, []);
 
   return (
-    <div className="min-h-screen tactical-bg relative overflow-hidden">
-      {/* Animated background — sized to cover the title/intro/tab band only,
-          so the form card below sits cleanly on the static tactical-bg. */}
-      <HeroScene height="520px" />
-
-      <div className="classification-bar relative z-20">
-        <span>● Classified // Drop Channel</span>
-        <span className="sep hidden sm:inline">▾</span>
-        <span className="hidden sm:inline">Source Intake / Anonymous OK</span>
-        <span className="sep hidden md:inline">▾</span>
-        <span className="hidden md:inline">Channel {transmissionId}</span>
-      </div>
-
-      <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-5 max-w-5xl mx-auto">
-        <Link href="/" className="flex items-center gap-3">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--rex-accent), var(--rex-accent-2))",
-            }}
-          >
-            R
-          </div>
-          <span className="font-display text-lg font-semibold tracking-tight text-white">
-            Rex Intel Services
-          </span>
-        </Link>
-        <Link
-          href="/"
-          className="mono-label hover:text-white transition-colors flex items-center gap-2"
-        >
-          <span>←</span>
-          <span className="hidden sm:inline">Return to Briefing Room</span>
-        </Link>
-      </nav>
-
-      <main className="relative z-10 max-w-2xl mx-auto px-6 pt-8 md:pt-14 pb-24">
+    <PublicShell
+      sceneHeight="520px"
+      classification={[
+        { text: "● Classified // Drop Channel" },
+        { text: "Source Intake / Anonymous OK", show: "sm" },
+        { text: `Channel ${transmissionId}`, show: "md" },
+      ]}
+    >
+      <main className="max-w-2xl mx-auto px-6 pt-8 md:pt-14 pb-24">
         <div className="mb-8 text-center">
           <p
             className="text-xs uppercase tracking-widest mb-2"
@@ -78,7 +54,7 @@ export default function SubmitForm() {
 
         {tab === "intel" ? <IntelForm /> : <EventForm />}
       </main>
-    </div>
+    </PublicShell>
   );
 }
 

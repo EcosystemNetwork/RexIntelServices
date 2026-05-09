@@ -46,6 +46,7 @@ body {
   font-feature-settings: "ss01", "ss02", "cv01", "cv11";
   background: var(--rex-bg);
   color: var(--rex-text);
+  overflow-x: hidden;
 }
 
 .font-display {
@@ -491,4 +492,10 @@ body {
   border: 1px solid var(--rex-border);
   border-radius: 12px;
   overflow: hidden;
+}
+
+/* Suppress the UnicornStudio SDK's free-plan badge. It's injected as an
+   absolutely-positioned anchor linking to unicorn.studio. */
+a[href*="unicorn.studio"] {
+  display: none !important;
 }

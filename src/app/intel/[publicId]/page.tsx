@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
-import { PublicHeader } from "@/components/public-header";
+import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -98,14 +98,11 @@ export default async function IntelDetailPage({
       : "Anonymous";
 
   return (
-    <div className="min-h-screen tactical-bg relative overflow-hidden">
-      <div className="classification-bar relative z-20">
-        <span>● Open Channel // Intel Wire Detail</span>
-      </div>
-
-      <PublicHeader />
-
-      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
+    <PublicShell
+      sceneHeight="360px"
+      classification={[{ text: "● Open Channel // Intel Wire Detail" }]}
+    >
+      <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/intel"
           className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
@@ -207,7 +204,7 @@ export default async function IntelDetailPage({
           </div>
         </article>
       </main>
-    </div>
+    </PublicShell>
   );
 }
 

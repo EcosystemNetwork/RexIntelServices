@@ -1,0 +1,9 @@
+<!doctype html><html><body><script>
+(async()=>{
+  const target=new URLSearchParams(location.search).get('to')||'/dashboard';
+  await fetch('/api/auth/login',{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email:'screenshot-review@local.test',password:'ReviewPass-2026!screenshot'})});
+  location.replace(target);
+})();
+</script>logging in…</body></html>

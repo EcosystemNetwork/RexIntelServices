@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { processUnsubscribe } from "@/lib/email/unsubscribe";
+import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +27,15 @@ export default async function UnsubscribePage({
 
   if (!sub) {
     return (
-      <Centered>
-        <h1 className="text-2xl font-semibold mb-2 text-white">
+      <Shell heading="● Closed Channel // Link Invalid">
+        <h1 className="font-display text-2xl font-semibold mb-2 text-white">
           Link not valid
         </h1>
         <p style={{ color: "var(--rex-text-muted)" }}>
           This unsubscribe link wasn&apos;t recognized. It may have already been
           used.
         </p>
-      </Centered>
+      </Shell>
     );
   }
 
@@ -42,8 +43,8 @@ export default async function UnsubscribePage({
 
   if (done) {
     return (
-      <Centered>
-        <h1 className="text-2xl font-semibold mb-2 text-white">
+      <Shell heading="● Channel Closed // Unsubscribed">
+        <h1 className="font-display text-2xl font-semibold mb-2 text-white">
           You&apos;re unsubscribed
         </h1>
         <p className="mb-1" style={{ color: "var(--rex-text-muted)" }}>
@@ -52,13 +53,15 @@ export default async function UnsubscribePage({
         <p style={{ color: "var(--rex-text-muted)" }}>
           We won&apos;t send you any more emails. Thanks for being with us.
         </p>
-      </Centered>
+      </Shell>
     );
   }
 
   return (
-    <Centered>
-      <h1 className="text-2xl font-semibold mb-2 text-white">Unsubscribe</h1>
+    <Shell heading="● Open Channel // Confirm Unsubscribe">
+      <h1 className="font-display text-2xl font-semibold mb-2 text-white">
+        Unsubscribe
+      </h1>
       <p className="mb-6" style={{ color: "var(--rex-text-muted)" }}>
         Are you sure you want to stop receiving emails at{" "}
         <strong className="text-white">{sub.email}</strong>?
@@ -68,17 +71,25 @@ export default async function UnsubscribePage({
           Yes, unsubscribe me
         </button>
       </form>
-    </Centered>
+    </Shell>
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
+function Shell({
+  heading,
+  children,
+}: {
+  heading: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: "var(--rex-bg)" }}
+    <PublicShell
+      sceneHeight="100vh"
+      classification={[{ text: heading }]}
     >
-      <div className="rex-modal text-center">{children}</div>
-    </div>
+      <main className="max-w-md mx-auto px-6 pt-12 md:pt-20 pb-24">
+        <div className="rex-card p-8 text-center animate-fade-in">{children}</div>
+      </main>
+    </PublicShell>
   );
 }

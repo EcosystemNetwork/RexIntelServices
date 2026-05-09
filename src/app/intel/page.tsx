@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { and, desc, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
-import { PublicHeader } from "@/components/public-header";
+import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -93,16 +93,14 @@ export default async function IntelPage({
   ).sort();
 
   return (
-    <div className="min-h-screen tactical-bg relative overflow-hidden">
-      <div className="classification-bar relative z-20">
-        <span>● Open Channel // Intel Wire</span>
-        <span className="sep hidden sm:inline">▾</span>
-        <span className="hidden sm:inline">Approved Submissions / Live</span>
-      </div>
-
-      <PublicHeader />
-
-      <main className="relative z-10 max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
+    <PublicShell
+      sceneHeight="420px"
+      classification={[
+        { text: "● Open Channel // Intel Wire" },
+        { text: "Approved Submissions / Live", show: "sm" },
+      ]}
+    >
+      <main className="max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
         <div className="mb-8">
           <p
             className="text-xs uppercase tracking-widest mb-2"
@@ -195,7 +193,7 @@ export default async function IntelPage({
           </div>
         )}
       </main>
-    </div>
+    </PublicShell>
   );
 }
 
