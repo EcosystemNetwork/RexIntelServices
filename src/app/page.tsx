@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
+import { MarketIcon, SignalIcon, ShieldIcon } from "@/components/icons";
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
@@ -53,13 +55,15 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-            style={{
-              background: "linear-gradient(135deg, var(--rex-accent), var(--rex-accent-2))",
-            }}
-          >
-            R
+          <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/95 ring-1 ring-[var(--rex-border)] flex items-center justify-center">
+            <Image
+              src="/rex-mascot.jpg"
+              alt=""
+              width={80}
+              height={80}
+              priority
+              className="w-full h-full object-cover object-top"
+            />
           </div>
           <span className="font-display text-xl font-semibold tracking-tight text-white">
             Rex Intel Services
@@ -74,7 +78,21 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-16 md:pt-28 pb-24 text-center">
+      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-10 md:pt-16 pb-24 text-center">
+        <div className="animate-fade-in mb-10 md:mb-14">
+          <div className="rounded-2xl overflow-hidden border border-[var(--rex-border)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]">
+            <Image
+              src="/rex-banner.png"
+              alt="Rex Intel Services — Intelligence. Innovation. Impact."
+              width={2000}
+              height={667}
+              priority
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="w-full h-auto"
+            />
+          </div>
+        </div>
+
         <div className="animate-fade-in">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[var(--rex-border)] bg-[var(--rex-surface)] text-xs text-[var(--rex-text-muted)] mb-8">
             <span className="pulse-dot" />
@@ -213,17 +231,17 @@ export default function LandingPage() {
         {/* Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-20 animate-fade-in animate-fade-in-delay-4">
           <FeatureCard
-            icon="📊"
+            icon={<MarketIcon className="w-7 h-7" />}
             title="Market Analysis"
             desc="Deep dives into trends, patterns, and emerging opportunities."
           />
           <FeatureCard
-            icon="🔍"
+            icon={<SignalIcon className="w-7 h-7" />}
             title="Alpha Signals"
             desc="Early indicators and insights before they hit the mainstream."
           />
           <FeatureCard
-            icon="🛡️"
+            icon={<ShieldIcon className="w-7 h-7" />}
             title="Strategic Intel"
             desc="Actionable intelligence to inform your decision-making."
           />
@@ -243,13 +261,15 @@ function FeatureCard({
   title,
   desc,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   desc: string;
 }) {
   return (
     <div className="rex-card p-6 text-left hover:border-[var(--rex-accent)] transition-all group cursor-default">
-      <div className="text-2xl mb-3">{icon}</div>
+      <div className="mb-4 inline-flex items-center justify-center w-11 h-11 rounded-lg bg-[var(--rex-surface-2)] border border-[var(--rex-border-subtle)] group-hover:border-[var(--rex-accent)] group-hover:scale-105 transition-all">
+        {icon}
+      </div>
       <h3 className="font-display text-lg font-medium text-white mb-1 group-hover:text-[var(--rex-accent-hover)]">
         {title}
       </h3>
