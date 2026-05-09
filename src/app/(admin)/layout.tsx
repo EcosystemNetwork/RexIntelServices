@@ -11,10 +11,13 @@ export default async function AdminLayout({
   if (!session) redirect("/login");
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--rex-bg)" }}>
-      {/* Sidebar */}
+    <div
+      className="min-h-screen flex flex-col md:flex-row"
+      style={{ background: "var(--rex-bg)" }}
+    >
+      {/* Sidebar: top bar on mobile, fixed left rail on md+ */}
       <aside
-        className="w-60 flex flex-col border-r"
+        className="flex md:w-60 md:flex-col md:flex-shrink-0 border-b md:border-b-0 md:border-r"
         style={{
           background: "var(--rex-surface)",
           borderColor: "var(--rex-border-subtle)",
@@ -22,7 +25,7 @@ export default async function AdminLayout({
       >
         {/* Logo */}
         <div
-          className="p-5 border-b"
+          className="p-3 md:p-5 md:border-b flex-shrink-0"
           style={{ borderColor: "var(--rex-border-subtle)" }}
         >
           <Link href="/dashboard" className="flex items-center gap-2.5">
@@ -35,14 +38,14 @@ export default async function AdminLayout({
             >
               R
             </div>
-            <span className="font-display text-lg font-semibold tracking-tight text-white">
+            <span className="font-display text-base md:text-lg font-semibold tracking-tight text-white whitespace-nowrap">
               Rex Intel Services
             </span>
           </Link>
         </div>
 
-        {/* Nav */}
-        <nav className="p-3 flex flex-col gap-0.5 text-sm flex-1">
+        {/* Nav: scrollable horizontal row on mobile, vertical column on md+ */}
+        <nav className="flex md:flex-col gap-0.5 text-sm flex-1 md:p-3 px-2 py-2 overflow-x-auto md:overflow-x-visible">
           <NavLink href="/dashboard" icon="◈">
             Dashboard
           </NavLink>
@@ -57,9 +60,9 @@ export default async function AdminLayout({
           </NavLink>
         </nav>
 
-        {/* Footer */}
+        {/* Footer: hidden on mobile (logout reachable via desktop), shown md+ */}
         <div
-          className="p-4 border-t text-xs flex items-center justify-between"
+          className="hidden md:flex p-4 border-t text-xs items-center justify-between"
           style={{
             borderColor: "var(--rex-border-subtle)",
             color: "var(--rex-text-dim)",
@@ -71,7 +74,7 @@ export default async function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 min-w-0 overflow-auto">{children}</main>
     </div>
   );
 }

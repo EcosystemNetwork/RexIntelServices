@@ -42,7 +42,7 @@ export default async function Dashboard() {
         </h1>
       </header>
 
-      <div className="grid grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <div className="rex-stat accent">
           <div className="rex-stat-label">Active Subscribers</div>
           <div className="rex-stat-value">{active.toLocaleString()}</div>

@@ -122,7 +122,7 @@ export default function NewCampaignPage() {
         </h1>
       </header>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <Field
             label="Internal name"
