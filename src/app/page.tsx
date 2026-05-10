@@ -65,7 +65,7 @@ export default function LandingPage() {
     >
       <main className="max-w-3xl mx-auto px-6 pt-12 sm:pt-16 md:pt-24 pb-24 text-center">
         <p className="font-display italic text-base sm:text-lg md:text-xl text-[var(--rex-text-muted)]/80 tracking-tight mb-5 animate-fade-in animate-fade-in-delay-1">
-          We stay deep in the trenches so you don&apos;t have to.
+          We stay deep in the trenches so you don&apos;t have to...
         </p>
 
         <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4 animate-fade-in animate-fade-in-delay-2">
