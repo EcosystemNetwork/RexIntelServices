@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PublicHeader } from "@/components/public-header";
 import { HeroScene } from "@/components/hero-scene";
 
@@ -54,6 +55,13 @@ export function PublicShell({
           <div className="mono-label flex items-center gap-3">
             <span className="pulse-dot" />
             <span>Briefing Room {transmissionId}</span>
+            <span className="text-[var(--rex-border)]">│</span>
+            <Link
+              href="/login"
+              className="hover:text-[var(--rex-accent)] transition-colors"
+            >
+              Operator Login ▸
+            </Link>
           </div>
         </div>
       </footer>
