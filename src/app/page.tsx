@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { MarketIcon, SignalIcon, ShieldIcon } from "@/components/icons";
 import { PublicShell } from "@/components/public-shell";
-import { PERSONA_SLUGS, PERSONA_LABELS } from "@/lib/personas";
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
-  const [persona, setPersona] = useState<string>("");
   // Honeypot — bots autofill any visible/known field. Real users never see this.
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<
@@ -29,7 +27,6 @@ export default function LandingPage() {
           email,
           firstName,
           website,
-          persona: persona || undefined,
         }),
       });
       const data = await res.json();
@@ -39,7 +36,6 @@ export default function LandingPage() {
         setMessage("Clearance granted. Next transmission inbound.");
         setEmail("");
         setFirstName("");
-        setPersona("");
         setWebsite("");
       } else {
         setStatus("error");
@@ -185,23 +181,6 @@ export default function LandingPage() {
                     "Authorize ▸"
                   )}
                 </button>
-              </div>
-
-              <div className="mt-2">
-                <select
-                  value={persona}
-                  onChange={(e) => setPersona(e.target.value)}
-                  className="rex-input w-full text-left"
-                  id="subscribe-persona"
-                  aria-label="Your role (optional)"
-                >
-                  <option value="">Your role (opt.) — tunes the briefing</option>
-                  {PERSONA_SLUGS.map((slug) => (
-                    <option key={slug} value={slug}>
-                      {PERSONA_LABELS[slug]}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {status === "error" && (
