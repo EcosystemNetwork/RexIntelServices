@@ -83,10 +83,7 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <PublicShell
-      sceneHeight="100vh"
-      classification={[{ text: heading }]}
-    >
+    <PublicShell classification={[{ text: heading }]}>
       <main className="max-w-md mx-auto px-6 pt-12 md:pt-20 pb-24">
         <div className="rex-card p-8 text-center animate-fade-in">{children}</div>
       </main>

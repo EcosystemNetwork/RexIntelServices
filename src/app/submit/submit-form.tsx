@@ -18,7 +18,6 @@ export default function SubmitForm() {
 
   return (
     <PublicShell
-      sceneHeight="520px"
       classification={[
         { text: "● Classified // Drop Channel" },
         { text: "Source Intake / Anonymous OK", show: "sm" },

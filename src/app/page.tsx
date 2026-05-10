@@ -60,13 +60,6 @@ export default function LandingPage() {
           We stay deep in the trenches so you don&apos;t have to.
         </p>
 
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-sm border border-[var(--rex-border-subtle)] bg-[var(--rex-surface)]/60 mb-5 animate-fade-in animate-fade-in-delay-2">
-          <span className="pulse-dot" />
-          <span className="mono-label-accent text-[10.5px]">
-            Monthly briefing · Delivered the 1st of each month
-          </span>
-        </div>
-
         <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4 animate-fade-in animate-fade-in-delay-2">
           Intelligence,{" "}
           <span

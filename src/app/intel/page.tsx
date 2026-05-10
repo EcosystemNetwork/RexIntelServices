@@ -94,7 +94,6 @@ export default async function IntelPage({
 
   return (
     <PublicShell
-      sceneHeight="420px"
       classification={[
         { text: "● Open Channel // Intel Wire" },
         { text: "Approved Submissions / Live", show: "sm" },

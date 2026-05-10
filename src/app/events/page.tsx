@@ -73,7 +73,6 @@ export default async function EventsPage({
 
   return (
     <PublicShell
-      sceneHeight="420px"
       classification={[
         { text: "● Open Channel // Field Calendar" },
         { text: "Curated Events / Crypto Intel", show: "sm" },

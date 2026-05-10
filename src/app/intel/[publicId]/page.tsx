@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -8,7 +9,7 @@ import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
-async function loadIntel(publicId: string) {
+const loadIntel = cache(async (publicId: string) => {
   const [row] = await db
     .select({
       payload: submissions.payload,
@@ -25,7 +26,7 @@ async function loadIntel(publicId: string) {
     )
     .limit(1);
   return row;
-}
+});
 
 export async function generateMetadata({
   params,
@@ -99,7 +100,6 @@ export default async function IntelDetailPage({
 
   return (
     <PublicShell
-      sceneHeight="360px"
       classification={[{ text: "● Open Channel // Intel Wire Detail" }]}
     >
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">

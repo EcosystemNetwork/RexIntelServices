@@ -8,7 +8,8 @@ export default async function CampaignsPage() {
   const rows = await db
     .select()
     .from(campaigns)
-    .orderBy(desc(campaigns.createdAt));
+    .orderBy(desc(campaigns.createdAt))
+    .limit(500);
 
   return (
     <div className="p-10 max-w-6xl">

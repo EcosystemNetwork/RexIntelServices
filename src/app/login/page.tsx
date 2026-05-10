@@ -32,7 +32,6 @@ export default function LoginPage() {
 
   return (
     <PublicShell
-      sceneHeight="100vh"
       classification={[
         { text: "● Restricted // Command Center" },
         { text: "Operator Authentication", show: "sm" },
