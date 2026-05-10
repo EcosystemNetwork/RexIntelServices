@@ -295,6 +295,9 @@ export type EventPayload = {
   tags?: string[];
   priceTier?: "free" | "paid" | "invite";
   eventType?: "conference" | "workshop" | "meetup" | "hackathon" | "other";
+  // Path under /public (e.g. "/Rex-Intel-ETHConf-Social-Card.png") or absolute
+  // URL. Rendered as a banner on the event detail page and the OG image.
+  imageUrl?: string;
 };
 
 export type SubmissionPayload = IntelPayload | EventPayload;

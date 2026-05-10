@@ -53,11 +53,17 @@ export async function generateMetadata({
     .filter(Boolean)
     .join(" · ");
   const title = `${p.name} — Rex Intel Services`;
+  const images = p.imageUrl ? [{ url: p.imageUrl }] : undefined;
   return {
     title,
     description: desc || `Event listing on Rex Intel Services.`,
-    openGraph: { title, description: desc, type: "article" },
-    twitter: { card: "summary", title, description: desc },
+    openGraph: { title, description: desc, type: "article", images },
+    twitter: {
+      card: p.imageUrl ? "summary_large_image" : "summary",
+      title,
+      description: desc,
+      images: p.imageUrl ? [p.imageUrl] : undefined,
+    },
   };
 }
 
@@ -86,7 +92,25 @@ export default async function EventDetailPage({
           <span>All events</span>
         </Link>
 
-        <div className="rex-card p-8">
+        <div className="rex-card overflow-hidden">
+          {payload.imageUrl && (
+            <div
+              className="relative w-full border-b"
+              style={{
+                borderColor: "var(--rex-border-subtle)",
+                aspectRatio: "1200 / 630",
+                background: "var(--rex-bg)",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={payload.imageUrl}
+                alt={payload.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="p-8">
           <div className="flex items-center gap-2 mb-3">
             {payload.eventType && (
               <span
@@ -181,6 +205,7 @@ export default async function EventDetailPage({
               </a>
             </div>
           )}
+          </div>
         </div>
 
         {row.submitterHandle && (

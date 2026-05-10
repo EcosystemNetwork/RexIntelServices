@@ -203,6 +203,23 @@ function EventCard({
         </div>
       </div>
 
+      {payload.imageUrl && (
+        <div
+          className="hidden sm:block flex-shrink-0 h-14 w-24 rounded-sm overflow-hidden border"
+          style={{
+            background: "var(--rex-bg)",
+            borderColor: "var(--rex-border)",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={payload.imageUrl}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           {payload.eventType && (
