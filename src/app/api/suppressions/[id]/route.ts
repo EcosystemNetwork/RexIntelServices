@@ -1,0 +1,20 @@
+import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { db, suppressions } from "@/lib/db";
+
+/**
+ * DELETE /api/suppressions/[id]
+ * Remove from the block list. Use sparingly — re-adding a hard-bounce email
+ * to active sending damages sender reputation.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const [row] = await db
+    .delete(suppressions)
+    .where(eq(suppressions.id, params.id))
+    .returning({ id: suppressions.id });
+  if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}

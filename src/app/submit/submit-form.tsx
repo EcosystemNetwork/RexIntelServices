@@ -3,9 +3,29 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public-shell";
+import {
+  SUPPORTED_CHAINS,
+  ADDRESS_ROLES,
+  type ChainSlug,
+  type AddressRoleSlug,
+} from "@/lib/chains";
 
 type Tab = "intel" | "event";
 type FormStatus = "idle" | "loading" | "success" | "error";
+
+type AddressRow = {
+  chain: ChainSlug;
+  address: string;
+  role: AddressRoleSlug;
+  label: string;
+};
+
+const EMPTY_ADDRESS_ROW: AddressRow = {
+  chain: "ethereum",
+  address: "",
+  role: "subject",
+  label: "",
+};
 
 export default function SubmitForm() {
   const [tab, setTab] = useState<Tab>("intel");
@@ -96,8 +116,21 @@ function IntelForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [addressRows, setAddressRows] = useState<AddressRow[]>([]);
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+
+  function updateAddressRow(idx: number, patch: Partial<AddressRow>) {
+    setAddressRows((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  }
+  function addAddressRow() {
+    setAddressRows((rows) => [...rows, { ...EMPTY_ADDRESS_ROW }]);
+  }
+  function removeAddressRow(idx: number) {
+    setAddressRows((rows) => rows.filter((_, i) => i !== idx));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,6 +146,17 @@ function IntelForm() {
       anonymous,
     };
 
+    // Strip empty rows client-side so the server never sees half-filled
+    // entries. Server re-validates regardless.
+    const addressesToSend = addressRows
+      .map((r) => ({
+        chain: r.chain,
+        address: r.address.trim(),
+        role: r.role,
+        label: r.label.trim() || undefined,
+      }))
+      .filter((r) => r.address.length >= 4);
+
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
@@ -120,6 +164,7 @@ function IntelForm() {
         body: JSON.stringify({
           type: "intel",
           payload,
+          addresses: addressesToSend.length ? addressesToSend : undefined,
           submitterEmail: anonymous ? undefined : submitterEmail || undefined,
           submitterHandle: anonymous ? undefined : submitterHandle || undefined,
           website,
@@ -224,6 +269,97 @@ function IntelForm() {
           className="rex-input w-full font-mono text-xs"
           placeholder="On-chain tx hashes, primary docs, etc. (one per line)"
         />
+      </div>
+
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <Label>Addresses (opt.)</Label>
+          <button
+            type="button"
+            onClick={addAddressRow}
+            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+          >
+            + Add address
+          </button>
+        </div>
+        {addressRows.length === 0 ? (
+          <Hint>
+            Tag any wallets / accounts referenced. Builds the cluster graph.
+          </Hint>
+        ) : (
+          <div className="space-y-2">
+            {addressRows.map((row, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-12 gap-2 items-start"
+              >
+                <select
+                  value={row.chain}
+                  onChange={(e) =>
+                    updateAddressRow(idx, {
+                      chain: e.target.value as ChainSlug,
+                    })
+                  }
+                  className="rex-input col-span-3 text-xs"
+                  aria-label="Chain"
+                >
+                  {SUPPORTED_CHAINS.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={row.address}
+                  onChange={(e) =>
+                    updateAddressRow(idx, { address: e.target.value })
+                  }
+                  className="rex-input col-span-5 font-mono text-xs"
+                  placeholder="0x… / bc1… / etc."
+                  maxLength={200}
+                  aria-label="Address"
+                />
+                <select
+                  value={row.role}
+                  onChange={(e) =>
+                    updateAddressRow(idx, {
+                      role: e.target.value as AddressRoleSlug,
+                    })
+                  }
+                  className="rex-input col-span-3 text-xs"
+                  aria-label="Role"
+                >
+                  {ADDRESS_ROLES.map((r) => (
+                    <option key={r.slug} value={r.slug}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => removeAddressRow(idx)}
+                  className="col-span-1 text-[var(--rex-text-dim)] hover:text-[var(--rex-danger)] transition-colors text-sm font-mono"
+                  aria-label="Remove address row"
+                  title="Remove"
+                >
+                  ✕
+                </button>
+                <input
+                  type="text"
+                  value={row.label}
+                  onChange={(e) =>
+                    updateAddressRow(idx, { label: e.target.value })
+                  }
+                  className="rex-input col-span-11 col-start-1 sm:col-start-4 sm:col-span-8 text-xs"
+                  placeholder='Optional label — e.g. "alleged exploiter wallet"'
+                  maxLength={120}
+                  aria-label="Address label"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="border-t border-[var(--rex-border-subtle)] pt-4">

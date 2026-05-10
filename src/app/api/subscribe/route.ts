@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, subscribers, suppressions } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  subscribers,
+  suppressions,
+  tags,
+  subscriberTags,
+  PERSONA_SLUGS,
+  type PersonaSlug,
+} from "@/lib/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
@@ -27,7 +35,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { email?: string; firstName?: string; website?: string };
+  let body: {
+    email?: string;
+    firstName?: string;
+    website?: string;
+    persona?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -49,6 +62,10 @@ export async function POST(req: NextRequest) {
   }
 
   const firstName = body.firstName?.trim().slice(0, 80) || null;
+  const persona: PersonaSlug | null =
+    body.persona && (PERSONA_SLUGS as readonly string[]).includes(body.persona)
+      ? (body.persona as PersonaSlug)
+      : null;
 
   // Check suppression list
   const [suppressed] = await db
@@ -71,6 +88,9 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     if (existing.status === "active") {
+      // Already on the list, but they might be telling us their persona
+      // for the first time — apply it without changing anything else.
+      if (persona) await applyPersonaTag(existing.id, persona);
       return NextResponse.json({ ok: true, message: "You're already subscribed!" });
     }
     // Re-activate if they previously unsubscribed
@@ -83,19 +103,69 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         })
         .where(eq(subscribers.id, existing.id));
+      if (persona) await applyPersonaTag(existing.id, persona);
       return NextResponse.json({ ok: true, message: "Welcome back! You've been re-subscribed." });
     }
     return NextResponse.json({ ok: true, message: "You're already on our list!" });
   }
 
   // Create new subscriber
-  await db.insert(subscribers).values({
-    email,
-    firstName,
-    source: "landing_page",
-    status: "active",
-    ipAddress: ip === "unknown" ? null : ip,
-  });
+  const [created] = await db
+    .insert(subscribers)
+    .values({
+      email,
+      firstName,
+      source: "landing_page",
+      status: "active",
+      ipAddress: ip === "unknown" ? null : ip,
+    })
+    .returning({ id: subscribers.id });
+
+  if (persona && created) await applyPersonaTag(created.id, persona);
 
   return NextResponse.json({ ok: true, message: "You're in! Welcome to Rex Intel Services." });
+}
+
+/**
+ * Replace this subscriber's persona-kind tag with the given one. Persona is
+ * 1:1 — having two persona tags would muddy segment-targeted sends. Interest
+ * tags (kind = 'interest') are left alone.
+ */
+async function applyPersonaTag(subscriberId: string, slug: PersonaSlug) {
+  const [tagRow] = await db
+    .select({ id: tags.id })
+    .from(tags)
+    .where(and(eq(tags.name, slug), eq(tags.kind, "persona")))
+    .limit(1);
+
+  // Persona tags are seeded by migration; if the lookup misses it means the
+  // migration hasn't been applied yet. Don't break signup — just skip tagging
+  // and let the subscriber land untagged.
+  if (!tagRow) return;
+
+  // Drop any other persona tags for this subscriber (cheap: there should be
+  // 0 or 1), then insert the new one. Idempotent if the user re-submits with
+  // the same persona.
+  const existingPersonaTagIds = await db
+    .select({ id: tags.id })
+    .from(tags)
+    .where(eq(tags.kind, "persona"));
+  const allPersonaIds = existingPersonaTagIds.map((t) => t.id);
+  const otherPersonaIds = allPersonaIds.filter((id) => id !== tagRow.id);
+
+  if (otherPersonaIds.length) {
+    await db
+      .delete(subscriberTags)
+      .where(
+        and(
+          eq(subscriberTags.subscriberId, subscriberId),
+          inArray(subscriberTags.tagId, otherPersonaIds),
+        ),
+      );
+  }
+
+  await db
+    .insert(subscriberTags)
+    .values({ subscriberId, tagId: tagRow.id })
+    .onConflictDoNothing();
 }

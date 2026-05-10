@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, submissions } from "@/lib/db";
-import type { IntelPayload, EventPayload } from "@/lib/db/schema";
+import { and, eq, sql } from "drizzle-orm";
+import {
+  db,
+  submissions,
+  addresses,
+  intelAddresses,
+} from "@/lib/db";
+import type {
+  IntelPayload,
+  EventPayload,
+  AddressRole,
+} from "@/lib/db/schema";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { CHAIN_SLUG_SET } from "@/lib/chains";
+
+type AddressInput = {
+  chain: string;
+  address: string;
+  role: AddressRole;
+  label?: string;
+};
 
 /**
  * Public API endpoint for community-submitted intel and events.
@@ -28,6 +46,7 @@ export async function POST(req: NextRequest) {
   let body: {
     type?: "intel" | "event";
     payload?: unknown;
+    addresses?: unknown;
     submitterEmail?: string;
     submitterHandle?: string;
     website?: string;
@@ -87,17 +106,32 @@ export async function POST(req: NextRequest) {
         )
       : null;
 
-  await db.insert(submissions).values({
-    type: body.type,
-    status: honeypotTripped ? "spam" : "pending",
-    payload: validation.payload,
-    submitterEmail,
-    submitterHandle,
-    ipAddress: ip === "unknown" ? null : ip,
-    userAgent: req.headers.get("user-agent")?.slice(0, 500) || null,
-    honeypotTripped,
-    eventStartsAt,
-  });
+  // Address rows are only meaningful for intel submissions. Validate up
+  // front so a bad row fails the whole request before we write anything.
+  const addressInputs =
+    body.type === "intel" ? sanitizeAddresses(body.addresses) : [];
+
+  const [created] = await db
+    .insert(submissions)
+    .values({
+      type: body.type,
+      status: honeypotTripped ? "spam" : "pending",
+      payload: validation.payload,
+      submitterEmail,
+      submitterHandle,
+      ipAddress: ip === "unknown" ? null : ip,
+      userAgent: req.headers.get("user-agent")?.slice(0, 500) || null,
+      honeypotTripped,
+      eventStartsAt,
+    })
+    .returning({ id: submissions.id });
+
+  // Link addresses even on honeypot-tripped submissions so the moderator can
+  // still see what was claimed when reviewing spam patterns. The submission
+  // status keeps the row out of public listings either way.
+  if (created && addressInputs.length) {
+    await linkAddressesToSubmission(created.id, addressInputs);
+  }
 
   return NextResponse.json({
     ok: true,
@@ -106,6 +140,72 @@ export async function POST(req: NextRequest) {
         ? "Intel received. Our analysts will review and respond as warranted."
         : "Event submission received. We'll review it for the next briefing.",
   });
+}
+
+/**
+ * Upsert each address into the addresses table and link it to the
+ * submission via the intel_addresses junction. Dedupes per (chain,
+ * lowercased address) so re-submitting the same address points at the
+ * same row.
+ */
+async function linkAddressesToSubmission(
+  submissionId: string,
+  inputs: AddressInput[],
+) {
+  for (const input of inputs) {
+    // Try the existing-row path first since it's the common case once the
+    // graph has any history.
+    const [existing] = await db
+      .select({ id: addresses.id })
+      .from(addresses)
+      .where(
+        and(
+          eq(addresses.chain, input.chain),
+          sql`lower(${addresses.address}) = lower(${input.address})`,
+        ),
+      )
+      .limit(1);
+
+    let addressId = existing?.id;
+    if (!addressId) {
+      const [inserted] = await db
+        .insert(addresses)
+        .values({
+          chain: input.chain,
+          address: input.address,
+          label: input.label || null,
+        })
+        .onConflictDoNothing()
+        .returning({ id: addresses.id });
+      if (inserted) {
+        addressId = inserted.id;
+      } else {
+        // A concurrent insert won the race — re-read.
+        const [raceRow] = await db
+          .select({ id: addresses.id })
+          .from(addresses)
+          .where(
+            and(
+              eq(addresses.chain, input.chain),
+              sql`lower(${addresses.address}) = lower(${input.address})`,
+            ),
+          )
+          .limit(1);
+        addressId = raceRow?.id;
+      }
+    }
+
+    if (!addressId) continue;
+
+    await db
+      .insert(intelAddresses)
+      .values({
+        submissionId,
+        addressId,
+        role: input.role,
+      })
+      .onConflictDoNothing();
+  }
 }
 
 function normalizeEmail(raw?: string): string | null {
@@ -247,4 +347,30 @@ function sanitizeUrlList(v: unknown): string[] {
     .map((x) => sanitizeSingleUrl(x))
     .filter((x): x is string => !!x)
     .slice(0, 10);
+}
+
+const VALID_ADDRESS_ROLES = ["subject", "counterparty", "observed"] as const;
+
+function sanitizeAddresses(raw: unknown): AddressInput[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AddressInput[] = [];
+  for (const item of raw.slice(0, 25)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const chain =
+      typeof rec.chain === "string" ? rec.chain.toLowerCase().trim() : "";
+    const address =
+      typeof rec.address === "string" ? rec.address.trim() : "";
+    if (!CHAIN_SLUG_SET.has(chain)) continue;
+    if (address.length < 4 || address.length > 200) continue;
+    const role = VALID_ADDRESS_ROLES.includes(rec.role as never)
+      ? (rec.role as AddressRole)
+      : "observed";
+    const label =
+      typeof rec.label === "string" && rec.label.trim()
+        ? rec.label.trim().slice(0, 120)
+        : undefined;
+    out.push({ chain, address, role, label });
+  }
+  return out;
 }

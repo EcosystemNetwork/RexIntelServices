@@ -3,30 +3,112 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
-import { db, submissions } from "@/lib/db";
-import type { IntelPayload } from "@/lib/db/schema";
+import { db, submissions, addresses, intelAddresses } from "@/lib/db";
+import type { IntelPayload, AddressRole } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
-const loadIntel = cache(async (publicId: string) => {
-  const [row] = await db
-    .select({
-      payload: submissions.payload,
-      submitterHandle: submissions.submitterHandle,
-      publishedAt: submissions.publishedAt,
-    })
-    .from(submissions)
-    .where(
-      and(
-        eq(submissions.publicId, publicId),
-        eq(submissions.type, "intel"),
-        eq(submissions.status, "approved"),
-      ),
-    )
-    .limit(1);
-  return row;
-});
+type LinkedAddress = {
+  chain: string;
+  address: string;
+  label: string | null;
+  role: AddressRole;
+};
+
+type LoadedIntel = {
+  id: string;
+  payload: IntelPayload;
+  submitterHandle: string | null;
+  publishedAt: Date | null;
+  addresses: LinkedAddress[];
+};
+
+const loadIntel = cache(
+  async (publicId: string): Promise<LoadedIntel | undefined> => {
+    const [row] = await db
+      .select({
+        id: submissions.id,
+        payload: submissions.payload,
+        submitterHandle: submissions.submitterHandle,
+        publishedAt: submissions.publishedAt,
+      })
+      .from(submissions)
+      .where(
+        and(
+          eq(submissions.publicId, publicId),
+          eq(submissions.type, "intel"),
+          eq(submissions.status, "approved"),
+        ),
+      )
+      .limit(1);
+    if (!row) return undefined;
+
+    const addrRows = await db
+      .select({
+        chain: addresses.chain,
+        address: addresses.address,
+        label: addresses.label,
+        role: intelAddresses.role,
+      })
+      .from(intelAddresses)
+      .innerJoin(addresses, eq(intelAddresses.addressId, addresses.id))
+      .where(eq(intelAddresses.submissionId, row.id));
+
+    return {
+      id: row.id,
+      payload: row.payload as IntelPayload,
+      submitterHandle: row.submitterHandle,
+      publishedAt: row.publishedAt,
+      addresses: addrRows,
+    };
+  },
+);
+
+const ROLE_LABEL: Record<AddressRole, string> = {
+  subject: "subject",
+  counterparty: "counterparty",
+  observed: "observed",
+};
+
+function explorerUrl(chain: string, address: string): string | null {
+  switch (chain) {
+    case "ethereum":
+      return `https://etherscan.io/address/${address}`;
+    case "bitcoin":
+      return `https://mempool.space/address/${address}`;
+    case "solana":
+      return `https://solscan.io/account/${address}`;
+    case "tron":
+      return `https://tronscan.org/#/address/${address}`;
+    case "bsc":
+      return `https://bscscan.com/address/${address}`;
+    case "polygon":
+      return `https://polygonscan.com/address/${address}`;
+    case "arbitrum":
+      return `https://arbiscan.io/address/${address}`;
+    case "optimism":
+      return `https://optimistic.etherscan.io/address/${address}`;
+    case "base":
+      return `https://basescan.org/address/${address}`;
+    case "avalanche":
+      return `https://snowtrace.io/address/${address}`;
+    case "ton":
+      return `https://tonscan.org/address/${address}`;
+    case "near":
+      return `https://nearblocks.io/address/${address}`;
+    case "sui":
+      return `https://suiscan.xyz/mainnet/account/${address}`;
+    case "aptos":
+      return `https://explorer.aptoslabs.com/account/${address}`;
+    case "ripple":
+      return `https://xrpscan.com/account/${address}`;
+    case "litecoin":
+      return `https://litecoinspace.org/address/${address}`;
+    default:
+      return null;
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -37,7 +119,7 @@ export async function generateMetadata({
   if (!row) {
     return { title: "Intel not found — Rex Intel Services" };
   }
-  const p = row.payload as IntelPayload;
+  const p = row.payload;
   const desc = p.body.replace(/\s+/g, " ").trim().slice(0, 200);
   const title = `${p.headline} — Rex Intel Services`;
   return {
@@ -82,7 +164,8 @@ export default async function IntelDetailPage({
   const row = await loadIntel(params.publicId);
   if (!row) notFound();
 
-  const payload = row.payload as IntelPayload;
+  const payload = row.payload;
+  const linkedAddresses = row.addresses;
   const dateLabel = row.publishedAt
     ? new Date(row.publishedAt).toLocaleDateString(undefined, {
         weekday: "short",
@@ -178,6 +261,52 @@ export default async function IntelDetailPage({
                     {l}
                   </li>
                 ))}
+              </ul>
+            </Section>
+          )}
+
+          {linkedAddresses.length > 0 && (
+            <Section label="Addresses">
+              <ul className="space-y-2 font-mono text-xs">
+                {linkedAddresses.map((a, i) => {
+                  const explorer = explorerUrl(a.chain, a.address);
+                  return (
+                    <li key={i} className="flex flex-wrap items-baseline gap-2">
+                      <span className="uppercase tracking-widest text-[10px] text-[var(--rex-text-dim)]">
+                        {a.chain}
+                      </span>
+                      {explorer ? (
+                        <a
+                          href={explorer}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--rex-accent)] hover:underline break-all"
+                        >
+                          {a.address}
+                        </a>
+                      ) : (
+                        <span className="text-[var(--rex-text-muted)] break-all">
+                          {a.address}
+                        </span>
+                      )}
+                      <span
+                        className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+                        style={{
+                          background: "rgba(136,136,160,0.08)",
+                          color: "var(--rex-text-muted)",
+                          border: "1px solid rgba(136,136,160,0.25)",
+                        }}
+                      >
+                        {ROLE_LABEL[a.role]}
+                      </span>
+                      {a.label && (
+                        <span className="text-[var(--rex-text-dim)] text-[11px] italic">
+                          — {a.label}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </Section>
           )}

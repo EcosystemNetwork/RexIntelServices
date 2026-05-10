@@ -7,9 +7,11 @@ const PROTECTED_PREFIXES = [
   "/api/subscribers",
   "/api/campaigns",
   "/api/submissions",
+  "/api/tags",
+  "/api/suppressions",
 ];
 const PROTECTED_PAGES_REGEX =
-  /^\/(dashboard|subscribers|campaigns|submissions)(\/|$)/;
+  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions)(\/|$)/;
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [

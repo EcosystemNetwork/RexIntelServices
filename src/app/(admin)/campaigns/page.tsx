@@ -1,18 +1,74 @@
-import { db, campaigns } from "@/lib/db";
-import { desc } from "drizzle-orm";
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+interface Campaign {
+  id: string;
+  name: string;
+  subject: string;
+  status: string;
+  sentCount: number | null;
+  openedCount: number | null;
+  clickedCount: number | null;
+  bouncedCount: number | null;
+  recipientCount: number | null;
+  scheduledFor: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}
 
-export default async function CampaignsPage() {
-  const rows = await db
-    .select()
-    .from(campaigns)
-    .orderBy(desc(campaigns.createdAt))
-    .limit(500);
+export default function CampaignsPage() {
+  const router = useRouter();
+  const [rows, setRows] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    const res = await fetch("/api/campaigns");
+    const data = await res.json();
+    setRows(data.campaigns ?? []);
+    setLoading(false);
+  }
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function duplicate(id: string) {
+    setBusyId(id);
+    const res = await fetch(`/api/campaigns/${id}/duplicate`, {
+      method: "POST",
+    });
+    setBusyId(null);
+    if (!res.ok) {
+      alert("duplicate failed");
+      return;
+    }
+    const data = await res.json();
+    router.push(`/campaigns/new?id=${data.campaign.id}`);
+  }
+
+  async function remove(id: string, status: string) {
+    if (status === "sent" || status === "sending") {
+      alert(`cannot delete a ${status} campaign`);
+      return;
+    }
+    if (!confirm("Delete this draft? This is permanent.")) return;
+    setBusyId(id);
+    const res = await fetch(`/api/campaigns/${id}`, { method: "DELETE" });
+    setBusyId(null);
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      alert(e.error ?? "delete failed");
+      return;
+    }
+    load();
+  }
 
   return (
-    <div className="p-10 max-w-6xl">
+    <div className="p-10 max-w-7xl">
       <header className="mb-8 flex items-end justify-between">
         <div>
           <p
@@ -30,7 +86,14 @@ export default async function CampaignsPage() {
         </Link>
       </header>
 
-      {rows.length === 0 ? (
+      {loading ? (
+        <div
+          className="text-center py-20"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          Loading…
+        </div>
+      ) : rows.length === 0 ? (
         <div
           className="border border-dashed rounded-lg p-16 text-center bg-grid"
           style={{
@@ -57,6 +120,7 @@ export default async function CampaignsPage() {
                 <th style={{ textAlign: "right" }}>Clicked</th>
                 <th style={{ textAlign: "right" }}>Bounced</th>
                 <th>Created</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -75,6 +139,14 @@ export default async function CampaignsPage() {
                     >
                       {c.subject}
                     </div>
+                    {c.status === "scheduled" && c.scheduledFor && (
+                      <div
+                        className="text-xs mt-0.5 font-mono"
+                        style={{ color: "var(--rex-accent)" }}
+                      >
+                        ⏱ {new Date(c.scheduledFor).toLocaleString()}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span className={`pill pill-${c.status}`}>{c.status}</span>
@@ -114,6 +186,26 @@ export default async function CampaignsPage() {
                     style={{ color: "var(--rex-text-dim)" }}
                   >
                     {new Date(c.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="text-right whitespace-nowrap">
+                    <button
+                      onClick={() => duplicate(c.id)}
+                      disabled={busyId === c.id}
+                      className="text-xs hover:text-white mr-3"
+                      style={{ color: "var(--rex-text-dim)" }}
+                    >
+                      Duplicate
+                    </button>
+                    {c.status !== "sent" && c.status !== "sending" && (
+                      <button
+                        onClick={() => remove(c.id, c.status)}
+                        disabled={busyId === c.id}
+                        className="text-xs hover:text-[var(--rex-danger)]"
+                        style={{ color: "var(--rex-text-dim)" }}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

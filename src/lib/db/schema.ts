@@ -60,6 +60,22 @@ export const submissionStatusEnum = pgEnum("submission_status", [
   "spam",
 ]);
 
+// `persona` — buyer/role segments (compliance, exchange-risk, investigator,
+// gov-le, fund-risk). Used to send segment-targeted briefings.
+// `interest` — topical tags (ethereum, conferences, etc.). Default for
+// admin-created tags so existing tooling keeps working unchanged.
+export const tagKindEnum = pgEnum("tag_kind", ["persona", "interest"]);
+
+// Role of an address within a piece of intel. `subject` = the address the
+// intel is *about* (the attacker, the scammer, the sanctioned entity).
+// `counterparty` = a related address (recipient of stolen funds, mixer hop).
+// `observed` = an address mentioned but not yet attributed.
+export const addressRoleEnum = pgEnum("address_role", [
+  "subject",
+  "counterparty",
+  "observed",
+]);
+
 // =====================================================================
 // USERS (admin accounts)
 // =====================================================================
@@ -113,6 +129,10 @@ export const tags = pgTable("tags", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
   description: text("description"),
+  // Distinguishes buyer-persona segments from topical interest tags so the
+  // signup flow can offer the persona set without exposing every interest
+  // tag the team uses internally.
+  kind: tagKindEnum("kind").notNull().default("interest"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -335,6 +355,61 @@ export const submissions = pgTable(
 );
 
 // =====================================================================
+// ADDRESSES — first-class wallet/account identifiers extracted from intel
+// submissions. Building this graph from day one is the long-term moat:
+// every approved submission compounds a proprietary dataset of who's who
+// on-chain that the future investigations product can query.
+// =====================================================================
+
+export const addresses = pgTable(
+  "addresses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Lowercased chain identifier — "ethereum", "bitcoin", "solana", "tron",
+    // "bsc", etc. Free text rather than enum because new chains appear faster
+    // than we want to ship migrations.
+    chain: text("chain").notNull(),
+    // Stored verbatim as the user submitted (preserves Bitcoin checksum
+    // casing). Lookups are case-insensitive via the lower(...) unique index.
+    address: text("address").notNull(),
+    // Human label if known: "Lazarus cluster", "Tornado Cash router", etc.
+    label: text("label"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    // Unique on (chain, lower(address)) so 0xABC and 0xabc dedupe to one row
+    // on EVM chains. Bitcoin/Solana mixed-case addresses also dedupe safely
+    // because we always pass lowercased values to the lookup.
+    chainAddrIdx: uniqueIndex("addresses_chain_addr_idx").on(
+      t.chain,
+      sql`lower(${t.address})`,
+    ),
+    chainIdx: index("addresses_chain_idx").on(t.chain),
+  }),
+);
+
+export const intelAddresses = pgTable(
+  "intel_addresses",
+  {
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    addressId: uuid("address_id")
+      .notNull()
+      .references(() => addresses.id, { onDelete: "cascade" }),
+    role: addressRoleEnum("role").notNull().default("observed"),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.submissionId, t.addressId] }),
+    // Reverse lookup: "show me every intel item that mentions this address"
+    addressIdx: index("intel_addresses_address_idx").on(t.addressId),
+  }),
+);
+
+// =====================================================================
 // RELATIONS
 // =====================================================================
 
@@ -378,10 +453,26 @@ export const sendsRelations = relations(sends, ({ one }) => ({
   }),
 }));
 
-export const submissionsRelations = relations(submissions, ({ one }) => ({
+export const submissionsRelations = relations(submissions, ({ one, many }) => ({
   reviewer: one(users, {
     fields: [submissions.reviewedBy],
     references: [users.id],
+  }),
+  addresses: many(intelAddresses),
+}));
+
+export const addressesRelations = relations(addresses, ({ many }) => ({
+  submissions: many(intelAddresses),
+}));
+
+export const intelAddressesRelations = relations(intelAddresses, ({ one }) => ({
+  submission: one(submissions, {
+    fields: [intelAddresses.submissionId],
+    references: [submissions.id],
+  }),
+  address: one(addresses, {
+    fields: [intelAddresses.addressId],
+    references: [addresses.id],
   }),
 }));
 
@@ -395,3 +486,12 @@ export type Tag = typeof tags.$inferSelect;
 export type Suppression = typeof suppressions.$inferSelect;
 export type Submission = typeof submissions.$inferSelect;
 export type NewSubmission = typeof submissions.$inferInsert;
+export type Address = typeof addresses.$inferSelect;
+export type IntelAddress = typeof intelAddresses.$inferSelect;
+export type AddressRole = (typeof addressRoleEnum.enumValues)[number];
+
+// Persona tag slugs / labels live in /src/lib/personas.ts so client
+// components (e.g. the landing-page signup form) can import them without
+// pulling pg-core into the client bundle.
+export { PERSONA_SLUGS, PERSONA_LABELS } from "../personas";
+export type { PersonaSlug } from "../personas";
