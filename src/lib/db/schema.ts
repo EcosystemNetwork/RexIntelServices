@@ -327,6 +327,10 @@ export const submissions = pgTable(
     // by date in SQL with an index instead of pulling everything and sorting
     // in app code. NULL for intel submissions.
     eventStartsAt: timestamp("event_starts_at"),
+    // Pin a row to the top of public listings (e.g. flagship conference at the
+    // top of /events). Sorted as `featured DESC, eventStartsAt ASC` so multiple
+    // featured rows fall back to chronological order among themselves.
+    featured: boolean("featured").notNull().default(false),
     // Set by the digest cron when a submission is bundled into a draft
     // newsletter. Used to (a) avoid re-featuring the same item in the next
     // week's digest and (b) drive submitter-credit emails when the campaign

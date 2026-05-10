@@ -47,6 +47,7 @@ async function main() {
         payload,
         eventStartsAt,
         status: "approved",
+        featured: true,
         publishedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -59,6 +60,7 @@ async function main() {
       .values({
         type: "event",
         status: "approved",
+        featured: true,
         payload,
         eventStartsAt,
         publishedAt: new Date(),

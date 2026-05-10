@@ -40,6 +40,7 @@ export default async function EventsPage({
           publicId: submissions.publicId,
           payload: submissions.payload,
           publishedAt: submissions.publishedAt,
+          featured: submissions.featured,
         })
         .from(submissions)
         .where(
@@ -50,10 +51,12 @@ export default async function EventsPage({
               : gte(submissions.eventStartsAt, now),
           ),
         )
+        // Pin featured rows to the top of upcoming; past view stays purely
+        // chronological since featuring stale events doesn't help anyone.
         .orderBy(
-          showPast
-            ? desc(submissions.eventStartsAt)
-            : asc(submissions.eventStartsAt),
+          ...(showPast
+            ? [desc(submissions.eventStartsAt)]
+            : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
         )
         .limit(100),
       db
@@ -129,6 +132,7 @@ export default async function EventsPage({
                 key={e.id}
                 publicId={e.publicId}
                 payload={e.payload}
+                featured={e.featured}
               />
             ))}
           </div>
@@ -165,9 +169,11 @@ function ViewTab({
 function EventCard({
   publicId,
   payload,
+  featured = false,
 }: {
   publicId: string;
   payload: EventPayload;
+  featured?: boolean;
 }) {
   const start = new Date(payload.startsAt);
   const dateLabel = start.toLocaleDateString(undefined, {
@@ -184,6 +190,15 @@ function EventCard({
     <Link
       href={`/events/${publicId}`}
       className="rex-card flex items-center gap-5 p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
     >
       <div
         className="flex-shrink-0 w-14 h-14 rounded-sm flex flex-col items-center justify-center border"
@@ -222,6 +237,18 @@ function EventCard({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
+          {featured && (
+            <span
+              className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+              style={{
+                background: "rgba(95,185,31,0.12)",
+                color: "var(--rex-accent)",
+                border: "1px solid rgba(95,185,31,0.45)",
+              }}
+            >
+              ★ Featured
+            </span>
+          )}
           {payload.eventType && (
             <span
               className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
