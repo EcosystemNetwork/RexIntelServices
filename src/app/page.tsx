@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { MarketIcon, SignalIcon, ShieldIcon } from "@/components/icons";
 import { PublicShell } from "@/components/public-shell";
@@ -203,21 +204,41 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
             <DivisionCard
               code="DIV-01"
+              href="/intel"
               icon={<MarketIcon className="w-5 h-5" />}
-              title="Market Analysis"
-              desc="Capital rotation, liquidity maps, and structural reads on the digital asset complex."
+              title="Intel Wire"
+              desc="Tips, sightings, and analyst-flagged signals on the digital asset complex."
             />
             <DivisionCard
               code="DIV-02"
+              href="/events"
               icon={<SignalIcon className="w-5 h-5" />}
-              title="Alpha Signals"
-              desc="On-chain anomalies and early indicators surfaced from the wires before consensus catches up."
+              title="Field Calendar"
+              desc="Conferences, hackathons, happy hours and closed-door sessions worth tracking."
             />
             <DivisionCard
               code="DIV-03"
+              href="/pop-up-cities"
               icon={<ShieldIcon className="w-5 h-5" />}
-              title="Strategic Intel"
-              desc="Adversary tradecraft, regulatory posture, and the strategic context behind the tape."
+              title="Pop-Up Cities"
+              desc="Multi-week residencies — Zuzalu-style gatherings for builders and researchers."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left mt-3">
+            <DivisionCard
+              code="DIV-04"
+              href="/grants"
+              icon={<MarketIcon className="w-5 h-5" />}
+              title="Grants"
+              desc="Active funding programs from protocols, foundations, and public-goods initiatives."
+            />
+            <DivisionCard
+              code="DIV-05"
+              href="/accelerators"
+              icon={<SignalIcon className="w-5 h-5" />}
+              title="Accelerators"
+              desc="Crypto accelerators and incubators currently accepting applications."
             />
           </div>
         </div>
@@ -228,17 +249,19 @@ export default function LandingPage() {
 
 function DivisionCard({
   code,
+  href,
   icon,
   title,
   desc,
 }: {
   code: string;
+  href?: string;
   icon: React.ReactNode;
   title: string;
   desc: string;
 }) {
-  return (
-    <div className="rex-card-flat p-5 group cursor-default">
+  const body = (
+    <>
       <div className="flex items-center justify-between mb-4">
         <div className="inline-flex items-center justify-center w-9 h-9 rounded-sm bg-[var(--rex-bg)] border border-[var(--rex-border-subtle)] text-[var(--rex-accent)] group-hover:border-[var(--rex-accent)] transition-all">
           {icon}
@@ -251,6 +274,15 @@ function DivisionCard({
       <p className="text-[13px] text-[var(--rex-text-muted)] leading-relaxed">
         {desc}
       </p>
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="rex-card-flat p-5 group block hover:bg-[var(--rex-surface-2)]">
+        {body}
+      </Link>
+    );
+  }
+  return <div className="rex-card-flat p-5 group cursor-default">{body}</div>;
 }

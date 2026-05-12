@@ -50,6 +50,10 @@ export function PublicShell({
           <div className="mono-label flex items-center gap-3">
             <span>© {year} Rex Intel Services</span>
             <span className="text-[var(--rex-border)]">│</span>
+            <Link href="/jobs" className="hover:text-[var(--rex-accent)] transition-colors">
+              Jobs
+            </Link>
+            <span className="text-[var(--rex-border)]">│</span>
             <span>All transmissions reserved</span>
           </div>
           <div className="mono-label flex items-center gap-3">

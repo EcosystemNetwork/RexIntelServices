@@ -82,26 +82,44 @@ export default async function EventsPage({
       ]}
     >
       <main className="max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
-        <div className="mb-8">
-          <p
-            className="text-xs uppercase tracking-widest mb-2"
-            style={{ color: "var(--rex-text-dim)" }}
-          >
-            ▸ Field Calendar
-          </p>
-          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
-            Events worth tracking.
-          </h1>
-          <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">
-            Conferences, workshops, closed-door sessions. Curated by RexIntel
-            analysts and submitted by the field.{" "}
-            <Link
-              href="/submit"
-              className="text-[var(--rex-accent)] hover:text-white transition-colors"
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p
+              className="text-xs uppercase tracking-widest mb-2"
+              style={{ color: "var(--rex-text-dim)" }}
             >
-              Know one we should add? →
-            </Link>
-          </p>
+              ▸ Field Calendar
+            </p>
+            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
+              Events worth tracking.
+            </h1>
+            <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">
+              Conferences, workshops, closed-door sessions. Curated by RexIntel
+              analysts and submitted by the field.
+            </p>
+          </div>
+          <Link href="/submit?type=event" className="rex-btn whitespace-nowrap">
+            + Add Event ▸
+          </Link>
+        </div>
+
+        <div
+          className="mb-6 rounded-sm border border-dashed p-3 text-[11px] font-mono"
+          style={{
+            borderColor: "rgba(95,185,31,0.35)",
+            background: "rgba(95,185,31,0.04)",
+            color: "var(--rex-text-muted)",
+          }}
+        >
+          <span className="text-[var(--rex-accent)]">▸</span> Hosting a crypto
+          event?{" "}
+          <Link
+            href="/submit?type=event"
+            className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+          >
+            Paste a lu.ma URL
+          </Link>{" "}
+          and it goes live in seconds — no review required for trusted sources.
         </div>
 
         <div className="flex gap-2 mb-6">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public-shell";
 import {
@@ -10,8 +11,21 @@ import {
   type AddressRoleSlug,
 } from "@/lib/chains";
 
-type Tab = "intel" | "event";
+type Tab = "intel" | "event" | "popup_city" | "grant" | "accelerator" | "job";
 type FormStatus = "idle" | "loading" | "success" | "error";
+
+const TAB_LABELS: Record<Tab, string> = {
+  event: "Event",
+  popup_city: "Pop-Up City",
+  grant: "Grant",
+  accelerator: "Accelerator",
+  job: "Job",
+  intel: "Intel",
+};
+// Order is intentional — Event first (highest-volume), Intel last (most
+// specialized / requires moderator review). Pop-up cities sit next to events
+// because they share the same intake flow / lu.ma URLs.
+const TAB_ORDER: Tab[] = ["event", "popup_city", "grant", "accelerator", "job", "intel"];
 
 type AddressRow = {
   chain: ChainSlug;
@@ -28,7 +42,14 @@ const EMPTY_ADDRESS_ROW: AddressRow = {
 };
 
 export default function SubmitForm() {
-  const [tab, setTab] = useState<Tab>("intel");
+  const searchParams = useSearchParams();
+  // Default tab is "event" — the lu.ma-paste flow is the primary growth path.
+  // Other tabs are reachable via ?type=<slug>.
+  const requested = searchParams?.get("type") ?? "";
+  const initialTab: Tab = (TAB_ORDER as readonly string[]).includes(requested)
+    ? (requested as Tab)
+    : "event";
+  const [tab, setTab] = useState<Tab>(initialTab);
   // Compute on mount only — Date.now() at render time differs between SSR and
   // client and triggers a hydration mismatch on this purely cosmetic value.
   const [transmissionId, setTransmissionId] = useState("RX-DROP-------");
@@ -62,16 +83,20 @@ export default function SubmitForm() {
           </p>
         </div>
 
-        <div className="flex gap-2 mb-6 p-1 rounded-sm border border-[var(--rex-border-subtle)] bg-[var(--rex-surface)]">
-          <TabButton active={tab === "intel"} onClick={() => setTab("intel")}>
-            Submit Intel
-          </TabButton>
-          <TabButton active={tab === "event"} onClick={() => setTab("event")}>
-            Submit Event
-          </TabButton>
+        <div className="flex flex-wrap gap-1.5 mb-6 p-1 rounded-sm border border-[var(--rex-border-subtle)] bg-[var(--rex-surface)]">
+          {TAB_ORDER.map((t) => (
+            <TabButton key={t} active={tab === t} onClick={() => setTab(t)}>
+              {TAB_LABELS[t]}
+            </TabButton>
+          ))}
         </div>
 
-        {tab === "intel" ? <IntelForm /> : <EventForm />}
+        {tab === "intel" && <IntelForm />}
+        {tab === "event" && <EventForm />}
+        {tab === "popup_city" && <PopupCityForm />}
+        {tab === "grant" && <GrantForm />}
+        {tab === "accelerator" && <AcceleratorForm />}
+        {tab === "job" && <JobForm />}
       </main>
     </PublicShell>
   );
@@ -88,8 +113,9 @@ function TabButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="flex-1 px-4 py-2 rounded-sm text-xs font-mono uppercase tracking-widest transition-all"
+      className="px-3 py-1.5 rounded-sm text-[11px] font-mono uppercase tracking-widest transition-all min-w-[80px]"
       style={{
         background: active ? "var(--rex-bg)" : "transparent",
         color: active ? "var(--rex-accent)" : "var(--rex-text-dim)",
@@ -439,11 +465,71 @@ function EventForm() {
   const [priceTier, setPriceTier] = useState<"" | "free" | "paid" | "invite">(
     "",
   );
+  const [imageUrl, setImageUrl] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+
+  // ── URL-paste prefill state ───────────────────────────────────────
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [pasteStatus, setPasteStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [pasteMessage, setPasteMessage] = useState("");
+  const [autoApprove, setAutoApprove] = useState(false);
+
+  async function handleFetchUrl() {
+    const target = pasteUrl.trim();
+    if (!target) return;
+    setPasteStatus("loading");
+    setPasteMessage("");
+    try {
+      const res = await fetch("/api/events/parse-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: target }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasteStatus("error");
+        setPasteMessage(data.error || "Couldn't parse that URL.");
+        return;
+      }
+      applyParsedPayload(data.payload || {});
+      setAutoApprove(Boolean(data.trusted));
+      setPasteStatus("success");
+      setPasteMessage(
+        data.trusted
+          ? "✓ Filled from trusted source — will publish immediately."
+          : "✓ Filled from URL — review and submit for moderation.",
+      );
+    } catch {
+      setPasteStatus("error");
+      setPasteMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  function applyParsedPayload(p: Record<string, unknown>) {
+    if (typeof p.name === "string") setName(p.name);
+    if (typeof p.startsAt === "string") setStartsAt(isoToDatetimeLocal(p.startsAt));
+    if (typeof p.endsAt === "string") setEndsAt(isoToDatetimeLocal(p.endsAt));
+    if (typeof p.venue === "string") setVenue(p.venue);
+    if (typeof p.city === "string") setCity(p.city);
+    if (typeof p.country === "string") setCountry(p.country);
+    if (typeof p.url === "string") setUrl(p.url);
+    if (typeof p.description === "string") setDescription(p.description);
+    if (typeof p.imageUrl === "string") setImageUrl(p.imageUrl);
+    if (
+      typeof p.eventType === "string" &&
+      ["conference", "workshop", "meetup", "hackathon", "other"].includes(
+        p.eventType,
+      )
+    ) {
+      setEventType(p.eventType as typeof eventType);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -460,6 +546,7 @@ function EventForm() {
       description: description || undefined,
       eventType: eventType || undefined,
       priceTier: priceTier || undefined,
+      imageUrl: imageUrl || undefined,
     };
 
     try {
@@ -495,6 +582,51 @@ function EventForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+
+      <div className="border border-[var(--rex-accent)]/30 bg-[var(--rex-accent)]/[0.04] rounded-sm p-4">
+        <Label>Got a lu.ma / Eventbrite link?</Label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="url"
+            value={pasteUrl}
+            onChange={(e) => setPasteUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleFetchUrl();
+              }
+            }}
+            className="rex-input flex-1"
+            placeholder="https://lu.ma/your-event"
+            disabled={pasteStatus === "loading"}
+          />
+          <button
+            type="button"
+            onClick={handleFetchUrl}
+            disabled={pasteStatus === "loading" || !pasteUrl.trim()}
+            className="rex-btn whitespace-nowrap"
+          >
+            {pasteStatus === "loading" ? "Fetching…" : "Auto-fill ▸"}
+          </button>
+        </div>
+        {pasteMessage && (
+          <p
+            className={`mt-2 text-[11px] font-mono ${
+              pasteStatus === "error"
+                ? "text-[var(--rex-danger)]"
+                : "text-[var(--rex-accent)]"
+            }`}
+          >
+            {pasteMessage}
+          </p>
+        )}
+        {pasteStatus === "idle" && (
+          <Hint>
+            Paste the event URL and we&apos;ll fill the form. Trusted sources
+            (lu.ma, eventbrite, ethglobal, meetup) publish immediately.
+          </Hint>
+        )}
+      </div>
 
       <div>
         <Label>Event Name</Label>
@@ -644,7 +776,11 @@ function EventForm() {
       </div>
 
       <div className="flex items-center justify-between pt-2">
-        <Hint>Reviewed before publication.</Hint>
+        <Hint>
+          {autoApprove
+            ? "Trusted source — publishes immediately on submit."
+            : "Reviewed by an analyst before publication."}
+        </Hint>
         <button
           type="submit"
           disabled={status === "loading"}
@@ -659,6 +795,798 @@ function EventForm() {
       )}
     </form>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Pop-Up City form — multi-week residency, mostly lu.ma-driven
+// ─────────────────────────────────────────────────────────────────────
+
+function PopupCityForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [venue, setVenue] = useState("");
+  const [url, setUrl] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [applicationDeadline, setApplicationDeadline] = useState("");
+  const [focus, setFocus] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+  const [autoApprove, setAutoApprove] = useState(false);
+
+  // Pop-up cities use the same event-URL parser (almost all are listed on
+  // lu.ma). The parser returns event fields, which map cleanly onto our
+  // pop-up payload — just into different state setters.
+  function applyParsed(p: Record<string, unknown>) {
+    if (typeof p.name === "string") setName(p.name);
+    if (typeof p.startsAt === "string") setStartsAt(isoToDatetimeLocal(p.startsAt));
+    if (typeof p.endsAt === "string") setEndsAt(isoToDatetimeLocal(p.endsAt));
+    if (typeof p.city === "string") setCity(p.city);
+    if (typeof p.country === "string") setCountry(p.country);
+    if (typeof p.venue === "string") setVenue(p.venue);
+    if (typeof p.url === "string") setUrl(p.url);
+    if (typeof p.description === "string") setDescription(p.description);
+    if (typeof p.imageUrl === "string") setImageUrl(p.imageUrl);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+
+    const payload = {
+      name,
+      organization: organization || undefined,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      startsAt: startsAt ? new Date(startsAt).toISOString() : "",
+      endsAt: endsAt ? new Date(endsAt).toISOString() : "",
+      city: city || undefined,
+      country: country || undefined,
+      venue: venue || undefined,
+      url: url || undefined,
+      applyUrl: applyUrl || undefined,
+      applicationDeadline: applicationDeadline
+        ? new Date(applicationDeadline).toISOString()
+        : undefined,
+      focus: focus || undefined,
+      imageUrl: imageUrl || undefined,
+    };
+
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "popup_city",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+
+      <UrlPasteBox
+        endpoint="/api/events/parse-url"
+        placeholder="https://lu.ma/your-popup-city"
+        copy="Got a lu.ma / event page?"
+        onApply={applyParsed}
+        onTrustedChange={setAutoApprove}
+      />
+
+      <Field label="Name">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          minLength={3}
+          maxLength={200}
+          className="rex-input w-full"
+          placeholder="Edge City Lanna"
+        />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Starts">
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            required
+            className="rex-input w-full"
+          />
+        </Field>
+        <Field label="Ends">
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            required
+            className="rex-input w-full"
+          />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+          minLength={20}
+          maxLength={5000}
+          rows={4}
+          className="rex-input w-full resize-y"
+          placeholder="What the residency is about, who should apply, what to expect."
+        />
+      </Field>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="City">
+          <input type="text" value={city} onChange={(e) => setCity(e.target.value)} maxLength={100} className="rex-input w-full" />
+        </Field>
+        <Field label="Country">
+          <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} maxLength={100} className="rex-input w-full" />
+        </Field>
+        <Field label="Venue (opt.)">
+          <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} maxLength={200} className="rex-input w-full" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Event URL">
+          <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+        <Field label="Apply URL">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Application Deadline (opt.)">
+          <input
+            type="datetime-local"
+            value={applicationDeadline}
+            onChange={(e) => setApplicationDeadline(e.target.value)}
+            className="rex-input w-full"
+          />
+        </Field>
+        <Field label="Focus (opt.)">
+          <input
+            type="text"
+            value={focus}
+            onChange={(e) => setFocus(e.target.value)}
+            maxLength={200}
+            className="rex-input w-full"
+            placeholder="DeFi / Longevity / ZK research"
+          />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Host Org (opt.)">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={120} className="rex-input w-full" />
+        </Field>
+        <Field label="Host Org URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" />
+        </Field>
+      </div>
+
+      <SubmitterFields
+        email={submitterEmail}
+        setEmail={setSubmitterEmail}
+        handle={submitterHandle}
+        setHandle={setSubmitterHandle}
+      />
+
+      <SubmitRow autoApprove={autoApprove} status={status} message={message} label="Submit Pop-Up City ▸" />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Grant form
+// ─────────────────────────────────────────────────────────────────────
+
+function GrantForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [focus, setFocus] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [rolling, setRolling] = useState(false);
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+
+    const payload = {
+      name,
+      organization,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      amount: amount || undefined,
+      focus: focus || undefined,
+      applyUrl: applyUrl || undefined,
+      deadline: deadline ? new Date(deadline).toISOString() : undefined,
+      rolling,
+      tags: parseTagsInput(tagsRaw),
+    };
+
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "grant",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+
+      <Field label="Grant Name">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Ecosystem Support Program" />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Organization">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Ethereum Foundation" />
+        </Field>
+        <Field label="Organization URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What gets funded, what doesn't, who should apply." />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Amount (opt.)">
+          <input type="text" value={amount} onChange={(e) => setAmount(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Up to $250k" />
+        </Field>
+        <Field label="Focus (opt.)">
+          <input type="text" value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Public goods / Infrastructure" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Apply URL">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+        <Field label="Deadline (opt.)">
+          <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="rex-input w-full" disabled={rolling} />
+        </Field>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={rolling} onChange={(e) => setRolling(e.target.checked)} className="accent-[var(--rex-accent)]" />
+        <span className="text-sm text-[var(--rex-text-muted)]">Rolling — accepting applications continuously</span>
+      </label>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="zk, infra, public-goods" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Grant ▸" trustedHint="Trusted grant org? Publishes immediately." />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Accelerator form
+// ─────────────────────────────────────────────────────────────────────
+
+function AcceleratorForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [duration, setDuration] = useState("");
+  const [investment, setInvestment] = useState("");
+  const [location, setLocation] = useState("");
+  const [focus, setFocus] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [nextDeadline, setNextDeadline] = useState("");
+  const [rolling, setRolling] = useState(false);
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    const payload = {
+      name,
+      organization,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      duration: duration || undefined,
+      investment: investment || undefined,
+      location: location || undefined,
+      focus: focus || undefined,
+      applyUrl: applyUrl || undefined,
+      nextDeadline: nextDeadline ? new Date(nextDeadline).toISOString() : undefined,
+      rolling,
+      tags: parseTagsInput(tagsRaw),
+    };
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "accelerator",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+
+      <Field label="Program Name">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Alliance DAO Cohort 12" />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Organization">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Alliance" />
+        </Field>
+        <Field label="Organization URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="Stage, thesis, what founders get, what's required." />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Duration (opt.)">
+          <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="3 months" />
+        </Field>
+        <Field label="Investment (opt.)">
+          <input type="text" value={investment} onChange={(e) => setInvestment(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="$500k SAFE" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Location (opt.)">
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="San Francisco / Remote" />
+        </Field>
+        <Field label="Focus (opt.)">
+          <input type="text" value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Early-stage crypto" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Apply URL">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+        <Field label="Next Deadline (opt.)">
+          <input type="datetime-local" value={nextDeadline} onChange={(e) => setNextDeadline(e.target.value)} className="rex-input w-full" disabled={rolling} />
+        </Field>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={rolling} onChange={(e) => setRolling(e.target.checked)} className="accent-[var(--rex-accent)]" />
+        <span className="text-sm text-[var(--rex-text-muted)]">Rolling intake</span>
+      </label>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="defi, infra, consumer" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Accelerator ▸" />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Job form
+// ─────────────────────────────────────────────────────────────────────
+
+function JobForm() {
+  const [title, setTitle] = useState("");
+  const [company, setCompany] = useState("");
+  const [companyUrl, setCompanyUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [remote, setRemote] = useState(false);
+  const [employmentType, setEmploymentType] = useState<
+    "" | "full-time" | "part-time" | "contract" | "internship"
+  >("");
+  const [seniority, setSeniority] = useState<
+    "" | "junior" | "mid" | "senior" | "staff" | "principal" | "exec"
+  >("");
+  const [compensation, setCompensation] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    const payload = {
+      title,
+      company,
+      companyUrl: companyUrl || undefined,
+      description,
+      location: location || undefined,
+      remote,
+      employmentType: employmentType || undefined,
+      seniority: seniority || undefined,
+      compensation: compensation || undefined,
+      applyUrl: applyUrl || undefined,
+      tags: parseTagsInput(tagsRaw),
+    };
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "job",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+
+      <Field label="Role Title">
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Senior Smart Contract Engineer" />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Company">
+          <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" />
+        </Field>
+        <Field label="Company URL (opt.)">
+          <input type="url" value={companyUrl} onChange={(e) => setCompanyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={5} className="rex-input w-full resize-y" placeholder="What you'll build, what you need, the team." />
+      </Field>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="Location (opt.)">
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="San Francisco, CA" />
+        </Field>
+        <Field label="Employment">
+          <select value={employmentType} onChange={(e) => setEmploymentType(e.target.value as typeof employmentType)} className="rex-input w-full">
+            <option value="">—</option>
+            <option value="full-time">Full-time</option>
+            <option value="part-time">Part-time</option>
+            <option value="contract">Contract</option>
+            <option value="internship">Internship</option>
+          </select>
+        </Field>
+        <Field label="Seniority">
+          <select value={seniority} onChange={(e) => setSeniority(e.target.value as typeof seniority)} className="rex-input w-full">
+            <option value="">—</option>
+            <option value="junior">Junior</option>
+            <option value="mid">Mid</option>
+            <option value="senior">Senior</option>
+            <option value="staff">Staff</option>
+            <option value="principal">Principal</option>
+            <option value="exec">Exec</option>
+          </select>
+        </Field>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} className="accent-[var(--rex-accent)]" />
+        <span className="text-sm text-[var(--rex-text-muted)]">Remote OK</span>
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Compensation (opt.)">
+          <input type="text" value={compensation} onChange={(e) => setCompensation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="$160k–$220k + equity" />
+        </Field>
+        <Field label="Apply URL">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://boards.greenhouse.io/…" />
+        </Field>
+      </div>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="solidity, rust, frontend" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Job ▸" trustedHint="Greenhouse / Lever / Ashby URLs publish immediately." />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Shared sub-components for the new forms
+// ─────────────────────────────────────────────────────────────────────
+
+function UrlPasteBox({
+  endpoint,
+  placeholder,
+  copy,
+  onApply,
+  onTrustedChange,
+}: {
+  endpoint: string;
+  placeholder: string;
+  copy: string;
+  onApply: (payload: Record<string, unknown>) => void;
+  onTrustedChange?: (trusted: boolean) => void;
+}) {
+  const [url, setUrl] = useState("");
+  const [s, setS] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [msg, setMsg] = useState("");
+
+  async function fetchIt() {
+    const target = url.trim();
+    if (!target) return;
+    setS("loading");
+    setMsg("");
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: target }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setS("error");
+        setMsg(data.error || "Couldn't parse that URL.");
+        return;
+      }
+      onApply(data.payload || {});
+      onTrustedChange?.(Boolean(data.trusted));
+      setS("success");
+      setMsg(
+        data.trusted
+          ? "✓ Filled from trusted source — will publish immediately."
+          : "✓ Filled from URL — review and submit for moderation.",
+      );
+    } catch {
+      setS("error");
+      setMsg("Channel disrupted. Retry.");
+    }
+  }
+
+  return (
+    <div className="border border-[var(--rex-accent)]/30 bg-[var(--rex-accent)]/[0.04] rounded-sm p-4">
+      <Label>{copy}</Label>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              fetchIt();
+            }
+          }}
+          className="rex-input flex-1"
+          placeholder={placeholder}
+          disabled={s === "loading"}
+        />
+        <button
+          type="button"
+          onClick={fetchIt}
+          disabled={s === "loading" || !url.trim()}
+          className="rex-btn whitespace-nowrap"
+        >
+          {s === "loading" ? "Fetching…" : "Auto-fill ▸"}
+        </button>
+      </div>
+      {msg && (
+        <p
+          className={`mt-2 text-[11px] font-mono ${
+            s === "error" ? "text-[var(--rex-danger)]" : "text-[var(--rex-accent)]"
+          }`}
+        >
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function SubmitterFields({
+  email,
+  setEmail,
+  handle,
+  setHandle,
+}: {
+  email: string;
+  setEmail: (v: string) => void;
+  handle: string;
+  setHandle: (v: string) => void;
+}) {
+  return (
+    <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-2 gap-3">
+      <Field label="Your Email (opt.)">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="rex-input w-full"
+          placeholder="for follow-up"
+        />
+      </Field>
+      <Field label="Handle / Org (opt.)">
+        <input
+          type="text"
+          value={handle}
+          onChange={(e) => setHandle(e.target.value)}
+          maxLength={80}
+          className="rex-input w-full"
+          placeholder="who's submitting"
+        />
+      </Field>
+    </div>
+  );
+}
+
+function SubmitRow({
+  status,
+  message,
+  label,
+  autoApprove,
+  trustedHint,
+}: {
+  status: FormStatus;
+  message: string;
+  label: string;
+  autoApprove?: boolean;
+  trustedHint?: string;
+}) {
+  return (
+    <>
+      <div className="flex items-center justify-between pt-2">
+        <Hint>
+          {autoApprove
+            ? "Trusted source — publishes immediately on submit."
+            : trustedHint ?? "Reviewed by an analyst before publication."}
+        </Hint>
+        <button type="submit" disabled={status === "loading"} className="rex-btn">
+          {status === "loading" ? "Submitting…" : label}
+        </button>
+      </div>
+      {status === "error" && (
+        <p className="text-xs font-mono text-[var(--rex-danger)]">✕ {message}</p>
+      )}
+    </>
+  );
+}
+
+function parseTagsInput(raw: string): string[] | undefined {
+  const tags = raw
+    .split(/[,\n]/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  return tags.length ? tags : undefined;
 }
 
 function Honeypot({
@@ -752,4 +1680,15 @@ function splitLines(s: string): string[] {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
+}
+
+// Datetime-local inputs expect "YYYY-MM-DDTHH:mm" in the browser's local
+// timezone. The parse-url endpoint returns ISO UTC, so we convert here so
+// the prefill displays the correct wall-clock time for the user. The form's
+// own submit path converts back to ISO via new Date(value).toISOString().
+function isoToDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

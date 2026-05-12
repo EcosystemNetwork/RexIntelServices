@@ -51,7 +51,14 @@ export const suppressionReasonEnum = pgEnum("suppression_reason", [
   "unsubscribe_global",
 ]);
 
-export const submissionTypeEnum = pgEnum("submission_type", ["intel", "event"]);
+export const submissionTypeEnum = pgEnum("submission_type", [
+  "intel",
+  "event",
+  "job",
+  "grant",
+  "accelerator",
+  "popup_city",
+]);
 
 export const submissionStatusEnum = pgEnum("submission_status", [
   "pending",
@@ -300,7 +307,82 @@ export type EventPayload = {
   imageUrl?: string;
 };
 
-export type SubmissionPayload = IntelPayload | EventPayload;
+export type JobPayload = {
+  title: string;
+  company: string;
+  companyUrl?: string;
+  description: string;
+  location?: string; // free-form: "San Francisco, CA" / "Remote (US)" / "EU"
+  remote?: boolean;
+  employmentType?: "full-time" | "part-time" | "contract" | "internship";
+  seniority?: "junior" | "mid" | "senior" | "staff" | "principal" | "exec";
+  compensation?: string;
+  applyUrl?: string;
+  tags?: string[];
+  expiresAt?: string;
+  imageUrl?: string;
+};
+
+export type PopupCityPayload = {
+  name: string;
+  organization?: string; // host org if separate from the city name
+  organizationUrl?: string;
+  description: string;
+  // Multi-week run — both required to make the cards/sort meaningful.
+  startsAt: string; // ISO timestamp
+  endsAt: string;   // ISO timestamp
+  city?: string;
+  country?: string;
+  venue?: string;
+  url?: string;
+  applyUrl?: string;
+  // Optional application deadline distinct from event start (most apps close
+  // weeks before the residency begins).
+  applicationDeadline?: string;
+  focus?: string; // "Longevity + AI", "DeFi research", etc.
+  tags?: string[];
+  imageUrl?: string;
+};
+
+export type GrantPayload = {
+  name: string;
+  organization: string;
+  organizationUrl?: string;
+  description: string;
+  amount?: string; // free-form: "Up to $250k", "$50k–$500k"
+  focus?: string; // "Public goods", "Infrastructure", "ZK research"
+  applyUrl?: string;
+  // ISO timestamp. Either deadline OR rolling — UI prefers deadline when both.
+  deadline?: string;
+  rolling?: boolean;
+  tags?: string[];
+  imageUrl?: string;
+};
+
+export type AcceleratorPayload = {
+  name: string;
+  organization: string;
+  organizationUrl?: string;
+  description: string;
+  duration?: string; // "3 months", "6 weeks", "12 weeks + ongoing"
+  investment?: string; // "$500k for 7%", "Up to $250k SAFE"
+  location?: string; // "San Francisco", "Remote", "NYC + Remote"
+  focus?: string; // "Early-stage crypto", "DeFi", "Infra"
+  applyUrl?: string;
+  // ISO timestamp for next cohort application deadline. Optional.
+  nextDeadline?: string;
+  rolling?: boolean;
+  tags?: string[];
+  imageUrl?: string;
+};
+
+export type SubmissionPayload =
+  | IntelPayload
+  | EventPayload
+  | JobPayload
+  | PopupCityPayload
+  | GrantPayload
+  | AcceleratorPayload;
 
 export const submissions = pgTable(
   "submissions",

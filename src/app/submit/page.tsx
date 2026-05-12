@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import SubmitForm from "./submit-form";
 
@@ -13,6 +14,12 @@ export const metadata: Metadata = {
   },
 };
 
+// SubmitForm reads useSearchParams for `?type=event`; Next requires that
+// hook to be inside a Suspense boundary during static prerender.
 export default function SubmitPage() {
-  return <SubmitForm />;
+  return (
+    <Suspense fallback={null}>
+      <SubmitForm />
+    </Suspense>
+  );
 }

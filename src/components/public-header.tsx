@@ -32,9 +32,12 @@ export function PublicHeader({
           </div>
         )}
       </Link>
-      <div className="flex items-center gap-3 sm:gap-5 text-[11px] sm:text-xs font-mono uppercase tracking-widest shrink-0">
+      <div className="flex items-center gap-2.5 sm:gap-4 text-[10px] sm:text-[11px] font-mono uppercase tracking-widest shrink-0">
         <PublicNavLink href="/intel">Intel</PublicNavLink>
         <PublicNavLink href="/events">Events</PublicNavLink>
+        <PublicNavLink href="/pop-up-cities">Cities</PublicNavLink>
+        <PublicNavLink href="/grants">Grants</PublicNavLink>
+        <PublicNavLink href="/accelerators">Accel</PublicNavLink>
         <PublicNavLink href="/submit" accent>
           Submit ▸
         </PublicNavLink>
