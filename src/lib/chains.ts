@@ -38,3 +38,54 @@ export const ADDRESS_ROLES = [
 ] as const;
 
 export type AddressRoleSlug = (typeof ADDRESS_ROLES)[number]["slug"];
+
+/**
+ * Best-effort block-explorer URL for a given chain + address. Returns null
+ * for chains we don't have a canonical explorer for, in which case the UI
+ * renders the address as text (no link).
+ */
+export function explorerUrl(chain: string, address: string): string | null {
+  switch (chain) {
+    case "ethereum":
+      return `https://etherscan.io/address/${address}`;
+    case "bitcoin":
+      return `https://mempool.space/address/${address}`;
+    case "solana":
+      return `https://solscan.io/account/${address}`;
+    case "tron":
+      return `https://tronscan.org/#/address/${address}`;
+    case "bsc":
+      return `https://bscscan.com/address/${address}`;
+    case "polygon":
+      return `https://polygonscan.com/address/${address}`;
+    case "arbitrum":
+      return `https://arbiscan.io/address/${address}`;
+    case "optimism":
+      return `https://optimistic.etherscan.io/address/${address}`;
+    case "base":
+      return `https://basescan.org/address/${address}`;
+    case "avalanche":
+      return `https://snowtrace.io/address/${address}`;
+    case "ton":
+      return `https://tonscan.org/address/${address}`;
+    case "near":
+      return `https://nearblocks.io/address/${address}`;
+    case "sui":
+      return `https://suiscan.xyz/mainnet/account/${address}`;
+    case "aptos":
+      return `https://explorer.aptoslabs.com/account/${address}`;
+    case "ripple":
+      return `https://xrpscan.com/account/${address}`;
+    case "litecoin":
+      return `https://litecoinspace.org/address/${address}`;
+    default:
+      return null;
+  }
+}
+
+/** Display label for a chain slug, falling back to the slug capitalized. */
+export function chainLabel(slug: string): string {
+  const c = SUPPORTED_CHAINS.find((x) => x.slug === slug);
+  if (c) return c.label;
+  return slug.charAt(0).toUpperCase() + slug.slice(1);
+}

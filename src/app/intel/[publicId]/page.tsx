@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions, addresses, intelAddresses } from "@/lib/db";
 import type { IntelPayload, AddressRole } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { explorerUrl } from "@/lib/chains";
 
 export const dynamic = "force-dynamic";
 
@@ -70,45 +71,6 @@ const ROLE_LABEL: Record<AddressRole, string> = {
   counterparty: "counterparty",
   observed: "observed",
 };
-
-function explorerUrl(chain: string, address: string): string | null {
-  switch (chain) {
-    case "ethereum":
-      return `https://etherscan.io/address/${address}`;
-    case "bitcoin":
-      return `https://mempool.space/address/${address}`;
-    case "solana":
-      return `https://solscan.io/account/${address}`;
-    case "tron":
-      return `https://tronscan.org/#/address/${address}`;
-    case "bsc":
-      return `https://bscscan.com/address/${address}`;
-    case "polygon":
-      return `https://polygonscan.com/address/${address}`;
-    case "arbitrum":
-      return `https://arbiscan.io/address/${address}`;
-    case "optimism":
-      return `https://optimistic.etherscan.io/address/${address}`;
-    case "base":
-      return `https://basescan.org/address/${address}`;
-    case "avalanche":
-      return `https://snowtrace.io/address/${address}`;
-    case "ton":
-      return `https://tonscan.org/address/${address}`;
-    case "near":
-      return `https://nearblocks.io/address/${address}`;
-    case "sui":
-      return `https://suiscan.xyz/mainnet/account/${address}`;
-    case "aptos":
-      return `https://explorer.aptoslabs.com/account/${address}`;
-    case "ripple":
-      return `https://xrpscan.com/account/${address}`;
-    case "litecoin":
-      return `https://litecoinspace.org/address/${address}`;
-    default:
-      return null;
-  }
-}
 
 export async function generateMetadata({
   params,
@@ -275,19 +237,25 @@ export default async function IntelDetailPage({
                       <span className="uppercase tracking-widest text-[10px] text-[var(--rex-text-dim)]">
                         {a.chain}
                       </span>
-                      {explorer ? (
+                      {/* Internal dossier link goes first — clicking the
+                          address surfaces every other intel item that
+                          mentions it. The block-explorer link sits beside
+                          it so analysts can drill into on-chain context. */}
+                      <Link
+                        href={`/address/${a.chain}/${a.address.toLowerCase()}`}
+                        className="text-[var(--rex-accent)] hover:underline break-all"
+                      >
+                        {a.address}
+                      </Link>
+                      {explorer && (
                         <a
                           href={explorer}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[var(--rex-accent)] hover:underline break-all"
+                          className="text-[10px] uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
                         >
-                          {a.address}
+                          explorer ▸
                         </a>
-                      ) : (
-                        <span className="text-[var(--rex-text-muted)] break-all">
-                          {a.address}
-                        </span>
                       )}
                       <span
                         className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
