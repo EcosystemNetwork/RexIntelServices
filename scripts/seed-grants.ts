@@ -254,6 +254,40 @@ const grants: GrantPayload[] = [
     rolling: true,
     tags: ["aave", "defi"],
   },
+  {
+    name: "Beam Foundation Grants Program",
+    organization: "Beam Foundation",
+    organizationUrl: "https://grants.onbeam.com/",
+    description:
+      "Milestone-based funding for developers, researchers, and builders advancing the Beam ecosystem. Covers tech & infra, research, DeFi/RWA, AI & gaming protocols, plus content and community projects. Includes co-marketing, technical help, and connections to follow-on funding.",
+    focus: "Beam ecosystem — infra, DeFi, RWA, AI, gaming",
+    applyUrl: "https://onbeam.com/apply",
+    rolling: true,
+    tags: ["beam", "ecosystem", "milestone"],
+  },
+  {
+    name: "Circle Developer Grants",
+    organization: "Circle",
+    organizationUrl: "https://www.circle.com/grant",
+    description:
+      "Milestone-based USDC grants for teams building on Arc and the Circle Developer Platform (USDC, Wallets, CCTP, Nanopayments). Priority verticals: stablecoin FX, agentic economic activity, peer-to-peer payments, treasury, prediction markets, lending/borrowing. Co-marketing and mentorship alongside the funding.",
+    focus: "Stablecoin / USDC builders on Arc + Circle Developer Platform",
+    applyUrl: "https://circle.questbook.app/",
+    rolling: true,
+    tags: ["circle", "usdc", "stablecoin", "arc", "payments"],
+  },
+  {
+    name: "Alchemy Solana Fund",
+    organization: "Alchemy",
+    organizationUrl: "https://www.alchemy.com/solana-20m-fund",
+    description:
+      "$20M infrastructure-credit fund for Solana developers — up to $25k in Alchemy credits per team. Open to any builder on Solana, with priority access and a 15% credit bonus for participants of the Solana Foundation, Superteam (global chapters), and MonkeFoundry. Credits valid 90 days from redemption.",
+    amount: "Up to $25k in credits (90-day validity); $20M total fund",
+    focus: "Solana infrastructure & scaling",
+    applyUrl: "https://www.alchemy.com/solana-20m-fund",
+    rolling: true,
+    tags: ["alchemy", "solana", "infra", "credits"],
+  },
 ];
 
 async function upsertGrant(payload: GrantPayload) {

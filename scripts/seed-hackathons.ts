@@ -1,10 +1,12 @@
 /**
  * Run with: npx tsx scripts/seed-hackathons.ts
  *
- * Seeds additional crypto hackathons that don't come from the ETHGlobal feed
+ * Seeds hackathons that don't come from the ETHGlobal feed
  * (scripts/seed-events-ethglobal.ts already seeds the ETHGlobal series).
+ * Includes crypto/web3 hackathons plus AI / agentic-engineering hackathons
+ * (e.g. tokens&), since both audiences overlap with RexIntel builders.
  * Pulled from DoraHacks, Devpost, lablab.ai, Encode Club, Akindo, Colosseum,
- * and the official organizer announcements — every entry below has a
+ * Luma, and the official organizer announcements — every entry below has a
  * confirmed source URL. Idempotent: matched by payload->>'name'.
  *
  * Date handling: 12:00 UTC start / 23:00 UTC end so the displayed calendar
@@ -78,15 +80,6 @@ const inputs: SeedInput[] = [
   },
 
   // === DoraHacks ===
-  {
-    name: "Casper Hackathon 2026",
-    startDate: "2025-11-14",
-    endDate: "2026-01-04",
-    city: "Online",
-    url: "https://dorahacks.io/hackathon/casper-hackathon-2026/detail",
-    description:
-      "Casper Network's 2026 hackathon on DoraHacks. $25,000 USD prize pool to build dApps on the enterprise-grade PoS L1 — DeFi, NFTs, liquid staking, cross-chain.",
-  },
   {
     name: "Polkadot Solidity Hackathon 2026",
     startDate: "2026-02-15",
@@ -183,6 +176,151 @@ const inputs: SeedInput[] = [
     url: "https://blockworks.com/event/permissionless-iv-hackathon",
     description:
       "36-hour onsite hackathon by Cracked Labs and Blockworks at Industry City, Brooklyn — kicks off Permissionless IV. $100,000+ in bounties; free to attend with conference access.",
+  },
+
+  // === ETHGlobal virtual hackathons (DeFi) ===
+  {
+    name: "ETHGlobal HackMoney 2026",
+    startDate: "2026-01-30",
+    endDate: "2026-02-11",
+    city: "Online",
+    url: "https://ethglobal.com/events/hackmoney2026",
+    description:
+      "ETHGlobal's largest DeFi hackathon of 2026 — virtual, 12 days. Builders shipped stablecoin flows, on/off-ramps and agentic payments.",
+  },
+
+  // === Starknet / ZK ===
+  {
+    name: "Re{define} Starknet Hackathon 2026",
+    startDate: "2026-02-01",
+    endDate: "2026-02-28",
+    city: "Online",
+    url: "https://hackathon.starknet.org/",
+    description:
+      "Starknet Foundation's flagship 2026 hackathon, run on DoraHacks. $27,000 in prizes across Bitcoin, Privacy and Open tracks; submissions deployed to Starknet.",
+  },
+
+  // === Regional EthCC-week hackathons ===
+  {
+    name: "Rayls EthCC Hackathon",
+    startDate: "2026-03-28",
+    endDate: "2026-03-29",
+    city: "Cannes",
+    country: "France",
+    url: "https://ethcc.io/",
+    description:
+      "Rayls' 2nd developer hackathon, held during EthCC[9] week in Cannes. Part of Rayls' $1M Developer Program in the run-up to its public chain mainnet.",
+  },
+
+  // === Regional Ethereum community hackathons ===
+  {
+    name: "ETHMumbai 2026",
+    startDate: "2026-03-12",
+    endDate: "2026-03-15",
+    city: "Mumbai",
+    country: "India",
+    url: "https://www.ethmumbai.in/",
+    description:
+      "Community Ethereum conference + hackathon in Mumbai — builder workshops, talks, and a multi-day in-person hackathon.",
+  },
+  {
+    name: "ETHPrague 2026",
+    startDate: "2026-05-08",
+    endDate: "2026-05-10",
+    city: "Prague",
+    country: "Czech Republic",
+    url: "https://ethprague.com/",
+    description:
+      "ETHPrague Conference and Hackathon — 3 days of in-person building plus talks from the Czech Ethereum community.",
+  },
+  {
+    name: "ETHRome 2026",
+    startDate: "2026-09-11",
+    endDate: "2026-09-13",
+    city: "Rome",
+    country: "Italy",
+    url: "https://www.ethrome.org/",
+    description:
+      "ETHRome — 3-day in-person Ethereum hackathon in Rome focused on shipping production-ready dApps in a single weekend.",
+  },
+
+  // === TAIKAI ===
+  {
+    name: "Hackanation 2026",
+    startDate: "2026-04-24",
+    endDate: "2026-06-02",
+    city: "Hybrid",
+    url: "https://taikai.network/en/TokenNation/hackathons/Hackanation2026/overview",
+    description:
+      "TokenNation's flagship 2026 hybrid hackathon on TAIKAI uniting blockchain, entrepreneurship and social impact. Tracks include Solana, Chainlink Labs, Web3 and AI.",
+  },
+
+  // === Devfolio ===
+  {
+    name: "HackPrix Season 3",
+    startDate: "2026-06-13",
+    endDate: "2026-06-14",
+    city: "Kismatpur",
+    country: "India",
+    url: "https://hackprix-2026.devfolio.co/",
+    description:
+      "HackPrix returns as a 2-day in-person hackathon designed for rapid prototyping and collaboration across Indian builder communities.",
+  },
+
+  // === Cosmoverse ===
+  {
+    name: "Hackmos 2026",
+    startDate: "2026-10-23",
+    endDate: "2026-11-01",
+    city: "Hong Kong",
+    url: "https://cosmoverse.org/hackmos",
+    description:
+      "Hackmos — the official Cosmoverse 2026 hackathon, now open to global builders across the Cosmos / IBC ecosystem.",
+  },
+
+  // === Bags (creator-finance on Solana) ===
+  {
+    name: "The Bags Hackathon",
+    startDate: "2026-04-14",
+    endDate: "2026-06-01",
+    city: "Online",
+    url: "https://bags.fm/hackathon",
+    description:
+      "Solana creator-finance hackathon hosted by Bags (also listed on DoraHacks). $1M in direct prizes — top 100 projects each receive a $10k–$100k grant — plus $3M in ongoing funding and support and hardware prizes for winners. Every submission must launch on Bags and link a token to the project. Submissions that integrate via API, SDK, token-launching, trading, or creator tools rank higher. Open-source strongly encouraged; private repos must give judges access.",
+  },
+
+  // === tokens& (AI / agentic engineering hackathons) ===
+  {
+    name: "Agentic Engineering Hack NYC 2026",
+    startDate: "2026-05-23",
+    endDate: "2026-05-23",
+    city: "New York",
+    country: "United States",
+    url: "https://luma.com/nycagenthack",
+    description:
+      "One-day NYC builder hackathon by tokens&. 9:30 AM – 7:30 PM EDT, with kickoff, day-long hack, demos and awards. Partners: Google DeepMind, Datadog, Nimble, ClickHouse. Speakers/judges from DeepMind, Luminai, Nimble, Airbyte, Crosby and Freeport. Approval required to attend.",
+  },
+  {
+    name: "Harness Engineering Hack SF 2026",
+    startDate: "2026-06-12",
+    endDate: "2026-06-12",
+    city: "San Francisco",
+    country: "United States",
+    url: "https://luma.com/harnesshack",
+    description:
+      "One-day SF builder hackathon by tokens&. 9:30 AM – 7:30 PM PDT, with kickoff, day-long hack, demos and awards. Partners: AWS, ElevenLabs, Luminai. Judges from Luminai, Anthropic and Gap Inc. Approval required to attend.",
+  },
+
+  // === Arbitrum Open House ===
+  {
+    name: "Arbitrum Open House London 2026",
+    startDate: "2026-05-25",
+    endDate: "2026-06-14",
+    city: "London",
+    country: "United Kingdom",
+    url: "https://openhouse.arbitrum.io/",
+    description:
+      "3-week online Buildathon (May 25 – Jun 14) on Arbitrum followed by a 3-day in-person Founder House in London (Jul 10–12). $115K in Buildathon prizes plus $300K at the Founder House — $415K total. AI Agentic Category reserved $15K for the top three. Top 3 Buildathon winners share $70K; the Arbitrum Foundation also reserves $30K USDC in case-by-case grants. Same format that ran in NYC earlier in the year.",
   },
 ];
 

@@ -36,9 +36,6 @@ export function PublicHeader({
         <PublicNavLink href="/intel">Intel</PublicNavLink>
         <PublicNavLink href="/events">Events</PublicNavLink>
         <PublicNavLink href="/hackathons">Hacks</PublicNavLink>
-        <PublicNavLink href="/pop-up-cities">Cities</PublicNavLink>
-        <PublicNavLink href="/grants">Grants</PublicNavLink>
-        <PublicNavLink href="/accelerators">Accel</PublicNavLink>
         <PublicNavLink href="/submit" accent>
           Submit ▸
         </PublicNavLink>

@@ -71,6 +71,37 @@ export default function SubmissionsPage() {
     }
   }
 
+  // Optimistic pin/unpin so the row's badge flips instantly. Server is the
+  // source of truth — on error we revert + alert.
+  async function toggleFeatured(id: string, next: boolean) {
+    if (reviewing.has(id)) return;
+    setReviewing((prev) => new Set(prev).add(id));
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, featured: next } : r)),
+    );
+    try {
+      const res = await fetch(`/api/submissions/${id}/feature`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featured: next }),
+      });
+      if (!res.ok) {
+        // Revert + surface error
+        setRows((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, featured: !next } : r)),
+        );
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Could not update featured flag");
+      }
+    } finally {
+      setReviewing((prev) => {
+        const n = new Set(prev);
+        n.delete(id);
+        return n;
+      });
+    }
+  }
+
   return (
     <div className="p-10 max-w-6xl">
       <header className="mb-8">
@@ -167,6 +198,7 @@ export default function SubmissionsPage() {
                 setExpandedId(expandedId === s.id ? null : s.id)
               }
               onReview={(action) => review(s.id, action)}
+              onToggleFeatured={(next) => toggleFeatured(s.id, next)}
             />
           ))}
         </div>
@@ -233,12 +265,14 @@ function SubmissionRow({
   busy,
   onToggle,
   onReview,
+  onToggleFeatured,
 }: {
   submission: Submission;
   expanded: boolean;
   busy: boolean;
   onToggle: () => void;
   onReview: (action: "approve" | "reject" | "spam") => void;
+  onToggleFeatured: (next: boolean) => void;
 }) {
   const headline =
     submission.type === "intel"
@@ -247,6 +281,10 @@ function SubmissionRow({
 
   const created = new Date(submission.createdAt).toLocaleString();
   const isPending = submission.status === "pending";
+  const isApproved = submission.status === "approved";
+  // Intel doesn't sort by `featured` anywhere public, so hide the toggle
+  // there — keeps the admin row uncluttered for the high-volume type.
+  const canFeature = isApproved && submission.type !== "intel";
 
   return (
     <div className="rex-card overflow-hidden">
@@ -288,6 +326,29 @@ function SubmissionRow({
             {submission.honeypotTripped && " · 🚫 honeypot"}
           </div>
         </div>
+        {canFeature && (
+          <button
+            type="button"
+            onClick={(e) => {
+              // Don't toggle the row open/closed when clicking the star.
+              e.stopPropagation();
+              onToggleFeatured(!submission.featured);
+            }}
+            disabled={busy}
+            title={submission.featured ? "Unpin from top of board" : "Pin to top of board"}
+            aria-label={submission.featured ? "Unfeature" : "Feature"}
+            className="text-base leading-none px-2 py-1 rounded-sm transition-colors"
+            style={{
+              color: submission.featured
+                ? "var(--rex-accent)"
+                : "var(--rex-text-dim)",
+              opacity: busy ? 0.4 : 1,
+              cursor: busy ? "wait" : "pointer",
+            }}
+          >
+            {submission.featured ? "★" : "☆"}
+          </button>
+        )}
         <span
           className="text-xs font-mono"
           style={{ color: "var(--rex-text-dim)" }}

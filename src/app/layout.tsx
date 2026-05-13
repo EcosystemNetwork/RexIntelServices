@@ -1,13 +1,28 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
+// metadataBase is what Next uses to resolve any relative OG/Twitter image
+// path (like "/rex-banner.png") to an absolute URL in the rendered <meta>
+// tags. Without this, Twitter/Slack/Discord previews fall back to no image.
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: "Rex Intel Services",
   description:
-    "Monthly intelligence briefings delivered straight to your inbox. Market analysis, alpha signals, and curated intel from the front lines.",
-  keywords: ["intelligence", "newsletter", "briefing", "analysis", "Rex Intel Services"],
+    "Crypto intelligence, curated events, grants, accelerators, and pop-up cities — one operations channel for the field.",
+  keywords: [
+    "intelligence",
+    "newsletter",
+    "briefing",
+    "crypto",
+    "events",
+    "grants",
+    "accelerators",
+    "hackathons",
+    "Rex Intel Services",
+  ],
   manifest: "/favicon/site.webmanifest",
   icons: {
     icon: [
@@ -22,8 +37,25 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Rex Intel Services",
     description:
-      "Monthly intelligence briefings delivered straight to your inbox.",
+      "Crypto intelligence, curated events, grants, accelerators, and pop-up cities.",
     type: "website",
+    url: "/",
+    siteName: "Rex Intel Services",
+    images: [
+      {
+        url: "/rex-banner.png",
+        width: 1200,
+        height: 630,
+        alt: "Rex Intel Services — crypto intelligence + field calendar",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rex Intel Services",
+    description:
+      "Crypto intelligence, curated events, grants, accelerators, and pop-up cities.",
+    images: ["/rex-banner.png"],
   },
   alternates: {
     // Surfaced to feed-reader auto-discovery via <link rel="alternate"> tags.

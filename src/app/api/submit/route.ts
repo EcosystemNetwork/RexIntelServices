@@ -6,16 +6,17 @@ import {
   addresses,
   intelAddresses,
 } from "@/lib/db";
-import type {
-  IntelPayload,
-  EventPayload,
-  JobPayload,
-  PopupCityPayload,
-  HackathonPayload,
-  GrantPayload,
-  AcceleratorPayload,
-  AddressRole,
-} from "@/lib/db/schema";
+import type { AddressRole } from "@/lib/db/schema";
+import {
+  validateIntelPayload,
+  validateEventPayload,
+  validateJobPayload,
+  validateHackathonPayload,
+  validatePopupCityPayload,
+  validateGrantPayload,
+  validateAcceleratorPayload,
+  sanitizeSingleUrl,
+} from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { CHAIN_SLUG_SET } from "@/lib/chains";
 import {
@@ -26,6 +27,8 @@ import {
   isTrustedGrantUrl,
   isTrustedAcceleratorUrl,
 } from "@/lib/event-parser";
+import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
+import { absoluteUrl } from "@/lib/site-url";
 
 type AddressInput = {
   chain: string;
@@ -200,13 +203,40 @@ export async function POST(req: NextRequest) {
       eventStartsAt,
       publishedAt: autoApprove ? new Date() : null,
     })
-    .returning({ id: submissions.id });
+    .returning({ id: submissions.id, editToken: submissions.editToken });
 
   // Link addresses even on honeypot-tripped submissions so the moderator can
   // still see what was claimed when reviewing spam patterns. The submission
   // status keeps the row out of public listings either way.
   if (created && addressInputs.length) {
     await linkAddressesToSubmission(created.id, addressInputs);
+  }
+
+  // Edit link for non-anonymous submitters who provided an email. Honeypot-
+  // tripped rows are never emailed — they're spam, no follow-up. Anonymous
+  // intel deliberately has no contact info, so no email there either.
+  const editUrl = created ? absoluteUrl(`/submit/edit/${created.editToken}`) : null;
+  const shouldEmailEdit =
+    !!editUrl &&
+    !honeypotTripped &&
+    !!submitterEmail &&
+    submissionType !== "intel";
+
+  if (shouldEmailEdit && editUrl && submitterEmail) {
+    const payloadNameFromValidation =
+      (validation.payload as { name?: string; headline?: string; title?: string }).name ??
+      (validation.payload as { headline?: string }).headline ??
+      (validation.payload as { title?: string }).title ??
+      "Untitled";
+    // Fire and forget — don't make the submitter wait for SMTP. Failures
+    // log inside sendEditLinkEmail; the editUrl is also returned in the
+    // JSON response so a determined user can copy it from there.
+    void sendEditLinkEmail({
+      to: submitterEmail,
+      submissionType,
+      payloadName: String(payloadNameFromValidation),
+      editUrl,
+    });
   }
 
   const SURFACE_LABEL: Record<string, string> = {
@@ -222,6 +252,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     autoApproved: autoApprove,
+    // Only surface the edit URL to the client when we'd also email it. Keeps
+    // intel/anonymous flows from accidentally rendering an "Edit" button.
+    editUrl: shouldEmailEdit ? editUrl : null,
     message:
       submissionType === "intel"
         ? "Intel received. Our analysts will review and respond as warranted."
@@ -306,381 +339,6 @@ function normalizeEmail(raw?: string): string | null {
   return email;
 }
 
-function validateIntelPayload(
-  raw: unknown,
-):
-  | { ok: true; payload: IntelPayload }
-  | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") {
-    return { ok: false, error: "payload is required" };
-  }
-  const p = raw as Record<string, unknown>;
-
-  const headline =
-    typeof p.headline === "string" ? p.headline.trim() : "";
-  const body = typeof p.body === "string" ? p.body.trim() : "";
-
-  if (headline.length < 5 || headline.length > 200) {
-    return { ok: false, error: "Headline must be 5–200 characters." };
-  }
-  if (body.length < 20 || body.length > 5000) {
-    return { ok: false, error: "Body must be 20–5000 characters." };
-  }
-
-  const links = sanitizeUrlList(p.links);
-  const sources = sanitizeUrlList(p.sources);
-
-  const severity = (["low", "medium", "high", "critical"] as const).includes(
-    p.severity as never,
-  )
-    ? (p.severity as IntelPayload["severity"])
-    : undefined;
-
-  const category =
-    typeof p.category === "string" && p.category.trim()
-      ? p.category.trim().slice(0, 60)
-      : undefined;
-
-  return {
-    ok: true,
-    payload: {
-      headline,
-      body,
-      links: links.length ? links : undefined,
-      sources: sources.length ? sources : undefined,
-      severity,
-      category,
-      anonymous: p.anonymous === true,
-    },
-  };
-}
-
-function validateEventPayload(
-  raw: unknown,
-):
-  | { ok: true; payload: EventPayload }
-  | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") {
-    return { ok: false, error: "payload is required" };
-  }
-  const p = raw as Record<string, unknown>;
-
-  const name = typeof p.name === "string" ? p.name.trim() : "";
-  if (name.length < 3 || name.length > 200) {
-    return { ok: false, error: "Event name must be 3–200 characters." };
-  }
-
-  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
-  if (!startsAt || isNaN(Date.parse(startsAt))) {
-    return { ok: false, error: "Start date is required (ISO format)." };
-  }
-
-  const endsAt =
-    typeof p.endsAt === "string" && p.endsAt.trim() && !isNaN(Date.parse(p.endsAt))
-      ? p.endsAt.trim()
-      : undefined;
-
-  const url = sanitizeSingleUrl(p.url);
-  const validEventTypes = [
-    "conference",
-    "workshop",
-    "meetup",
-    "hackathon",
-    "other",
-  ] as const;
-  const validPriceTiers = ["free", "paid", "invite"] as const;
-
-  return {
-    ok: true,
-    payload: {
-      name,
-      startsAt,
-      endsAt,
-      venue: trimToString(p.venue, 200),
-      city: trimToString(p.city, 100),
-      country: trimToString(p.country, 100),
-      url,
-      description: trimToString(p.description, 1000),
-      eventType: validEventTypes.includes(p.eventType as never)
-        ? (p.eventType as EventPayload["eventType"])
-        : undefined,
-      priceTier: validPriceTiers.includes(p.priceTier as never)
-        ? (p.priceTier as EventPayload["priceTier"])
-        : undefined,
-      // imageUrl comes from the parse-url prefill (lu.ma CDN, etc.). Use the
-      // same single-URL sanitizer as `url` to enforce http(s) and length.
-      imageUrl: sanitizeSingleUrl(p.imageUrl),
-    },
-  };
-}
-
-function validateJobPayload(
-  raw: unknown,
-): { ok: true; payload: JobPayload } | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "payload is required" };
-  const p = raw as Record<string, unknown>;
-  const title = typeof p.title === "string" ? p.title.trim() : "";
-  const company = typeof p.company === "string" ? p.company.trim() : "";
-  const description = typeof p.description === "string" ? p.description.trim() : "";
-
-  if (title.length < 3 || title.length > 200)
-    return { ok: false, error: "Job title must be 3–200 characters." };
-  if (company.length < 2 || company.length > 120)
-    return { ok: false, error: "Company name must be 2–120 characters." };
-  if (description.length < 20 || description.length > 5000)
-    return { ok: false, error: "Description must be 20–5000 characters." };
-
-  const validEmploymentTypes = ["full-time", "part-time", "contract", "internship"] as const;
-  const validSeniorities = ["junior", "mid", "senior", "staff", "principal", "exec"] as const;
-
-  const expiresAt =
-    typeof p.expiresAt === "string" && p.expiresAt.trim() && !isNaN(Date.parse(p.expiresAt))
-      ? p.expiresAt.trim()
-      : undefined;
-
-  return {
-    ok: true,
-    payload: {
-      title,
-      company,
-      companyUrl: sanitizeSingleUrl(p.companyUrl),
-      description,
-      location: trimToString(p.location, 200),
-      remote: p.remote === true,
-      employmentType: validEmploymentTypes.includes(p.employmentType as never)
-        ? (p.employmentType as JobPayload["employmentType"])
-        : undefined,
-      seniority: validSeniorities.includes(p.seniority as never)
-        ? (p.seniority as JobPayload["seniority"])
-        : undefined,
-      compensation: trimToString(p.compensation, 200),
-      applyUrl: sanitizeSingleUrl(p.applyUrl),
-      tags: sanitizeTagList(p.tags),
-      expiresAt,
-      imageUrl: sanitizeSingleUrl(p.imageUrl),
-    },
-  };
-}
-
-function validateHackathonPayload(
-  raw: unknown,
-): { ok: true; payload: HackathonPayload } | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "payload is required" };
-  const p = raw as Record<string, unknown>;
-  const name = typeof p.name === "string" ? p.name.trim() : "";
-  const description = typeof p.description === "string" ? p.description.trim() : "";
-  if (name.length < 3 || name.length > 200)
-    return { ok: false, error: "Hackathon name must be 3–200 characters." };
-  if (description.length < 20 || description.length > 5000)
-    return { ok: false, error: "Description must be 20–5000 characters." };
-
-  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
-  if (!startsAt || isNaN(Date.parse(startsAt)))
-    return { ok: false, error: "Start date is required (ISO format)." };
-  const endsAt = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
-  if (!endsAt || isNaN(Date.parse(endsAt)))
-    return { ok: false, error: "End date is required (ISO format)." };
-
-  const validModes = ["online", "irl", "hybrid"] as const;
-
-  const registrationDeadline =
-    typeof p.registrationDeadline === "string" &&
-    p.registrationDeadline.trim() &&
-    !isNaN(Date.parse(p.registrationDeadline))
-      ? p.registrationDeadline.trim()
-      : undefined;
-
-  return {
-    ok: true,
-    payload: {
-      name,
-      organization: trimToString(p.organization, 120),
-      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
-      description,
-      startsAt,
-      endsAt,
-      mode: validModes.includes(p.mode as never)
-        ? (p.mode as HackathonPayload["mode"])
-        : undefined,
-      city: trimToString(p.city, 100),
-      country: trimToString(p.country, 100),
-      venue: trimToString(p.venue, 200),
-      url: sanitizeSingleUrl(p.url),
-      registrationUrl: sanitizeSingleUrl(p.registrationUrl),
-      registrationDeadline,
-      prizePool: trimToString(p.prizePool, 200),
-      tracks: sanitizeTagList(p.tracks),
-      sponsors: sanitizeTagList(p.sponsors),
-      tags: sanitizeTagList(p.tags),
-      imageUrl: sanitizeSingleUrl(p.imageUrl),
-    },
-  };
-}
-
-function validatePopupCityPayload(
-  raw: unknown,
-): { ok: true; payload: PopupCityPayload } | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "payload is required" };
-  const p = raw as Record<string, unknown>;
-  const name = typeof p.name === "string" ? p.name.trim() : "";
-  const description = typeof p.description === "string" ? p.description.trim() : "";
-  if (name.length < 3 || name.length > 200)
-    return { ok: false, error: "Name must be 3–200 characters." };
-  if (description.length < 20 || description.length > 5000)
-    return { ok: false, error: "Description must be 20–5000 characters." };
-
-  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
-  if (!startsAt || isNaN(Date.parse(startsAt)))
-    return { ok: false, error: "Start date is required (ISO format)." };
-  const endsAt = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
-  if (!endsAt || isNaN(Date.parse(endsAt)))
-    return { ok: false, error: "End date is required (ISO format)." };
-
-  const applicationDeadline =
-    typeof p.applicationDeadline === "string" &&
-    p.applicationDeadline.trim() &&
-    !isNaN(Date.parse(p.applicationDeadline))
-      ? p.applicationDeadline.trim()
-      : undefined;
-
-  return {
-    ok: true,
-    payload: {
-      name,
-      organization: trimToString(p.organization, 120),
-      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
-      description,
-      startsAt,
-      endsAt,
-      city: trimToString(p.city, 100),
-      country: trimToString(p.country, 100),
-      venue: trimToString(p.venue, 200),
-      url: sanitizeSingleUrl(p.url),
-      applyUrl: sanitizeSingleUrl(p.applyUrl),
-      applicationDeadline,
-      focus: trimToString(p.focus, 200),
-      tags: sanitizeTagList(p.tags),
-      imageUrl: sanitizeSingleUrl(p.imageUrl),
-    },
-  };
-}
-
-function validateGrantPayload(
-  raw: unknown,
-): { ok: true; payload: GrantPayload } | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "payload is required" };
-  const p = raw as Record<string, unknown>;
-  const name = typeof p.name === "string" ? p.name.trim() : "";
-  const organization = typeof p.organization === "string" ? p.organization.trim() : "";
-  const description = typeof p.description === "string" ? p.description.trim() : "";
-  if (name.length < 3 || name.length > 200)
-    return { ok: false, error: "Grant name must be 3–200 characters." };
-  if (organization.length < 2 || organization.length > 120)
-    return { ok: false, error: "Organization must be 2–120 characters." };
-  if (description.length < 20 || description.length > 5000)
-    return { ok: false, error: "Description must be 20–5000 characters." };
-
-  const deadline =
-    typeof p.deadline === "string" && p.deadline.trim() && !isNaN(Date.parse(p.deadline))
-      ? p.deadline.trim()
-      : undefined;
-
-  return {
-    ok: true,
-    payload: {
-      name,
-      organization,
-      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
-      description,
-      amount: trimToString(p.amount, 200),
-      focus: trimToString(p.focus, 200),
-      applyUrl: sanitizeSingleUrl(p.applyUrl),
-      deadline,
-      rolling: p.rolling === true,
-      tags: sanitizeTagList(p.tags),
-      imageUrl: sanitizeSingleUrl(p.imageUrl),
-    },
-  };
-}
-
-function validateAcceleratorPayload(
-  raw: unknown,
-): { ok: true; payload: AcceleratorPayload } | { ok: false; error: string } {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "payload is required" };
-  const p = raw as Record<string, unknown>;
-  const name = typeof p.name === "string" ? p.name.trim() : "";
-  const organization = typeof p.organization === "string" ? p.organization.trim() : "";
-  const description = typeof p.description === "string" ? p.description.trim() : "";
-  if (name.length < 3 || name.length > 200)
-    return { ok: false, error: "Program name must be 3–200 characters." };
-  if (organization.length < 2 || organization.length > 120)
-    return { ok: false, error: "Organization must be 2–120 characters." };
-  if (description.length < 20 || description.length > 5000)
-    return { ok: false, error: "Description must be 20–5000 characters." };
-
-  const nextDeadline =
-    typeof p.nextDeadline === "string" &&
-    p.nextDeadline.trim() &&
-    !isNaN(Date.parse(p.nextDeadline))
-      ? p.nextDeadline.trim()
-      : undefined;
-
-  return {
-    ok: true,
-    payload: {
-      name,
-      organization,
-      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
-      description,
-      duration: trimToString(p.duration, 100),
-      investment: trimToString(p.investment, 200),
-      location: trimToString(p.location, 200),
-      focus: trimToString(p.focus, 200),
-      applyUrl: sanitizeSingleUrl(p.applyUrl),
-      nextDeadline,
-      rolling: p.rolling === true,
-      tags: sanitizeTagList(p.tags),
-      imageUrl: sanitizeSingleUrl(p.imageUrl),
-    },
-  };
-}
-
-function sanitizeTagList(v: unknown): string[] | undefined {
-  if (!Array.isArray(v)) return undefined;
-  const out = v
-    .filter((x): x is string => typeof x === "string")
-    .map((x) => x.trim().slice(0, 40))
-    .filter((x) => x.length > 0)
-    .slice(0, 12);
-  return out.length ? out : undefined;
-}
-
-function trimToString(v: unknown, max: number): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t ? t.slice(0, max) : undefined;
-}
-
-function sanitizeSingleUrl(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  if (!t) return undefined;
-  try {
-    const u = new URL(t);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return undefined;
-    return u.toString().slice(0, 500);
-  } catch {
-    return undefined;
-  }
-}
-
-function sanitizeUrlList(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v
-    .map((x) => sanitizeSingleUrl(x))
-    .filter((x): x is string => !!x)
-    .slice(0, 10);
-}
 
 const VALID_ADDRESS_ROLES = ["subject", "counterparty", "observed"] as const;
 

@@ -102,7 +102,7 @@ export default async function PopUpCityDetailPage({
       <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
-          href="/pop-up-cities"
+          href="/intel?lane=cities"
           className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
         >
           <span>←</span>

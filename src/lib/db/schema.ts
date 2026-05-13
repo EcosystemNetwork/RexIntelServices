@@ -429,6 +429,13 @@ export const submissions = pgTable(
     publicId: text("public_id")
       .notNull()
       .default(sql`encode(gen_random_bytes(8), 'hex')`),
+    // Long, unguessable token that lets a non-anonymous submitter return and
+    // edit their own submission via /submit/edit/[token]. 16 bytes = 128 bits
+    // of entropy — plenty for a "secret URL" workflow. Generated on insert;
+    // never rotates. Surfaced via email when submitterEmail is provided.
+    editToken: text("edit_token")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(16), 'hex')`),
     // Denormalized from payload.startsAt for event submissions so we can sort
     // by date in SQL with an index instead of pulling everything and sorting
     // in app code. NULL for intel submissions.
@@ -452,6 +459,7 @@ export const submissions = pgTable(
     statusIdx: index("submissions_status_idx").on(t.status),
     typeStatusIdx: index("submissions_type_status_idx").on(t.type, t.status),
     publicIdIdx: uniqueIndex("submissions_public_id_idx").on(t.publicId),
+    editTokenIdx: uniqueIndex("submissions_edit_token_idx").on(t.editToken),
     publishedAtIdx: index("submissions_published_at_idx").on(t.publishedAt),
     // Covers the public /events query (filters by type+status, ranges +
     // sorts on eventStartsAt) and the digest cron's upcoming-events lookup.

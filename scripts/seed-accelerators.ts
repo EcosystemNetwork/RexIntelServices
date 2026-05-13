@@ -1,10 +1,11 @@
 /**
  * Run with: npx tsx scripts/seed-accelerators.ts
  *
- * Seeds known active crypto accelerator / incubator programs into
- * /accelerators. Sourced from alliance.xyz, outlierventures.io/base-camp,
- * orangedao.xyz (scraped 2026-05-10), and well-known programs supplemented
- * from public info where the homepage was uncooperative.
+ * Seeds active accelerator / incubator programs into /accelerators. Mix of
+ * crypto-native programs (Alliance, Orange DAO, Outlier Base Camp, a16z CSX,
+ * Berkeley Xcelerator, Binance Labs) and broader founder programs that
+ * RexIntel's audience cares about (DevLabs, Okara). Sourced from program
+ * homepages where possible.
  *
  * Idempotent: name-match upsert.
  */
@@ -98,6 +99,31 @@ const accelerators: AcceleratorPayload[] = [
     tags: ["university", "blockchain"],
   },
   {
+    name: "DevLabs",
+    organization: "DevLabs",
+    organizationUrl: "https://www.devlabs.club/",
+    description:
+      "Home for early builders — student founders and young entrepreneurs turning early ideas into companies. Runs DevHacks (hackathons), DevHouse (in-person builder houses incl. DevHouse SF), and DevSpace. 600+ builders, 50+ startups, 170+ projects, over $125k in collective funding. Recently launched a startup program with a16z, Kickstart, and Antler.",
+    location: "Arizona (ASU-affiliated) + DevHouse SF",
+    focus: "Student / early-career founders, all stages",
+    applyUrl: "https://www.devlabs.club/",
+    rolling: true,
+    tags: ["students", "early-stage", "hackathons", "community"],
+  },
+  {
+    name: "Okara Growth Accelerator",
+    organization: "Okara",
+    organizationUrl: "https://www.global.vc/founders/okara",
+    description:
+      "First cohort. 6-week program helping early-stage SaaS teams crack organic growth and distribution by working alongside the Okara team and a hand-picked group of founders, using AI-powered distribution. For SaaS companies started within the last 12 months, teams of 1–50. Founders must commit to using the Okara AI CMO paid plan throughout. Limited spots, selection at Okara's discretion. Featured company stories may be used in Okara case studies and marketing.",
+    duration: "6 weeks",
+    focus: "Early-stage SaaS (<12 months old), AI-powered organic growth + distribution",
+    applyUrl:
+      "https://docs.google.com/forms/d/e/1FAIpQLSf3tTxD-tgw0fitwmVI1NlAmpZzouE0pUrTTf602qvqxJE8kA/viewform",
+    rolling: false,
+    tags: ["saas", "growth", "ai", "distribution"],
+  },
+  {
     name: "Binance Labs Incubation",
     organization: "Binance Labs",
     organizationUrl: "https://labs.binance.com/en/incubation",
@@ -109,7 +135,110 @@ const accelerators: AcceleratorPayload[] = [
     rolling: false,
     tags: ["binance", "incubator"],
   },
+  {
+    name: "Y Combinator",
+    organization: "Y Combinator",
+    organizationUrl: "https://www.ycombinator.com/",
+    description:
+      "Original 3-month startup accelerator. Twice-yearly batches (Summer/Winter) in San Francisco — weekly group office hours with partners, in-person kickoff, and access to the YC network of 5,000+ alumni. Crypto founders have shipped well-known protocols out of YC (Coinbase, OpenSea, Aztec, Helium, Avara/Aave, etc.). Late applications are accepted continuously after the batch deadline.",
+    duration: "3 months (in-person SF)",
+    investment:
+      "$500k standard deal: $125k for 7% on a post-money SAFE + $375k uncapped MFN SAFE",
+    location: "San Francisco (in-person required)",
+    focus: "Any sector, including crypto/web3 — early-stage founders",
+    applyUrl: "https://www.ycombinator.com/apply",
+    rolling: true,
+    tags: ["yc", "general", "early-stage", "founders"],
+  },
+  {
+    name: "Z Fellows",
+    organization: "Z Fellows",
+    organizationUrl: "https://www.zfellows.com/",
+    description:
+      "One-week experience pairing ten builders per cohort with founders of billion-dollar companies. Sector-agnostic (crypto, AI, infra, climate, fintech, etc.). Mentorship continues post-program for the life of the company. Open to high-school dropouts, students, employees, or any builder with a side project.",
+    duration: "1 week (final day in-person SF or NYC)",
+    investment: "Optional $10k at $1B uncapped valuation cap (no obligation to take it)",
+    location: "Virtual cohorts; in-person final day in SF or NYC",
+    focus: "Early-stage founders & technical builders — crypto explicitly listed",
+    applyUrl: "https://www.zfellows.com/",
+    rolling: true,
+    tags: ["fellowship", "general", "crypto", "ai", "early-stage"],
+  },
+  {
+    name: "Paradigm Fellowship 2026",
+    organization: "Paradigm",
+    organizationUrl: "https://paradigm.xyz/fellowship-2026",
+    description:
+      "4-day retreat in Northern California (Aug 12–15, 2026) for early-career technical builders. Tracks span AI, robotics, energy, aerospace, bio, prediction markets, crypto. Firesides, whiteboarding, and hacking with Paradigm partners and past fellows from OpenAI, SpaceX, Citadel, Kalshi. Travel, lodging, and meals fully covered.",
+    duration: "4 days (Aug 12–15, 2026)",
+    investment: "Travel, lodging, and meals covered (non-dilutive)",
+    location: "Northern California (in-person)",
+    focus: "Early, deeply technical builders across frontiers including crypto + prediction markets",
+    applyUrl: "https://paradigm.xyz/fellowship-2026",
+    nextDeadline: "2026-06-08T23:59:00Z",
+    rolling: false,
+    tags: ["paradigm", "fellowship", "crypto", "research", "early-career"],
+  },
+  {
+    name: "Neo Residency",
+    organization: "Neo",
+    organizationUrl: "https://neo.com/accelerator",
+    description:
+      "Selective Ali Partovi accelerator replacing the prior Neo Accelerator — a curated cohort of up to 20 startups and student teams per year. 3 months side-by-side at Neo's San Francisco workspace plus an all-expenses-paid 2-week Oregon bootcamp. Demo Day and bespoke VC intros at the end. Every founder/student also gets a profit share in the Neo fund. Startup perks include $450K+ of Azure, AWS, and OpenAI credits ($100K+ for student teams). 2026 deadline has passed but late applications are still reviewed.",
+    duration: "3 months SF + 2 weeks Oregon bootcamp",
+    investment:
+      "Startups: $750k uncapped SAFE; Neo takes participation rights up to 5% ownership in the next priced equity round. Student teams: $40k each, no-strings; Neo retains right to invest on the same startup terms if the project becomes a company. All participants receive a profit share in the Neo fund.",
+    location: "San Francisco (in-person) + Oregon bootcamp",
+    focus: "Top technical founders & student builders — sector-agnostic; strong crypto-adjacent alumni network",
+    applyUrl: "https://neo.com/accelerator",
+    rolling: true,
+    tags: ["neo", "low-dilution", "fellowship", "general", "students"],
+  },
+  {
+    name: "The Pitch by Deel",
+    organization: "Deel",
+    organizationUrl: "https://www.deel.com/the-pitch-by-deel/",
+    description:
+      "Global pitch tournament: 5-minute online application, regional finals in Tel Aviv, Dubai, Singapore, Berlin, London, Paris, and New York (March–May 2026), then a global finale. Up to 100 regional winners receive a $50k SAFE; up to 10 Global Champions win a $1M SAFE. All applicants get free access to the Deel startup-perks marketplace and online founder community. Travel to the global finale is covered for finalists.",
+    duration: "Regional final + global finale (single-event format)",
+    investment:
+      "Regional winners: $50k SAFE. Global Champions: $1M SAFE (up to 10 winners).",
+    location: "7 regional cities (Tel Aviv, Dubai, Singapore, Berlin, London, Paris, NYC) + global finale",
+    focus: "Pre-seed → Series A across any industry — must have full-time founders and a registered legal entity",
+    applyUrl: "https://www.deel.com/the-pitch-by-deel/",
+    rolling: true,
+    tags: ["pitch-competition", "deel", "global", "safe", "any-stage"],
+  },
+  {
+    name: "World Build Labs",
+    organization: "Tools for Humanity / World",
+    organizationUrl: "https://worldbuildlabs.com/",
+    description:
+      "5-month founder program for teams building on World (World ID, World App, World Chain on the OP Stack). Includes a Build Week in Seoul (May 10–18, 2026), a virtual program May–August, and a Demo Day at Tools for Humanity HQ in San Francisco. Travel funded; access to World's 38M+ verified-human user base on deployment.",
+    duration: "5 months (May–August 2026)",
+    investment:
+      "Up to $200k in grant funding per team; 50+ hours of mentorship; fully funded travel for Build Week + Demo Day",
+    location: "Hybrid — Seoul (Build Week) + Virtual + SF (Demo Day)",
+    focus: "Apps built on World ID, World App, and World Chain",
+    applyUrl: "https://worldbuildlabs.com/",
+    rolling: false,
+    tags: ["world", "worldcoin", "world-chain", "identity", "op-stack"],
+  },
+  {
+    name: "Encode Club Bootcamps",
+    organization: "Encode Club",
+    organizationUrl: "https://www.encodeclub.com/",
+    description:
+      "Free, sponsor-funded bootcamps across Solidity, Solana, ZK, AI, and ecosystem-specific stacks (Polkadot, Optimism, Aleph Zero, Hyperliquid, and others). Application-gated but no tuition and no equity — Encode is backed by foundation and protocol sponsors. Graduates feed Encode's hackathon circuit, hiring board, and a 50k+ builder Discord. One of the most accessible on-ramps into a serious crypto-builder alumni network for devs without YC/a16z-tier credentials.",
+    duration: "6–8 weeks typical per bootcamp",
+    location: "Remote (some London in-person cohorts)",
+    focus: "Crypto + AI bootcamps for new and intermediate devs",
+    applyUrl: "https://www.encodeclub.com/programmes",
+    rolling: true,
+    tags: ["encode", "bootcamp", "education", "community", "crypto", "ai"],
+  },
 ];
+// Ambassador / champion / fellow programs live in scripts/seed-ambassadors.ts.
 
 async function upsert(payload: AcceleratorPayload) {
   const existing = await db

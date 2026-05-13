@@ -1,21 +1,84 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
-import type { IntelPayload } from "@/lib/db/schema";
+import type {
+  AcceleratorPayload,
+  GrantPayload,
+  IntelPayload,
+  PopupCityPayload,
+} from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Intel Wire — Rex Intel Services",
-  description:
-    "Field-submitted, analyst-reviewed intelligence on the digital asset markets. Tips, sightings, and signals.",
-  openGraph: {
-    title: "Intel Wire — Rex Intel Services",
-    description:
-      "Field-submitted, analyst-reviewed intelligence on the digital asset markets.",
-    type: "website",
+type Lane = "signals" | "accelerators" | "grants" | "cities";
+
+const LANES: { id: Lane; label: string }[] = [
+  { id: "signals", label: "Signals" },
+  { id: "accelerators", label: "Accel" },
+  { id: "grants", label: "Grants" },
+  { id: "cities", label: "Cities" },
+];
+
+const LANE_COPY: Record<
+  Lane,
+  {
+    kicker: string;
+    title: string;
+    subtitle: string;
+    classification: { text: string; show?: "sm" }[];
+    submitHref?: string;
+    submitLabel?: string;
+  }
+> = {
+  signals: {
+    kicker: "▸ Intel Wire",
+    title: "What the field is reporting.",
+    subtitle:
+      "Tips, sightings and analyst-flagged signals. Reviewed by RexIntel before publication. Anonymous sources welcome.",
+    classification: [
+      { text: "● Open Channel // Intel Wire" },
+      { text: "Approved Submissions / Live", show: "sm" },
+    ],
+    submitHref: "/submit",
+    submitLabel: "Drop intel ▸",
+  },
+  accelerators: {
+    kicker: "▸ Intel · Accelerators",
+    title: "Programs worth applying to.",
+    subtitle:
+      "Accelerators and incubators currently accepting applications — crypto-native programs and broader founder cohorts. Curated by RexIntel.",
+    classification: [
+      { text: "● Open Channel // Intel · Acceleration Programs" },
+      { text: "Cohort Intake / Founders + Builders", show: "sm" },
+    ],
+    submitHref: "/submit?type=accelerator",
+    submitLabel: "+ Add Program ▸",
+  },
+  grants: {
+    kicker: "▸ Intel · Grants",
+    title: "Capital for builders.",
+    subtitle:
+      "Active grant programs from protocols, foundations, and public-goods initiatives. Curated by RexIntel.",
+    classification: [
+      { text: "● Open Channel // Intel · Capital Allocation" },
+      { text: "Active Grant Programs", show: "sm" },
+    ],
+    submitHref: "/submit?type=grant",
+    submitLabel: "+ Add Grant ▸",
+  },
+  cities: {
+    kicker: "▸ Intel · Pop-Up Cities",
+    title: "Show up, build together.",
+    subtitle:
+      "Multi-week residencies — Zuzalu, Edge City, Crecimiento and the next generation of pop-up gatherings. Application-based intake.",
+    classification: [
+      { text: "● Open Channel // Intel · Pop-Up Residencies" },
+      { text: "Multi-week Gatherings / Apply", show: "sm" },
+    ],
+    submitHref: "/submit?type=popup_city",
+    submitLabel: "+ Add City ▸",
   },
 };
 
@@ -45,177 +108,126 @@ const SEVERITY_TONE: Record<
   },
 };
 
-export default async function IntelPage({
+function laneFrom(value: string | undefined): Lane {
+  if (value === "accelerators" || value === "grants" || value === "cities") {
+    return value;
+  }
+  return "signals";
+}
+
+export function generateMetadata({
   searchParams,
 }: {
-  searchParams: { severity?: string; category?: string };
+  searchParams: { lane?: string };
+}): Metadata {
+  const lane = laneFrom(searchParams.lane);
+  const copy = LANE_COPY[lane];
+  const titles: Record<Lane, string> = {
+    signals: "Intel Wire — Rex Intel Services",
+    accelerators: "Accelerators — Intel · Rex Intel Services",
+    grants: "Grants — Intel · Rex Intel Services",
+    cities: "Pop-Up Cities — Intel · Rex Intel Services",
+  };
+  return {
+    title: titles[lane],
+    description: copy.subtitle,
+    openGraph: {
+      title: titles[lane],
+      description: copy.subtitle,
+      type: "website",
+    },
+  };
+}
+
+export default async function IntelHubPage({
+  searchParams,
+}: {
+  searchParams: {
+    lane?: string;
+    severity?: string;
+    category?: string;
+    filter?: string;
+    view?: string;
+  };
 }) {
-  const sevFilter = searchParams.severity;
-  const catFilter = searchParams.category;
-
-  const rows = await db
-    .select({
-      id: submissions.id,
-      publicId: submissions.publicId,
-      payload: submissions.payload,
-      submitterHandle: submissions.submitterHandle,
-      publishedAt: submissions.publishedAt,
-    })
-    .from(submissions)
-    .where(
-      and(eq(submissions.type, "intel"), eq(submissions.status, "approved")),
-    )
-    .orderBy(desc(submissions.publishedAt))
-    .limit(200);
-
-  const all = rows.map((r) => ({
-    ...r,
-    payload: r.payload as IntelPayload,
-  }));
-
-  let visible = all;
-  if (sevFilter) {
-    visible = visible.filter((r) => r.payload.severity === sevFilter);
-  }
-  if (catFilter) {
-    visible = visible.filter(
-      (r) => r.payload.category?.toLowerCase() === catFilter.toLowerCase(),
-    );
-  }
-
-  const categories = Array.from(
-    new Set(
-      all
-        .map((r) => r.payload.category)
-        .filter((c): c is string => !!c)
-        .map((c) => c.toLowerCase()),
-    ),
-  ).sort();
+  const lane = laneFrom(searchParams.lane);
+  const copy = LANE_COPY[lane];
 
   return (
-    <PublicShell
-      classification={[
-        { text: "● Open Channel // Intel Wire" },
-        { text: "Approved Submissions / Live", show: "sm" },
-      ]}
-    >
+    <PublicShell classification={copy.classification}>
       <main className="max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
-        <div className="mb-8">
-          <p
-            className="text-xs uppercase tracking-widest mb-2"
-            style={{ color: "var(--rex-text-dim)" }}
-          >
-            ▸ Intel Wire
-          </p>
-          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
-            What the field is reporting.
-          </h1>
-          <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">
-            Tips, sightings and analyst-flagged signals. Reviewed by RexIntel
-            before publication. Anonymous sources welcome.{" "}
-            <Link
-              href="/submit"
-              className="text-[var(--rex-accent)] hover:text-white transition-colors"
-            >
-              Drop intel →
-            </Link>
-          </p>
-          <div className="mt-3">
-            <a
-              href="/intel/feed.xml"
-              className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
-            >
-              ⌁ RSS
-            </a>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
-          <span
-            className="uppercase tracking-widest"
-            style={{ color: "var(--rex-text-dim)" }}
-          >
-            SEVERITY ▸
-          </span>
-          <FilterChip href={filterHref({ category: catFilter })} active={!sevFilter}>
-            All
-          </FilterChip>
-          {(["low", "medium", "high", "critical"] as const).map((s) => (
-            <FilterChip
-              key={s}
-              href={filterHref({ severity: s, category: catFilter })}
-              active={sevFilter === s}
-            >
-              {s}
-            </FilterChip>
-          ))}
-        </div>
-
-        {categories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
-            <span
-              className="uppercase tracking-widest"
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p
+              className="text-xs uppercase tracking-widest mb-2"
               style={{ color: "var(--rex-text-dim)" }}
             >
-              CATEGORY ▸
-            </span>
-            <FilterChip href={filterHref({ severity: sevFilter })} active={!catFilter}>
-              All
-            </FilterChip>
-            {categories.map((c) => (
-              <FilterChip
-                key={c}
-                href={filterHref({ severity: sevFilter, category: c })}
-                active={catFilter?.toLowerCase() === c}
-              >
-                {c}
-              </FilterChip>
-            ))}
+              {copy.kicker}
+            </p>
+            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
+              {copy.title}
+            </h1>
+            <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">
+              {copy.subtitle}
+            </p>
+            {lane === "signals" && (
+              <div className="mt-3">
+                <a
+                  href="/intel/feed.xml"
+                  className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
+                >
+                  ⌁ RSS
+                </a>
+              </div>
+            )}
           </div>
-        )}
+          {copy.submitHref && (
+            <Link href={copy.submitHref} className="rex-btn whitespace-nowrap">
+              {copy.submitLabel ?? "+ Submit ▸"}
+            </Link>
+          )}
+        </div>
 
-        {visible.length === 0 ? (
-          <div
-            className="border border-dashed rounded-lg p-12 text-center bg-grid"
-            style={{
-              borderColor: "var(--rex-border)",
-              color: "var(--rex-text-dim)",
-            }}
-          >
-            No intel matches this filter.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {visible.map((r) => (
-              <IntelCard
-                key={r.id}
-                publicId={r.publicId}
-                payload={r.payload}
-                publishedAt={r.publishedAt}
-                submitterHandle={
-                  r.payload.anonymous ? null : r.submitterHandle
-                }
-              />
-            ))}
-          </div>
+        <LaneTabs active={lane} />
+
+        {lane === "signals" && (
+          <SignalsLane
+            sevFilter={searchParams.severity}
+            catFilter={searchParams.category}
+          />
         )}
+        {lane === "accelerators" && (
+          <AcceleratorsLane filter={searchParams.filter} />
+        )}
+        {lane === "grants" && <GrantsLane filter={searchParams.filter} />}
+        {lane === "cities" && <CitiesLane view={searchParams.view} />}
       </main>
     </PublicShell>
   );
 }
 
-function filterHref(args: {
-  severity?: string;
-  category?: string;
-}): string {
-  const params = new URLSearchParams();
-  if (args.severity) params.set("severity", args.severity);
-  if (args.category) params.set("category", args.category);
-  const qs = params.toString();
-  return qs ? `/intel?${qs}` : "/intel";
+function LaneTabs({ active }: { active: Lane }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+      <span
+        className="uppercase tracking-widest"
+        style={{ color: "var(--rex-text-dim)" }}
+      >
+        LANE ▸
+      </span>
+      {LANES.map((l) => {
+        const href = l.id === "signals" ? "/intel" : `/intel?lane=${l.id}`;
+        return (
+          <Chip key={l.id} href={href} active={active === l.id}>
+            {l.label}
+          </Chip>
+        );
+      })}
+    </div>
+  );
 }
 
-function FilterChip({
+function Chip({
   href,
   active,
   children,
@@ -236,6 +248,140 @@ function FilterChip({
     >
       {children}
     </Link>
+  );
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="border border-dashed rounded-lg p-12 text-center bg-grid"
+      style={{
+        borderColor: "var(--rex-border)",
+        color: "var(--rex-text-dim)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// =====================================================================
+// Lane: Signals
+// =====================================================================
+
+async function SignalsLane({
+  sevFilter,
+  catFilter,
+}: {
+  sevFilter?: string;
+  catFilter?: string;
+}) {
+  const rows = await db
+    .select({
+      id: submissions.id,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      submitterHandle: submissions.submitterHandle,
+      publishedAt: submissions.publishedAt,
+    })
+    .from(submissions)
+    .where(
+      and(eq(submissions.type, "intel"), eq(submissions.status, "approved")),
+    )
+    .orderBy(desc(submissions.publishedAt))
+    .limit(200);
+
+  const all = rows.map((r) => ({ ...r, payload: r.payload as IntelPayload }));
+
+  let visible = all;
+  if (sevFilter) visible = visible.filter((r) => r.payload.severity === sevFilter);
+  if (catFilter) {
+    visible = visible.filter(
+      (r) => r.payload.category?.toLowerCase() === catFilter.toLowerCase(),
+    );
+  }
+
+  const categories = Array.from(
+    new Set(
+      all
+        .map((r) => r.payload.category)
+        .filter((c): c is string => !!c)
+        .map((c) => c.toLowerCase()),
+    ),
+  ).sort();
+
+  const filterHref = (args: { severity?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (args.severity) params.set("severity", args.severity);
+    if (args.category) params.set("category", args.category);
+    const qs = params.toString();
+    return qs ? `/intel?${qs}` : "/intel";
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          SEVERITY ▸
+        </span>
+        <Chip href={filterHref({ category: catFilter })} active={!sevFilter}>
+          All
+        </Chip>
+        {(["low", "medium", "high", "critical"] as const).map((s) => (
+          <Chip
+            key={s}
+            href={filterHref({ severity: s, category: catFilter })}
+            active={sevFilter === s}
+          >
+            {s}
+          </Chip>
+        ))}
+      </div>
+
+      {categories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            CATEGORY ▸
+          </span>
+          <Chip href={filterHref({ severity: sevFilter })} active={!catFilter}>
+            All
+          </Chip>
+          {categories.map((c) => (
+            <Chip
+              key={c}
+              href={filterHref({ severity: sevFilter, category: c })}
+              active={catFilter?.toLowerCase() === c}
+            >
+              {c}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <EmptyState>No intel matches this filter.</EmptyState>
+      ) : (
+        <div className="space-y-3">
+          {visible.map((r) => (
+            <IntelCard
+              key={r.id}
+              publicId={r.publicId}
+              payload={r.payload}
+              publishedAt={r.publishedAt}
+              submitterHandle={
+                r.payload.anonymous ? null : r.submitterHandle
+              }
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -307,5 +453,561 @@ function IntelCard({
         </span>
       </div>
     </Link>
+  );
+}
+
+// =====================================================================
+// Lane: Accelerators
+// =====================================================================
+
+async function AcceleratorsLane({ filter }: { filter?: string }) {
+  const intake =
+    filter === "rolling" ? "rolling" : filter === "scheduled" ? "scheduled" : null;
+
+  const filterClause =
+    intake === "rolling"
+      ? sql`(${submissions.payload}->>'rolling')::boolean = true`
+      : intake === "scheduled"
+        ? sql`${submissions.payload}->>'nextDeadline' IS NOT NULL`
+        : sql`true`;
+
+  const rows = await db
+    .select({
+      id: submissions.id,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+      featured: submissions.featured,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "accelerator"),
+        eq(submissions.status, "approved"),
+        filterClause,
+      ),
+    )
+    .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
+    .limit(200);
+
+  const visible = rows.map((r) => ({
+    ...r,
+    payload: r.payload as AcceleratorPayload,
+  }));
+
+  return (
+    <>
+      <PasteHint>
+        Running a program?{" "}
+        <Link
+          href="/submit?type=accelerator"
+          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Submit it
+        </Link>{" "}
+        — programs from a16zcrypto, Alliance, Orange DAO and similar trusted hosts publish instantly.
+      </PasteHint>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          INTAKE ▸
+        </span>
+        <Chip href="/intel?lane=accelerators" active={!intake}>
+          All
+        </Chip>
+        <Chip
+          href="/intel?lane=accelerators&filter=rolling"
+          active={intake === "rolling"}
+        >
+          Rolling
+        </Chip>
+        <Chip
+          href="/intel?lane=accelerators&filter=scheduled"
+          active={intake === "scheduled"}
+        >
+          Scheduled cohort
+        </Chip>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>No accelerator programs on file yet.</EmptyState>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((a) => (
+            <AcceleratorCard
+              key={a.id}
+              publicId={a.publicId}
+              payload={a.payload}
+              featured={a.featured}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function AcceleratorCard({
+  publicId,
+  payload,
+  featured = false,
+}: {
+  publicId: string;
+  payload: AcceleratorPayload;
+  featured?: boolean;
+}) {
+  const deadlineLabel = payload.nextDeadline
+    ? new Date(payload.nextDeadline).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : payload.rolling
+      ? "Rolling"
+      : null;
+
+  return (
+    <Link
+      href={`/accelerators/${publicId}`}
+      className="rex-card block p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+        {featured && <FeaturedTag />}
+        <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+        {payload.investment && (
+          <span style={{ color: "var(--rex-text-muted)" }}>· {payload.investment}</span>
+        )}
+        {payload.location && (
+          <span style={{ color: "var(--rex-text-dim)" }}>· {payload.location}</span>
+        )}
+        {deadlineLabel && (
+          <span className="ml-auto" style={{ color: "var(--rex-text-dim)" }}>
+            Next: {deadlineLabel}
+          </span>
+        )}
+      </div>
+
+      <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+        {payload.name}
+      </h3>
+
+      <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
+        {payload.description}
+      </p>
+
+      {(payload.focus || payload.duration) && (
+        <div
+          className="mt-3 text-[10px] font-mono"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {payload.focus && (
+            <>
+              Focus: <span className="text-[var(--rex-text-muted)]">{payload.focus}</span>
+            </>
+          )}
+          {payload.focus && payload.duration && " · "}
+          {payload.duration && (
+            <>
+              Duration: <span className="text-[var(--rex-text-muted)]">{payload.duration}</span>
+            </>
+          )}
+        </div>
+      )}
+    </Link>
+  );
+}
+
+// =====================================================================
+// Lane: Grants
+// =====================================================================
+
+async function GrantsLane({ filter }: { filter?: string }) {
+  const intake =
+    filter === "rolling" ? "rolling" : filter === "deadline" ? "deadline" : null;
+
+  const filterClause =
+    intake === "rolling"
+      ? sql`(${submissions.payload}->>'rolling')::boolean = true`
+      : intake === "deadline"
+        ? sql`${submissions.payload}->>'deadline' IS NOT NULL`
+        : sql`true`;
+
+  const rows = await db
+    .select({
+      id: submissions.id,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+      featured: submissions.featured,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "grant"),
+        eq(submissions.status, "approved"),
+        filterClause,
+      ),
+    )
+    .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
+    .limit(200);
+
+  const visible = rows.map((r) => ({ ...r, payload: r.payload as GrantPayload }));
+
+  return (
+    <>
+      <PasteHint>
+        Running a grant program?{" "}
+        <Link
+          href="/submit?type=grant"
+          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Submit it
+        </Link>{" "}
+        — programs from ethereum.org, optimism.io, gitcoin.co and similar trusted hosts publish instantly.
+      </PasteHint>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          INTAKE ▸
+        </span>
+        <Chip href="/intel?lane=grants" active={!intake}>
+          All
+        </Chip>
+        <Chip
+          href="/intel?lane=grants&filter=rolling"
+          active={intake === "rolling"}
+        >
+          Rolling
+        </Chip>
+        <Chip
+          href="/intel?lane=grants&filter=deadline"
+          active={intake === "deadline"}
+        >
+          With deadline
+        </Chip>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>No grant programs on file yet.</EmptyState>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((g) => (
+            <GrantCard
+              key={g.id}
+              publicId={g.publicId}
+              payload={g.payload}
+              featured={g.featured}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function GrantCard({
+  publicId,
+  payload,
+  featured = false,
+}: {
+  publicId: string;
+  payload: GrantPayload;
+  featured?: boolean;
+}) {
+  const deadlineLabel = payload.deadline
+    ? new Date(payload.deadline).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : payload.rolling
+      ? "Rolling"
+      : null;
+
+  return (
+    <Link
+      href={`/grants/${publicId}`}
+      className="rex-card block p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest">
+        {featured && <FeaturedTag />}
+        <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+        {payload.amount && (
+          <span style={{ color: "var(--rex-text-muted)" }}>· {payload.amount}</span>
+        )}
+        {deadlineLabel && (
+          <span className="ml-auto" style={{ color: "var(--rex-text-dim)" }}>
+            Deadline: {deadlineLabel}
+          </span>
+        )}
+      </div>
+
+      <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+        {payload.name}
+      </h3>
+
+      <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
+        {payload.description}
+      </p>
+
+      {payload.focus && (
+        <div
+          className="mt-3 text-[10px] font-mono"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          Focus: <span className="text-[var(--rex-text-muted)]">{payload.focus}</span>
+        </div>
+      )}
+    </Link>
+  );
+}
+
+// =====================================================================
+// Lane: Cities
+// =====================================================================
+
+async function CitiesLane({ view }: { view?: string }) {
+  const showPast = view === "past";
+  const now = new Date();
+
+  const baseFilter = and(
+    eq(submissions.type, "popup_city"),
+    eq(submissions.status, "approved"),
+  );
+
+  const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all([
+    db
+      .select({
+        id: submissions.id,
+        publicId: submissions.publicId,
+        payload: submissions.payload,
+        publishedAt: submissions.publishedAt,
+        featured: submissions.featured,
+      })
+      .from(submissions)
+      .where(
+        and(
+          baseFilter,
+          showPast
+            ? lt(submissions.eventStartsAt, now)
+            : gte(submissions.eventStartsAt, now),
+        ),
+      )
+      .orderBy(
+        ...(showPast
+          ? [desc(submissions.eventStartsAt)]
+          : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
+      )
+      .limit(100),
+    db
+      .select({ upcomingCount: sql<number>`count(*)::int` })
+      .from(submissions)
+      .where(and(baseFilter, gte(submissions.eventStartsAt, now))),
+    db
+      .select({ pastCount: sql<number>`count(*)::int` })
+      .from(submissions)
+      .where(and(baseFilter, lt(submissions.eventStartsAt, now))),
+  ]);
+
+  const visible = visibleRows.map((r) => ({
+    ...r,
+    payload: r.payload as PopupCityPayload,
+  }));
+
+  return (
+    <>
+      <PasteHint>
+        Hosting a residency?{" "}
+        <Link
+          href="/submit?type=popup_city"
+          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Submit it
+        </Link>{" "}
+        — events on lu.ma, edgecity.live, zuzalu.city publish instantly.
+      </PasteHint>
+
+      <div className="flex gap-2 mb-6">
+        <Chip href="/intel?lane=cities" active={!showPast}>
+          Upcoming · {upcomingCount}
+        </Chip>
+        <Chip href="/intel?lane=cities&view=past" active={showPast}>
+          Past · {pastCount}
+        </Chip>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>
+          {showPast
+            ? "No past pop-up cities on file."
+            : "No upcoming pop-up cities on file. Know one we should add?"}
+        </EmptyState>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((c) => (
+            <PopupCityCard
+              key={c.id}
+              publicId={c.publicId}
+              payload={c.payload}
+              featured={c.featured}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function PopupCityCard({
+  publicId,
+  payload,
+  featured = false,
+}: {
+  publicId: string;
+  payload: PopupCityPayload;
+  featured?: boolean;
+}) {
+  const start = new Date(payload.startsAt);
+  const end = new Date(payload.endsAt);
+  const range = formatRange(start, end);
+  const location = [payload.city, payload.country].filter(Boolean).join(", ");
+  const applyDeadline = payload.applicationDeadline
+    ? new Date(payload.applicationDeadline).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
+  return (
+    <Link
+      href={`/pop-up-cities/${publicId}`}
+      className="rex-card flex items-center gap-5 p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div
+        className="flex-shrink-0 w-16 h-16 rounded-sm flex flex-col items-center justify-center border text-center px-1"
+        style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
+      >
+        <div
+          className="text-[9px] font-mono uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {start.toLocaleDateString(undefined, { month: "short" })}
+        </div>
+        <div className="text-xl font-display text-white leading-none">
+          {start.getDate()}
+        </div>
+        <div
+          className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          → {end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+          {featured && <FeaturedTag />}
+          {payload.organization && (
+            <span style={{ color: "var(--rex-text-dim)" }}>
+              {payload.organization}
+            </span>
+          )}
+          {payload.focus && (
+            <span style={{ color: "var(--rex-text-muted)" }}>· {payload.focus}</span>
+          )}
+        </div>
+        <div className="text-white text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
+          {payload.name}
+        </div>
+        <div
+          className="text-xs mt-0.5 font-mono"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {range}
+          {location && ` · ${location}`}
+          {applyDeadline && ` · Apply by ${applyDeadline}`}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function formatRange(start: Date, end: Date): string {
+  const sameMonth =
+    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const startLabel = start.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const endLabel = sameMonth
+    ? end.toLocaleDateString(undefined, { day: "numeric", year: "numeric" })
+    : end.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+  return `${startLabel}–${endLabel}`;
+}
+
+function FeaturedTag() {
+  return (
+    <span
+      className="px-1.5 py-0.5 rounded-sm"
+      style={{
+        background: "rgba(95,185,31,0.12)",
+        color: "var(--rex-accent)",
+        border: "1px solid rgba(95,185,31,0.45)",
+      }}
+    >
+      ★ Featured
+    </span>
+  );
+}
+
+function PasteHint({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mb-6 rounded-sm border border-dashed p-3 text-[11px] font-mono"
+      style={{
+        borderColor: "rgba(95,185,31,0.35)",
+        background: "rgba(95,185,31,0.04)",
+        color: "var(--rex-text-muted)",
+      }}
+    >
+      <span className="text-[var(--rex-accent)]">▸</span> {children}
+    </div>
   );
 }

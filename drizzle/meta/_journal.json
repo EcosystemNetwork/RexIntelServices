@@ -64,6 +64,13 @@
       "when": 1778661712525,
       "tag": "0008_complete_zaran",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778667648150,
+      "tag": "0009_clean_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

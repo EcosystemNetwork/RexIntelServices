@@ -218,7 +218,7 @@ export default function LandingForm() {
             />
             <DivisionCard
               code="DIV-03"
-              href="/pop-up-cities"
+              href="/intel?lane=cities"
               icon={<ShieldIcon className="w-5 h-5" />}
               title="Pop-Up Cities"
               desc="Multi-week residencies — Zuzalu-style gatherings for builders and researchers."
@@ -228,17 +228,17 @@ export default function LandingForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left mt-3">
             <DivisionCard
               code="DIV-04"
-              href="/grants"
+              href="/intel?lane=grants"
               icon={<MarketIcon className="w-5 h-5" />}
               title="Grants"
               desc="Active funding programs from protocols, foundations, and public-goods initiatives."
             />
             <DivisionCard
               code="DIV-05"
-              href="/accelerators"
+              href="/intel?lane=accelerators"
               icon={<SignalIcon className="w-5 h-5" />}
               title="Accelerators"
-              desc="Crypto accelerators and incubators currently accepting applications."
+              desc="Accelerators and incubators currently accepting applications — crypto-native and broader founder programs."
             />
           </div>
         </div>

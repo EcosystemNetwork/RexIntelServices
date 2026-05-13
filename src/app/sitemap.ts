@@ -25,9 +25,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/intel`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${base}/events`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${base}/hackathons`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-    { url: `${base}/pop-up-cities`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-    { url: `${base}/grants`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-    { url: `${base}/accelerators`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel?lane=cities`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel?lane=grants`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel?lane=accelerators`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/jobs`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
     { url: `${base}/submit`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];

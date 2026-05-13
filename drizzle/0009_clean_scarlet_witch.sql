@@ -1,0 +1,2 @@
+ALTER TABLE "submissions" ADD COLUMN "edit_token" text DEFAULT encode(gen_random_bytes(16), 'hex') NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "submissions_edit_token_idx" ON "submissions" USING btree ("edit_token");
