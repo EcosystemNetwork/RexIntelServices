@@ -100,6 +100,81 @@ export async function parseEventUrl(
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Job URL parser — mirrors parseEventUrl but targets schema.org JobPosting.
+// Greenhouse, Lever, Ashby, and most ATS providers ship a complete
+// JobPosting object on each role page; OG fills the gaps for hosts that
+// don't.
+// ───────────────────────────────────────────────────────────────────────
+
+export type ParsedJob = {
+  payload: Partial<import("@/lib/db/schema").JobPayload>;
+  source: "json-ld" | "opengraph" | "mixed";
+  canonicalUrl: string;
+};
+
+export async function parseJobUrl(
+  raw: string,
+): Promise<{ ok: true; data: ParsedJob } | { ok: false; error: ParseError }> {
+  const urlCheck = validateUrl(raw);
+  if (!urlCheck.ok) return { ok: false, error: urlCheck.error };
+
+  const fetchRes = await fetchHtml(urlCheck.url);
+  if (!fetchRes.ok) return { ok: false, error: fetchRes.error };
+
+  const { html, finalUrl } = fetchRes;
+  const jsonLd = extractJobPostingJsonLd(html);
+  const og = extractOpenGraph(html);
+
+  type JobPayloadPartial = Partial<import("@/lib/db/schema").JobPayload>;
+  const payload: JobPayloadPartial = {};
+
+  if (jsonLd) {
+    if (jsonLd.title) payload.title = jsonLd.title;
+    if (jsonLd.description) payload.description = trimDescription(jsonLd.description);
+    if (jsonLd.employmentType) payload.employmentType = jsonLd.employmentType;
+    if (jsonLd.validThrough) payload.expiresAt = normalizeIsoDate(jsonLd.validThrough);
+    if (jsonLd.hiringOrganization) {
+      payload.company = jsonLd.hiringOrganization.name;
+      if (jsonLd.hiringOrganization.url) {
+        payload.companyUrl = jsonLd.hiringOrganization.url;
+      }
+    }
+    if (jsonLd.location) {
+      payload.location = jsonLd.location;
+    }
+    if (jsonLd.remote) payload.remote = true;
+  }
+
+  if (!payload.title && og.title) payload.title = og.title;
+  if (!payload.description && og.description) {
+    payload.description = trimDescription(og.description);
+  }
+  if (!payload.imageUrl && og.image) payload.imageUrl = og.image;
+
+  payload.applyUrl = finalUrl;
+
+  if (!payload.title) {
+    return {
+      ok: false,
+      error: {
+        code: "no_event_data",
+        message:
+          "Couldn't find job posting metadata at that URL. You can still fill the form manually.",
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      payload,
+      source: jsonLd ? (og.title ? "mixed" : "json-ld") : "opengraph",
+      canonicalUrl: finalUrl,
+    },
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // URL validation — basic SSRF guard. We only fetch public http(s) URLs
 // and refuse anything that resolves to localhost / private space by
 // hostname pattern. Full DNS-level rebinding protection would require
@@ -266,6 +341,141 @@ function extractEventJsonLd(html: string): JsonLdEvent | null {
     if (event) return normalizeJsonLdEvent(event);
   }
   return null;
+}
+
+// ── JobPosting JSON-LD extraction ────────────────────────────────────
+
+type JsonLdJob = {
+  title?: string;
+  description?: string;
+  employmentType?: import("@/lib/db/schema").JobPayload["employmentType"];
+  validThrough?: string;
+  hiringOrganization?: { name?: string; url?: string };
+  location?: string; // free-form
+  remote?: boolean;
+};
+
+function extractJobPostingJsonLd(html: string): JsonLdJob | null {
+  const scriptRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = scriptRe.exec(html)) !== null) {
+    const raw = match[1].trim();
+    if (!raw) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const node = findNodeByType(parsed, /^JobPosting$/i);
+    if (node) return normalizeJsonLdJob(node);
+  }
+  return null;
+}
+
+function findNodeByType(
+  node: unknown,
+  typePattern: RegExp,
+): Record<string, unknown> | null {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findNodeByType(item, typePattern);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof node !== "object") return null;
+  const obj = node as Record<string, unknown>;
+  const type = obj["@type"];
+  const types = Array.isArray(type) ? type : [type];
+  if (types.some((t) => typeof t === "string" && typePattern.test(t))) {
+    return obj;
+  }
+  if (Array.isArray(obj["@graph"])) {
+    return findNodeByType(obj["@graph"], typePattern);
+  }
+  return null;
+}
+
+function normalizeJsonLdJob(raw: Record<string, unknown>): JsonLdJob {
+  const out: JsonLdJob = {};
+  if (typeof raw.title === "string") out.title = raw.title.trim();
+  if (typeof raw.description === "string") {
+    // JobPosting descriptions are typically HTML; strip tags for the form.
+    out.description = stripHtml(raw.description).trim();
+  }
+  if (typeof raw.validThrough === "string") out.validThrough = raw.validThrough;
+  if (typeof raw.employmentType === "string") {
+    out.employmentType = normalizeEmploymentType(raw.employmentType);
+  } else if (Array.isArray(raw.employmentType) && raw.employmentType.length) {
+    const first = raw.employmentType[0];
+    if (typeof first === "string") out.employmentType = normalizeEmploymentType(first);
+  }
+
+  const org = raw.hiringOrganization;
+  if (org && typeof org === "object") {
+    const o = org as Record<string, unknown>;
+    out.hiringOrganization = {
+      name: typeof o.name === "string" ? o.name : undefined,
+      url: typeof o.url === "string" ? o.url : undefined,
+    };
+  }
+
+  // jobLocation can be a Place / PostalAddress / array. Just stringify a
+  // human-readable location — the form is free-text anyway.
+  const loc = raw.jobLocation;
+  if (loc) {
+    const parsed = parseJobLocation(loc);
+    if (parsed) out.location = parsed;
+  }
+
+  // jobLocationType === "TELECOMMUTE" signals remote-allowed roles.
+  const lt = raw.jobLocationType;
+  if (typeof lt === "string" && /TELECOMMUTE/i.test(lt)) out.remote = true;
+
+  return out;
+}
+
+function parseJobLocation(loc: unknown): string | null {
+  if (typeof loc === "string") return loc;
+  if (Array.isArray(loc)) {
+    for (const item of loc) {
+      const parsed = parseJobLocation(item);
+      if (parsed) return parsed;
+    }
+    return null;
+  }
+  if (typeof loc !== "object" || !loc) return null;
+  const obj = loc as Record<string, unknown>;
+  const addr = obj.address;
+  if (addr && typeof addr === "object") {
+    const a = addr as Record<string, unknown>;
+    const parts = [a.addressLocality, a.addressRegion, a.addressCountry]
+      .filter((x): x is string => typeof x === "string");
+    if (parts.length) return parts.join(", ");
+  }
+  if (typeof obj.name === "string") return obj.name;
+  return null;
+}
+
+function normalizeEmploymentType(
+  raw: string,
+): import("@/lib/db/schema").JobPayload["employmentType"] {
+  const v = raw.toUpperCase().replace(/[\s-]/g, "_");
+  if (/FULL/.test(v)) return "full-time";
+  if (/PART/.test(v)) return "part-time";
+  if (/CONTRACT/.test(v)) return "contract";
+  if (/INTERN/.test(v)) return "internship";
+  return undefined;
+}
+
+function stripHtml(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 5000);
 }
 
 function findEventNode(node: unknown): Record<string, unknown> | null {

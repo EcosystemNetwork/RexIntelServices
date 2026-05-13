@@ -1375,9 +1375,35 @@ function JobForm() {
 
   if (status === "success") return <SuccessPanel message={message} editUrl={editUrl} />;
 
+  // Apply parser output to JobForm state. Mirrors EventForm's apply step —
+  // the parser returns a Partial<JobPayload>, we set state for every field
+  // it filled and leave the rest untouched.
+  function applyParsedJob(p: Record<string, unknown>) {
+    if (typeof p.title === "string") setTitle(p.title);
+    if (typeof p.company === "string") setCompany(p.company);
+    if (typeof p.companyUrl === "string") setCompanyUrl(p.companyUrl);
+    if (typeof p.description === "string") setDescription(p.description);
+    if (typeof p.location === "string") setLocation(p.location);
+    if (typeof p.applyUrl === "string") setApplyUrl(p.applyUrl);
+    if (p.remote === true) setRemote(true);
+    if (
+      typeof p.employmentType === "string" &&
+      ["full-time", "part-time", "contract", "internship"].includes(p.employmentType)
+    ) {
+      setEmploymentType(p.employmentType as typeof employmentType);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+
+      <UrlPasteBox
+        endpoint="/api/jobs/parse-url"
+        placeholder="https://boards.greenhouse.io/optimismpbc/jobs/…"
+        copy="Got a Greenhouse / Lever / Ashby URL?"
+        onApply={applyParsedJob}
+      />
 
       <Field label="Role Title">
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Senior Smart Contract Engineer" />

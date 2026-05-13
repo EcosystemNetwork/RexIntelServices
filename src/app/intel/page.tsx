@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type {
   AcceleratorPayload,
@@ -799,6 +799,10 @@ async function CitiesLane({ view }: { view?: string }) {
     eq(submissions.status, "approved"),
   );
 
+  // A residency that opened weeks ago but runs through next month is still
+  // current — bucket on the end, not the start.
+  const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all([
     db
       .select({
@@ -813,24 +817,24 @@ async function CitiesLane({ view }: { view?: string }) {
         and(
           baseFilter,
           showPast
-            ? lt(submissions.eventStartsAt, now)
-            : gte(submissions.eventStartsAt, now),
+            ? sql`${effectiveEnd} < ${now}`
+            : sql`${effectiveEnd} >= ${now}`,
         ),
       )
       .orderBy(
         ...(showPast
-          ? [desc(submissions.eventStartsAt)]
+          ? [sql`${effectiveEnd} DESC`]
           : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
       )
       .limit(100),
     db
       .select({ upcomingCount: sql<number>`count(*)::int` })
       .from(submissions)
-      .where(and(baseFilter, gte(submissions.eventStartsAt, now))),
+      .where(and(baseFilter, sql`${effectiveEnd} >= ${now}`)),
     db
       .select({ pastCount: sql<number>`count(*)::int` })
       .from(submissions)
-      .where(and(baseFilter, lt(submissions.eventStartsAt, now))),
+      .where(and(baseFilter, sql`${effectiveEnd} < ${now}`)),
   ]);
 
   const visible = visibleRows.map((r) => ({

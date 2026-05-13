@@ -153,14 +153,20 @@ export async function POST(req: NextRequest) {
 
   // Both events and pop-up cities have a `startsAt` field — denormalize so
   // the existing eventStartsAt index serves both listing queries.
-  const eventStartsAt =
+  const isTimeAnchored =
     submissionType === "event" ||
     submissionType === "popup_city" ||
-    submissionType === "hackathon"
-      ? new Date(
-          (validation.payload as { startsAt: string }).startsAt,
-        )
-      : null;
+    submissionType === "hackathon";
+  const eventStartsAt = isTimeAnchored
+    ? new Date((validation.payload as { startsAt: string }).startsAt)
+    : null;
+  // endsAt denormalized so the lane queries can classify "past" as
+  // ended-in-the-past, not just started-in-the-past — multi-week hackathons
+  // shouldn't fall into Past the day after kickoff.
+  const endsAtRaw = isTimeAnchored
+    ? (validation.payload as { endsAt?: string }).endsAt
+    : undefined;
+  const eventEndsAt = endsAtRaw ? new Date(endsAtRaw) : null;
 
   // Address rows are only meaningful for intel submissions. Validate up
   // front so a bad row fails the whole request before we write anything.
@@ -202,6 +208,7 @@ export async function POST(req: NextRequest) {
       userAgent: req.headers.get("user-agent")?.slice(0, 500) || null,
       honeypotTripped,
       eventStartsAt,
+      eventEndsAt,
       publishedAt: autoApprove ? new Date() : null,
     })
     .returning({ id: submissions.id, editToken: submissions.editToken });

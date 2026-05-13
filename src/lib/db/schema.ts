@@ -440,6 +440,10 @@ export const submissions = pgTable(
     // by date in SQL with an index instead of pulling everything and sorting
     // in app code. NULL for intel submissions.
     eventStartsAt: timestamp("event_starts_at"),
+    // Denormalized from payload.endsAt. Lets the public lanes treat a
+    // multi-week hackathon as "ongoing" instead of bucketing it Past the day
+    // after kickoff. NULL when the payload has no endsAt or for intel rows.
+    eventEndsAt: timestamp("event_ends_at"),
     // Pin a row to the top of public listings (e.g. flagship conference at the
     // top of /events). Sorted as `featured DESC, eventStartsAt ASC` so multiple
     // featured rows fall back to chronological order among themselves.

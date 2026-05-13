@@ -120,19 +120,28 @@ export async function POST(
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  // Keep eventStartsAt in sync if this is a time-anchored type and the
-  // submitter changed the start date.
+  // Keep eventStartsAt / eventEndsAt in sync if this is a time-anchored type
+  // and the submitter changed the dates. endsAt may be omitted, so respect
+  // an explicit absence by clearing the column rather than keeping the old
+  // value — otherwise a stale end timestamp would still bucket the row.
+  const isTimeAnchored =
+    row.type === "event" || row.type === "popup_city" || row.type === "hackathon";
   const startsAt = (validation.payload as { startsAt?: string }).startsAt;
+  const endsAt = (validation.payload as { endsAt?: string }).endsAt;
   const eventStartsAt =
-    (row.type === "event" || row.type === "popup_city" || row.type === "hackathon") && startsAt
-      ? new Date(startsAt)
-      : row.eventStartsAt;
+    isTimeAnchored && startsAt ? new Date(startsAt) : row.eventStartsAt;
+  const eventEndsAt = isTimeAnchored
+    ? endsAt
+      ? new Date(endsAt)
+      : null
+    : row.eventEndsAt;
 
   const [updated] = await db
     .update(submissions)
     .set({
       payload: validation.payload,
       eventStartsAt,
+      eventEndsAt,
       updatedAt: new Date(),
     })
     .where(eq(submissions.id, row.id))

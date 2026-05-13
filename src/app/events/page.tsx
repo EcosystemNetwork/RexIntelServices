@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
@@ -32,6 +32,10 @@ export default async function EventsPage({
     eq(submissions.status, "approved"),
   );
 
+  // Past = the event has actually ended. Falls back to startsAt for rows
+  // without an endsAt (single-day events).
+  const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] =
     await Promise.all([
       db
@@ -47,26 +51,26 @@ export default async function EventsPage({
           and(
             baseFilter,
             showPast
-              ? lt(submissions.eventStartsAt, now)
-              : gte(submissions.eventStartsAt, now),
+              ? sql`${effectiveEnd} < ${now}`
+              : sql`${effectiveEnd} >= ${now}`,
           ),
         )
         // Pin featured rows to the top of upcoming; past view stays purely
         // chronological since featuring stale events doesn't help anyone.
         .orderBy(
           ...(showPast
-            ? [desc(submissions.eventStartsAt)]
+            ? [sql`${effectiveEnd} DESC`]
             : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
         )
         .limit(100),
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(baseFilter, gte(submissions.eventStartsAt, now))),
+        .where(and(baseFilter, sql`${effectiveEnd} >= ${now}`)),
       db
         .select({ pastCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(baseFilter, lt(submissions.eventStartsAt, now))),
+        .where(and(baseFilter, sql`${effectiveEnd} < ${now}`)),
     ]);
 
   const visible = visibleRows.map((r) => ({

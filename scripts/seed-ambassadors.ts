@@ -331,6 +331,45 @@ const ambassadors: AcceleratorPayload[] = [
     rolling: true,
     tags: ["ambassador", "docker", "containers", "developer-community", "devops"],
   },
+  {
+    name: "TON Ambassadors",
+    organization: "TON Foundation / TON Society",
+    organizationUrl: "https://society.ton.org/",
+    description:
+      "TON Society's volunteer ambassador program — open to anyone passionate about crypto, regardless of skill level. Ambassadors promote TON adoption, host events, and plug into the broader TON Society ecosystem (TON Breakfasts, chat-activist roles, TON Accelerator mentorship, TON Syndicate). Successful applicants are added to a dedicated Telegram group and unlock exclusive access, opportunities, and benefits within the ecosystem. Companion tracks include the TON Syndicate (global community volunteer program) and TON Champion Grants (ecosystem-growth funding).",
+    location: "Global (Telegram-first community)",
+    focus: "Crypto-curious community members of any skill level — adoption, regional outreach, content for TON",
+    applyUrl: "https://society.ton.org/",
+    rolling: true,
+    tags: ["ambassador", "ton", "the-open-network", "crypto", "telegram", "adoption"],
+  },
+  {
+    name: "HashiCorp Ambassadors",
+    organization: "HashiCorp",
+    organizationUrl: "https://www.hashicorp.com/en/ambassador",
+    description:
+      "Annual recognition program for HashiCorp community members active over the preceding 12 months — emphasis on knowledge sharing, mentorship, and kindness. Activities include blog writing, video content, certification development, conference talks, and roadmap feedback. Perks: thank-you care packages, early product briefings, roadmap reviews + feedback sessions, and growth opportunities via collaboration on HashiCorp content, videos, and speaking engagements. Submissions open annually December 1 → January 5. Public ambassador directory available for regional / tool-specific networking.",
+    duration: "1 year (per annual cycle)",
+    location: "Global (remote)",
+    focus: "Terraform / Vault / Consul / Nomad / Packer practitioners with sustained community contribution",
+    applyUrl: "https://www.hashicorp.com/en/ambassador",
+    nextDeadline: "2027-01-05T23:59:00Z",
+    rolling: false,
+    tags: ["ambassador", "hashicorp", "terraform", "vault", "consul", "devops"],
+  },
+  {
+    name: "GitHub Campus Experts",
+    organization: "GitHub Education",
+    organizationUrl: "https://education.github.com/experts",
+    description:
+      "GitHub's student-leader program for university students organizing technical communities on their campus. Eligibility: GitHub user for 6+ months, 18+, full-time student at a higher-ed institution with 1+ year remaining, validated through the GitHub Student Developer Pack. Annual application window opens in July for one month. Selection criteria emphasize motivation, growth potential, and intended campus impact — not just technical credentials. After acceptance, Campus Experts go through formal training and onboarding. Distinct from (and complementary to) Microsoft Learn Student Ambassadors — this one is GitHub-centric.",
+    duration: "Spans remaining years of study (re-validated through Student Developer Pack)",
+    location: "Global (campus-based — must be enrolled full-time)",
+    focus: "Current full-time university students leading on-campus technical communities and inclusive learning spaces",
+    applyUrl: "https://education.github.com/campus_experts",
+    rolling: false,
+    tags: ["ambassador", "github", "students", "campus", "education"],
+  },
 ];
 
 async function upsert(payload: AcceleratorPayload) {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
@@ -33,6 +33,11 @@ export default async function HackathonsPage({
     sql`${submissions.payload}->>'eventType' = 'hackathon'`,
   );
 
+  // Bucket on the effective end (endsAt when present, else startsAt). A
+  // hackathon that started weeks ago but runs through next month belongs in
+  // Upcoming, not Past — Past means it's actually over.
+  const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all(
     [
       db
@@ -48,24 +53,24 @@ export default async function HackathonsPage({
           and(
             hackathonFilter,
             showPast
-              ? lt(submissions.eventStartsAt, now)
-              : gte(submissions.eventStartsAt, now),
+              ? sql`${effectiveEnd} < ${now}`
+              : sql`${effectiveEnd} >= ${now}`,
           ),
         )
         .orderBy(
           ...(showPast
-            ? [desc(submissions.eventStartsAt)]
+            ? [sql`${effectiveEnd} DESC`]
             : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
         )
         .limit(100),
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(hackathonFilter, gte(submissions.eventStartsAt, now))),
+        .where(and(hackathonFilter, sql`${effectiveEnd} >= ${now}`)),
       db
         .select({ pastCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(hackathonFilter, lt(submissions.eventStartsAt, now))),
+        .where(and(hackathonFilter, sql`${effectiveEnd} < ${now}`)),
     ],
   );
 

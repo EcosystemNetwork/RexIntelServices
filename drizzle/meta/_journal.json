@@ -71,6 +71,13 @@
       "when": 1778667648150,
       "tag": "0009_clean_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778669049809,
+      "tag": "0010_thick_madame_masque",
+      "breakpoints": true
     }
   ]
 }
