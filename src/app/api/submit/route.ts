@@ -28,6 +28,7 @@ import {
   isTrustedAcceleratorUrl,
 } from "@/lib/event-parser";
 import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
+import { sendAdminAlertEmail } from "@/lib/email/admin-alert-email";
 import { absoluteUrl } from "@/lib/site-url";
 
 type AddressInput = {
@@ -222,20 +223,37 @@ export async function POST(req: NextRequest) {
     !!submitterEmail &&
     submissionType !== "intel";
 
-  if (shouldEmailEdit && editUrl && submitterEmail) {
-    const payloadNameFromValidation =
-      (validation.payload as { name?: string; headline?: string; title?: string }).name ??
+  const payloadNameFromValidation = String(
+    (validation.payload as { name?: string; headline?: string; title?: string }).name ??
       (validation.payload as { headline?: string }).headline ??
       (validation.payload as { title?: string }).title ??
-      "Untitled";
+      "Untitled",
+  );
+
+  if (shouldEmailEdit && editUrl && submitterEmail) {
     // Fire and forget — don't make the submitter wait for SMTP. Failures
     // log inside sendEditLinkEmail; the editUrl is also returned in the
     // JSON response so a determined user can copy it from there.
     void sendEditLinkEmail({
       to: submitterEmail,
       submissionType,
-      payloadName: String(payloadNameFromValidation),
+      payloadName: payloadNameFromValidation,
       editUrl,
+    });
+  }
+
+  // Admin alert email so the moderator knows something landed without
+  // polling /submissions. Skip honeypot rows (those are noise, not signal).
+  // Skip if ADMIN_ALERT_EMAIL isn't configured — sendAdminAlertEmail
+  // no-ops cleanly in that case.
+  if (created && !honeypotTripped) {
+    void sendAdminAlertEmail({
+      submissionId: created.id,
+      submissionType,
+      payloadName: payloadNameFromValidation,
+      submitterEmail,
+      submitterHandle,
+      autoApproved: autoApprove,
     });
   }
 

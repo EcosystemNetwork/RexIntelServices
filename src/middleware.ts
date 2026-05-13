@@ -21,6 +21,10 @@ const PUBLIC_ROUTES = [
   "/api/track/",
   "/api/subscribe",
   "/api/submit",
+  // Tokenized self-service edit — auth is the unguessable URL itself, same
+  // model as /unsubscribe. Carved out from the otherwise-admin /api/submissions
+  // prefix.
+  "/api/submissions/edit/",
   // Vercel Cron requests don't carry a session — protected instead by a
   // CRON_SECRET bearer token validated inside each /api/cron/* route.
   "/api/cron/",

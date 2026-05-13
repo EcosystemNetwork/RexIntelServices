@@ -19,11 +19,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "invalid status" }, { status: 400 });
   }
 
-  const isTypeFilter = type === "intel" || type === "event";
+  const validTypes = [
+    "intel",
+    "event",
+    "hackathon",
+    "popup_city",
+    "grant",
+    "accelerator",
+    "job",
+  ] as const;
+  const isTypeFilter = type !== null && (validTypes as readonly string[]).includes(type);
   const rowConditions = [
     eq(submissions.status, status as (typeof validStatuses)[number]),
   ];
-  if (isTypeFilter) rowConditions.push(eq(submissions.type, type));
+  if (isTypeFilter)
+    rowConditions.push(
+      eq(submissions.type, type as (typeof validTypes)[number]),
+    );
 
   const [rows, [{ counts }]] = await Promise.all([
     db
@@ -47,7 +59,11 @@ export async function GET(req: NextRequest) {
         )`,
       })
       .from(submissions)
-      .where(isTypeFilter ? eq(submissions.type, type) : undefined),
+      .where(
+        isTypeFilter
+          ? eq(submissions.type, type as (typeof validTypes)[number])
+          : undefined,
+      ),
   ]);
 
   return NextResponse.json({ submissions: rows, counts });

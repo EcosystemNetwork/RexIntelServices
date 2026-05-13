@@ -4,7 +4,40 @@ import { useEffect, useState, useCallback } from "react";
 import type { Submission, IntelPayload, EventPayload } from "@/lib/db/schema";
 
 type StatusFilter = "pending" | "approved" | "rejected" | "spam";
-type TypeFilter = "all" | "intel" | "event";
+type TypeFilter =
+  | "all"
+  | "intel"
+  | "event"
+  | "hackathon"
+  | "popup_city"
+  | "grant"
+  | "accelerator"
+  | "job";
+
+// Order + display labels for the type filter row. Keep this list aligned
+// with the submission_type enum + public surface routes.
+const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "intel", label: "Intel" },
+  { key: "event", label: "Events" },
+  { key: "hackathon", label: "Hacks" },
+  { key: "popup_city", label: "Cities" },
+  { key: "grant", label: "Grants" },
+  { key: "accelerator", label: "Accel" },
+  { key: "job", label: "Jobs" },
+];
+
+// Public listing path for a submission type — used by the "view" link on
+// approved rows so a moderator can open the live listing in one click.
+const PUBLIC_PATH: Record<string, (publicId: string) => string> = {
+  intel: (id) => `/intel/${id}`,
+  event: (id) => `/events/${id}`,
+  hackathon: (id) => `/events/${id}`, // hackathons share the event detail page
+  popup_city: (id) => `/pop-up-cities/${id}`,
+  grant: (id) => `/grants/${id}`,
+  accelerator: (id) => `/accelerators/${id}`,
+  job: (id) => `/jobs/${id}`,
+};
 
 type Counts = {
   pending: number;
@@ -144,26 +177,17 @@ export default function SubmissionsPage() {
         />
       </div>
 
-      <div className="flex items-center gap-2 mb-4 text-xs font-mono">
+      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs font-mono">
         <span style={{ color: "var(--rex-text-dim)" }}>FILTER ▸</span>
-        <FilterChip
-          active={typeFilter === "all"}
-          onClick={() => setTypeFilter("all")}
-        >
-          All
-        </FilterChip>
-        <FilterChip
-          active={typeFilter === "intel"}
-          onClick={() => setTypeFilter("intel")}
-        >
-          Intel
-        </FilterChip>
-        <FilterChip
-          active={typeFilter === "event"}
-          onClick={() => setTypeFilter("event")}
-        >
-          Events
-        </FilterChip>
+        {TYPE_FILTERS.map((f) => (
+          <FilterChip
+            key={f.key}
+            active={typeFilter === f.key}
+            onClick={() => setTypeFilter(f.key)}
+          >
+            {f.label}
+          </FilterChip>
+        ))}
       </div>
 
       {loading ? (
@@ -362,10 +386,18 @@ function SubmissionRow({
           className="p-5 border-t"
           style={{ borderColor: "var(--rex-border-subtle)" }}
         >
+          {/* Per-type detail views. Intel and event have richly-formatted
+              renderers; the other types (popup_city, hackathon, grant,
+              accelerator, job) get a generic key/value fallback that
+              walks the JSON payload — readable without bespoke layouts. */}
           {submission.type === "intel" ? (
             <IntelDetail payload={submission.payload as IntelPayload} />
-          ) : (
+          ) : submission.type === "event" ? (
             <EventDetail payload={submission.payload as EventPayload} />
+          ) : (
+            <GenericPayloadDetail
+              payload={submission.payload as Record<string, unknown>}
+            />
           )}
 
           <div
@@ -385,6 +417,29 @@ function SubmissionRow({
               <div className="truncate">UA: {submission.userAgent}</div>
             )}
           </div>
+
+          {isApproved && PUBLIC_PATH[submission.type] && (
+            <div className="mt-4 flex items-center gap-3 text-[11px] font-mono">
+              <a
+                href={PUBLIC_PATH[submission.type](submission.publicId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--rex-accent)] hover:text-white transition-colors"
+              >
+                View public listing ▸
+              </a>
+              <span style={{ color: "var(--rex-border)" }}>│</span>
+              <a
+                href={`/submit/edit/${submission.editToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--rex-text-dim)" }}
+                className="hover:text-[var(--rex-accent)] transition-colors"
+              >
+                Edit-as-submitter link ▸
+              </a>
+            </div>
+          )}
 
           {isPending && (
             <div className="mt-5 flex items-center gap-2">
@@ -533,6 +588,80 @@ function EventDetail({ payload }: { payload: EventPayload }) {
       )}
     </div>
   );
+}
+
+/**
+ * Generic payload detail — walks an arbitrary JSON object and prints each
+ * field. Used for the resource types (popup_city, hackathon, grant,
+ * accelerator, job) that don't have a bespoke renderer. Order-of-keys is
+ * whatever the validator emits, which is intentional (the order matches
+ * what a submitter sees in the form).
+ */
+function GenericPayloadDetail({
+  payload,
+}: {
+  payload: Record<string, unknown>;
+}) {
+  const entries = Object.entries(payload).filter(([, v]) => {
+    if (v === undefined || v === null || v === "") return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return true;
+  });
+  return (
+    <div className="space-y-3 text-sm">
+      {entries.map(([k, v]) => (
+        <Field key={k} label={formatLabel(k)}>
+          {renderPayloadValue(v)}
+        </Field>
+      ))}
+    </div>
+  );
+}
+
+function renderPayloadValue(v: unknown): React.ReactNode {
+  if (Array.isArray(v)) {
+    return (
+      <ul className="space-y-1 font-mono text-xs">
+        {v.map((item, i) => (
+          <li key={i} className="break-all text-[var(--rex-text-muted)]">
+            {typeof item === "string" ? item : JSON.stringify(item)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (typeof v === "boolean") {
+    return (
+      <span className="font-mono text-xs">{v ? "true" : "false"}</span>
+    );
+  }
+  const str = typeof v === "string" ? v : JSON.stringify(v);
+  // URLs get rendered as clickable links so moderators can open them.
+  if (typeof v === "string" && /^https?:\/\//.test(v)) {
+    return (
+      <a
+        href={v}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[var(--rex-accent)] hover:underline break-all font-mono text-xs"
+      >
+        {v}
+      </a>
+    );
+  }
+  return (
+    <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--rex-text-muted)]">
+      {str}
+    </pre>
+  );
+}
+
+function formatLabel(key: string): string {
+  // camelCase / snake_case → "Camel Case" / "Snake Case"
+  return key
+    .replace(/[_-]/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (c) => c.toUpperCase());
 }
 
 function Field({

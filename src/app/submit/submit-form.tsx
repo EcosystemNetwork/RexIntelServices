@@ -145,6 +145,9 @@ function IntelForm() {
   const [addressRows, setAddressRows] = useState<AddressRow[]>([]);
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+  // Surfaced by the API for non-anonymous submissions so the success panel
+  // can show the bookmarkable edit link alongside the receipt email.
+  const [editUrl, setEditUrl] = useState<string | null>(null);
 
   function updateAddressRow(idx: number, patch: Partial<AddressRow>) {
     setAddressRows((rows) =>
@@ -200,6 +203,7 @@ function IntelForm() {
       if (res.ok) {
         setStatus("success");
         setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
       } else {
         setStatus("error");
         setMessage(data.error || "Transmission failed.");
@@ -211,7 +215,7 @@ function IntelForm() {
   }
 
   if (status === "success") {
-    return <SuccessPanel message={message} />;
+    return <SuccessPanel message={message} editUrl={editUrl} />;
   }
 
   return (
@@ -488,6 +492,9 @@ function EventForm() {
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+  // Surfaced by the API for non-anonymous submissions so the success panel
+  // can show the bookmarkable edit link alongside the receipt email.
+  const [editUrl, setEditUrl] = useState<string | null>(null);
 
   // ── URL-paste prefill state ───────────────────────────────────────
   const [pasteUrl, setPasteUrl] = useState("");
@@ -582,6 +589,7 @@ function EventForm() {
       if (res.ok) {
         setStatus("success");
         setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
       } else {
         setStatus("error");
         setMessage(data.error || "Submission failed.");
@@ -593,7 +601,7 @@ function EventForm() {
   }
 
   if (status === "success") {
-    return <SuccessPanel message={message} />;
+    return <SuccessPanel message={message} editUrl={editUrl} />;
   }
 
   return (
@@ -838,6 +846,9 @@ function PopupCityForm() {
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+  // Surfaced by the API for non-anonymous submissions so the success panel
+  // can show the bookmarkable edit link alongside the receipt email.
+  const [editUrl, setEditUrl] = useState<string | null>(null);
   const [autoApprove, setAutoApprove] = useState(false);
 
   // Pop-up cities use the same event-URL parser (almost all are listed on
@@ -894,6 +905,7 @@ function PopupCityForm() {
       if (res.ok) {
         setStatus("success");
         setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
       } else {
         setStatus("error");
         setMessage(data.error || "Submission failed.");
@@ -904,7 +916,7 @@ function PopupCityForm() {
     }
   }
 
-  if (status === "success") return <SuccessPanel message={message} />;
+  if (status === "success") return <SuccessPanel message={message} editUrl={editUrl} />;
 
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
@@ -1048,6 +1060,9 @@ function GrantForm() {
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+  // Surfaced by the API for non-anonymous submissions so the success panel
+  // can show the bookmarkable edit link alongside the receipt email.
+  const [editUrl, setEditUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1082,6 +1097,7 @@ function GrantForm() {
       if (res.ok) {
         setStatus("success");
         setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
       } else {
         setStatus("error");
         setMessage(data.error || "Submission failed.");
@@ -1092,7 +1108,7 @@ function GrantForm() {
     }
   }
 
-  if (status === "success") return <SuccessPanel message={message} />;
+  if (status === "success") return <SuccessPanel message={message} editUrl={editUrl} />;
 
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
@@ -1171,6 +1187,9 @@ function AcceleratorForm() {
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+  // Surfaced by the API for non-anonymous submissions so the success panel
+  // can show the bookmarkable edit link alongside the receipt email.
+  const [editUrl, setEditUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1205,6 +1224,7 @@ function AcceleratorForm() {
       if (res.ok) {
         setStatus("success");
         setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
       } else {
         setStatus("error");
         setMessage(data.error || "Submission failed.");
@@ -1215,7 +1235,7 @@ function AcceleratorForm() {
     }
   }
 
-  if (status === "success") return <SuccessPanel message={message} />;
+  if (status === "success") return <SuccessPanel message={message} editUrl={editUrl} />;
 
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
@@ -1306,6 +1326,9 @@ function JobForm() {
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
+  // Surfaced by the API for non-anonymous submissions so the success panel
+  // can show the bookmarkable edit link alongside the receipt email.
+  const [editUrl, setEditUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1339,6 +1362,7 @@ function JobForm() {
       if (res.ok) {
         setStatus("success");
         setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
       } else {
         setStatus("error");
         setMessage(data.error || "Submission failed.");
@@ -1349,7 +1373,7 @@ function JobForm() {
     }
   }
 
-  if (status === "success") return <SuccessPanel message={message} />;
+  if (status === "success") return <SuccessPanel message={message} editUrl={editUrl} />;
 
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
@@ -1660,7 +1684,13 @@ function Hint({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SuccessPanel({ message }: { message: string }) {
+function SuccessPanel({
+  message,
+  editUrl,
+}: {
+  message: string;
+  editUrl?: string | null;
+}) {
   return (
     <div className="rex-card p-8 text-center">
       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4 bg-[rgba(95,185,31,0.1)] border border-[rgba(95,185,31,0.4)]">
@@ -1682,6 +1712,32 @@ function SuccessPanel({ message }: { message: string }) {
       <p className="text-sm text-[var(--rex-text-muted)] max-w-sm mx-auto">
         {message}
       </p>
+      {editUrl && (
+        <div
+          className="mt-5 mx-auto max-w-md p-3 rounded-sm border text-left"
+          style={{
+            borderColor: "rgba(95,185,31,0.35)",
+            background: "rgba(95,185,31,0.04)",
+          }}
+        >
+          <p
+            className="text-[10px] font-mono uppercase tracking-widest mb-2"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            ▸ Edit later
+          </p>
+          <p className="text-[12px] text-[var(--rex-text-muted)] mb-2 leading-relaxed">
+            Need to fix a typo? Bookmark this private edit link — we also sent
+            it to your email. Don&apos;t share it; anyone with the link can edit.
+          </p>
+          <a
+            href={editUrl}
+            className="block text-[11px] font-mono break-all text-[var(--rex-accent)] hover:text-white transition-colors"
+          >
+            {editUrl}
+          </a>
+        </div>
+      )}
       <Link
         href="/"
         className="inline-block mt-6 mono-label-accent hover:text-white transition-colors"
