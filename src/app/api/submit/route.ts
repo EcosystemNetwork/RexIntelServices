@@ -11,6 +11,7 @@ import type {
   EventPayload,
   JobPayload,
   PopupCityPayload,
+  HackathonPayload,
   GrantPayload,
   AcceleratorPayload,
   AddressRole,
@@ -20,6 +21,7 @@ import { CHAIN_SLUG_SET } from "@/lib/chains";
 import {
   isTrustedEventUrl,
   isTrustedPopupCityUrl,
+  isTrustedHackathonUrl,
   isTrustedJobUrl,
   isTrustedGrantUrl,
   isTrustedAcceleratorUrl,
@@ -55,7 +57,14 @@ export async function POST(req: NextRequest) {
   }
 
   let body: {
-    type?: "intel" | "event" | "job" | "grant" | "accelerator" | "popup_city";
+    type?:
+      | "intel"
+      | "event"
+      | "job"
+      | "grant"
+      | "accelerator"
+      | "popup_city"
+      | "hackathon";
     payload?: unknown;
     addresses?: unknown;
     submitterEmail?: string;
@@ -79,13 +88,14 @@ export async function POST(req: NextRequest) {
     "grant",
     "accelerator",
     "popup_city",
+    "hackathon",
   ] as const;
   type SubmissionType = (typeof ALL_TYPES)[number];
   if (!body.type || !ALL_TYPES.includes(body.type as SubmissionType)) {
     return NextResponse.json(
       {
         error:
-          "type must be one of: intel, event, job, grant, accelerator, popup_city",
+          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon",
       },
       { status: 400 },
     );
@@ -106,6 +116,8 @@ export async function POST(req: NextRequest) {
         return validateAcceleratorPayload(body.payload);
       case "popup_city":
         return validatePopupCityPayload(body.payload);
+      case "hackathon":
+        return validateHackathonPayload(body.payload);
     }
   })();
 
@@ -138,7 +150,9 @@ export async function POST(req: NextRequest) {
   // Both events and pop-up cities have a `startsAt` field — denormalize so
   // the existing eventStartsAt index serves both listing queries.
   const eventStartsAt =
-    submissionType === "event" || submissionType === "popup_city"
+    submissionType === "event" ||
+    submissionType === "popup_city" ||
+    submissionType === "hackathon"
       ? new Date(
           (validation.payload as { startsAt: string }).startsAt,
         )
@@ -161,6 +175,7 @@ export async function POST(req: NextRequest) {
     body.type !== "intel" &&
     ((submissionType === "event" && isTrustedEventUrl(payloadUrl)) ||
       (submissionType === "popup_city" && isTrustedPopupCityUrl(payloadUrl)) ||
+      (submissionType === "hackathon" && isTrustedHackathonUrl(payloadUrl)) ||
       (submissionType === "grant" && isTrustedGrantUrl(payloadUrl)) ||
       (submissionType === "accelerator" && isTrustedAcceleratorUrl(payloadUrl)) ||
       (submissionType === "job" && isTrustedJobUrl(payloadUrl)));
@@ -197,6 +212,7 @@ export async function POST(req: NextRequest) {
   const SURFACE_LABEL: Record<string, string> = {
     event: "Event",
     popup_city: "Pop-up city",
+    hackathon: "Hackathon",
     grant: "Grant program",
     accelerator: "Accelerator",
     job: "Job posting",
@@ -441,6 +457,61 @@ function validateJobPayload(
       applyUrl: sanitizeSingleUrl(p.applyUrl),
       tags: sanitizeTagList(p.tags),
       expiresAt,
+      imageUrl: sanitizeSingleUrl(p.imageUrl),
+    },
+  };
+}
+
+function validateHackathonPayload(
+  raw: unknown,
+): { ok: true; payload: HackathonPayload } | { ok: false; error: string } {
+  if (!raw || typeof raw !== "object") return { ok: false, error: "payload is required" };
+  const p = raw as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim() : "";
+  const description = typeof p.description === "string" ? p.description.trim() : "";
+  if (name.length < 3 || name.length > 200)
+    return { ok: false, error: "Hackathon name must be 3–200 characters." };
+  if (description.length < 20 || description.length > 5000)
+    return { ok: false, error: "Description must be 20–5000 characters." };
+
+  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
+  if (!startsAt || isNaN(Date.parse(startsAt)))
+    return { ok: false, error: "Start date is required (ISO format)." };
+  const endsAt = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
+  if (!endsAt || isNaN(Date.parse(endsAt)))
+    return { ok: false, error: "End date is required (ISO format)." };
+
+  const validModes = ["online", "irl", "hybrid"] as const;
+
+  const registrationDeadline =
+    typeof p.registrationDeadline === "string" &&
+    p.registrationDeadline.trim() &&
+    !isNaN(Date.parse(p.registrationDeadline))
+      ? p.registrationDeadline.trim()
+      : undefined;
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      organization: trimToString(p.organization, 120),
+      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
+      description,
+      startsAt,
+      endsAt,
+      mode: validModes.includes(p.mode as never)
+        ? (p.mode as HackathonPayload["mode"])
+        : undefined,
+      city: trimToString(p.city, 100),
+      country: trimToString(p.country, 100),
+      venue: trimToString(p.venue, 200),
+      url: sanitizeSingleUrl(p.url),
+      registrationUrl: sanitizeSingleUrl(p.registrationUrl),
+      registrationDeadline,
+      prizePool: trimToString(p.prizePool, 200),
+      tracks: sanitizeTagList(p.tracks),
+      sponsors: sanitizeTagList(p.sponsors),
+      tags: sanitizeTagList(p.tags),
       imageUrl: sanitizeSingleUrl(p.imageUrl),
     },
   };

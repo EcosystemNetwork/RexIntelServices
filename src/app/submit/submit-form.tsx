@@ -451,6 +451,23 @@ function IntelForm() {
 }
 
 function EventForm() {
+  // Honor ?eventType=hackathon (and any other valid eventType) so deep links
+  // from /hackathons → /submit?type=event&eventType=hackathon land with the
+  // dropdown pre-selected. Read-only; user can still change it after mount.
+  const searchParams = useSearchParams();
+  const requestedType = searchParams?.get("eventType") ?? "";
+  const validEventTypes = [
+    "conference",
+    "workshop",
+    "meetup",
+    "hackathon",
+    "other",
+  ] as const;
+  const initialEventType: (typeof validEventTypes)[number] | "" =
+    (validEventTypes as readonly string[]).includes(requestedType)
+      ? (requestedType as (typeof validEventTypes)[number])
+      : "";
+
   const [name, setName] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
@@ -461,7 +478,7 @@ function EventForm() {
   const [description, setDescription] = useState("");
   const [eventType, setEventType] = useState<
     "" | "conference" | "workshop" | "meetup" | "hackathon" | "other"
-  >("");
+  >(initialEventType);
   const [priceTier, setPriceTier] = useState<"" | "free" | "paid" | "invite">(
     "",
   );

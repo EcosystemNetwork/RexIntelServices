@@ -536,6 +536,19 @@ export const TRUSTED_POPUP_CITY_HOSTS = new Set([
   "crecimiento.build",
 ]);
 
+// Hackathons: ETHGlobal + Devpost + MLH dominate; lu.ma covers the long tail
+// of community hackathons.
+export const TRUSTED_HACKATHON_HOSTS = new Set([
+  "ethglobal.com",
+  "devpost.com",
+  "mlh.io",
+  "hackerearth.com",
+  "lu.ma",
+  "luma.com",
+  "dorahacks.io",
+  "encode.club",
+]);
+
 // Established crypto grant programs — restrictive. Random Twitter "grant"
 // pages should hit moderation.
 export const TRUSTED_GRANT_HOSTS = new Set([
@@ -599,6 +612,10 @@ export function isTrustedEventUrl(rawUrl: string | undefined): boolean {
 export function isTrustedPopupCityUrl(rawUrl: string | undefined): boolean {
   const host = hostOf(rawUrl);
   return host ? TRUSTED_POPUP_CITY_HOSTS.has(host) : false;
+}
+export function isTrustedHackathonUrl(rawUrl: string | undefined): boolean {
+  const host = hostOf(rawUrl);
+  return host ? TRUSTED_HACKATHON_HOSTS.has(host) : false;
 }
 export function isTrustedGrantUrl(rawUrl: string | undefined): boolean {
   const host = hostOf(rawUrl);

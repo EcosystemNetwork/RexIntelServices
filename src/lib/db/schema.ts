@@ -58,6 +58,7 @@ export const submissionTypeEnum = pgEnum("submission_type", [
   "grant",
   "accelerator",
   "popup_city",
+  "hackathon",
 ]);
 
 export const submissionStatusEnum = pgEnum("submission_status", [
@@ -323,6 +324,28 @@ export type JobPayload = {
   imageUrl?: string;
 };
 
+export type HackathonPayload = {
+  name: string;
+  organization?: string; // ETHGlobal, EthCC, Devpost, etc.
+  organizationUrl?: string;
+  description: string;
+  // Required dates — both used for past/upcoming filtering on listing pages.
+  startsAt: string;
+  endsAt: string;
+  mode?: "online" | "irl" | "hybrid";
+  city?: string;
+  country?: string;
+  venue?: string;
+  url?: string;
+  registrationUrl?: string;
+  registrationDeadline?: string;
+  prizePool?: string; // "$300K+ in prizes", "ETH from sponsors"
+  tracks?: string[]; // DeFi, AI, gaming, etc.
+  sponsors?: string[];
+  tags?: string[];
+  imageUrl?: string;
+};
+
 export type PopupCityPayload = {
   name: string;
   organization?: string; // host org if separate from the city name
@@ -381,6 +404,7 @@ export type SubmissionPayload =
   | EventPayload
   | JobPayload
   | PopupCityPayload
+  | HackathonPayload
   | GrantPayload
   | AcceleratorPayload;
 
