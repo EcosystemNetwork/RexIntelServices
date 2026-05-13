@@ -50,6 +50,13 @@
       "when": 1778401265359,
       "tag": "0006_milky_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778640821677,
+      "tag": "0007_naive_talon",
+      "breakpoints": true
     }
   ]
 }

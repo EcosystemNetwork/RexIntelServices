@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   // 5 signups per IP per 10 minutes. Tight enough to deter scripted abuse,
   // loose enough that a household / office NAT'd behind one IP isn't blocked
   // for a real signup or two.
-  const limit = rateLimit(`subscribe:${ip}`, 5, 10 * 60 * 1000);
+  const limit = await rateLimit(`subscribe:${ip}`, 5, 10 * 60 * 1000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many requests. Please try again later." },

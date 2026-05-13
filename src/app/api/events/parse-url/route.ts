@@ -14,7 +14,7 @@ import { rateLimit, clientIp } from "@/lib/rate-limit";
  */
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
-  const limit = rateLimit(`parse-url:${ip}`, 20, 10 * 60 * 1000);
+  const limit = await rateLimit(`parse-url:${ip}`, 20, 10 * 60 * 1000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many requests. Please try again later." },

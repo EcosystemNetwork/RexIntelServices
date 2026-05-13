@@ -5,15 +5,7 @@ import { useState } from "react";
 import { MarketIcon, SignalIcon, ShieldIcon } from "@/components/icons";
 import { PublicShell } from "@/components/public-shell";
 
-export default function LandingForm({
-  addressCount,
-  chainCount,
-  approvedIntelCount,
-}: {
-  addressCount: number;
-  chainCount: number;
-  approvedIntelCount: number;
-}) {
+export default function LandingForm() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   // Honeypot — bots autofill any visible/known field. Real users never see this.
@@ -205,24 +197,6 @@ export default function LandingForm({
           )}
         </div>
 
-        {addressCount > 0 && (
-          <div className="mt-12 animate-fade-in animate-fade-in-delay-4">
-            <Link
-              href="/addresses"
-              className="inline-flex flex-wrap items-baseline justify-center gap-x-4 gap-y-2 px-5 py-3 rounded-sm border border-[var(--rex-border-subtle)] bg-[var(--rex-surface)]/40 hover:border-[var(--rex-accent)] transition-colors group"
-            >
-              <Stat n={addressCount} label="addresses tracked" />
-              <span className="text-[var(--rex-border)]">│</span>
-              <Stat n={chainCount} label="chains" />
-              <span className="text-[var(--rex-border)]">│</span>
-              <Stat n={approvedIntelCount} label="intel items" />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] group-hover:text-[var(--rex-accent)] transition-colors">
-                View graph ▸
-              </span>
-            </Link>
-          </div>
-        )}
-
         <div className="mt-16 animate-fade-in animate-fade-in-delay-4">
           <div className="rex-divider mb-8">
             <span>Intelligence Divisions</span>
@@ -270,19 +244,6 @@ export default function LandingForm({
         </div>
       </main>
     </PublicShell>
-  );
-}
-
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <span className="font-display text-xl font-semibold tabular-nums text-[var(--rex-accent)]">
-        {n.toLocaleString()}
-      </span>
-      <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-muted)]">
-        {label}
-      </span>
-    </span>
   );
 }
 

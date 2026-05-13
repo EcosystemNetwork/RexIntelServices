@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { and, desc, eq, sql } from "drizzle-orm";
-import { db, addresses, intelAddresses, submissions } from "@/lib/db";
+import { desc, eq } from "drizzle-orm";
+import { db, submissions } from "@/lib/db";
 import { siteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +8,9 @@ export const revalidate = 0;
 
 /**
  * Full sitemap covering every public surface plus a row per approved
- * submission and tracked address. Refreshed on demand (force-dynamic) so
- * newly-approved content appears in the sitemap on the next crawl rather
- * than waiting for a rebuild.
+ * submission. Refreshed on demand (force-dynamic) so newly-approved
+ * content appears in the sitemap on the next crawl rather than waiting
+ * for a rebuild.
  *
  * Caps applied per surface to keep the sitemap under the 50k-URL Google
  * limit; if any board passes ~5k items we should split into per-type
@@ -23,7 +23,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1.0 },
     { url: `${base}/intel`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
-    { url: `${base}/addresses`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${base}/events`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${base}/pop-up-cities`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/grants`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
@@ -70,30 +69,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  // Address dossier pages — only those with at least one approved intel
-  // mention. Same predicate the page itself uses to decide whether to
-  // render or 404.
-  const addrs = await db
-    .select({
-      chain: addresses.chain,
-      address: addresses.address,
-      latest: sql<Date | null>`max(${submissions.publishedAt})`,
-    })
-    .from(addresses)
-    .innerJoin(intelAddresses, eq(intelAddresses.addressId, addresses.id))
-    .innerJoin(submissions, eq(intelAddresses.submissionId, submissions.id))
-    .where(
-      and(eq(submissions.type, "intel"), eq(submissions.status, "approved")),
-    )
-    .groupBy(addresses.id, addresses.chain, addresses.address)
-    .limit(20_000);
-
-  const addressEntries: MetadataRoute.Sitemap = addrs.map((a) => ({
-    url: `${base}/address/${a.chain}/${a.address.toLowerCase()}`,
-    lastModified: a.latest ?? undefined,
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
-
-  return [...staticEntries, ...submissionEntries, ...addressEntries];
+  return [...staticEntries, ...submissionEntries];
 }

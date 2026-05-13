@@ -253,31 +253,26 @@ export default async function IntelDetailPage({
               <ul className="space-y-2 font-mono text-xs">
                 {linkedAddresses.map((a, i) => {
                   const explorer = explorerUrl(a.chain, a.address);
+                  const addressNode = explorer ? (
+                    <a
+                      href={explorer}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--rex-accent)] hover:underline break-all"
+                    >
+                      {a.address}
+                    </a>
+                  ) : (
+                    <span className="break-all text-[var(--rex-text-muted)]">
+                      {a.address}
+                    </span>
+                  );
                   return (
                     <li key={i} className="flex flex-wrap items-baseline gap-2">
                       <span className="uppercase tracking-widest text-[10px] text-[var(--rex-text-dim)]">
                         {a.chain}
                       </span>
-                      {/* Internal dossier link goes first — clicking the
-                          address surfaces every other intel item that
-                          mentions it. The block-explorer link sits beside
-                          it so analysts can drill into on-chain context. */}
-                      <Link
-                        href={`/address/${a.chain}/${a.address.toLowerCase()}`}
-                        className="text-[var(--rex-accent)] hover:underline break-all"
-                      >
-                        {a.address}
-                      </Link>
-                      {explorer && (
-                        <a
-                          href={explorer}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
-                        >
-                          explorer ▸
-                        </a>
-                      )}
+                      {addressNode}
                       <span
                         className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
                         style={{

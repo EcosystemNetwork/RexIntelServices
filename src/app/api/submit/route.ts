@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   // 5 submissions per IP per 30min. Stricter than newsletter signup because
   // submission spam costs us human moderation time, not just a DB row.
-  const limit = rateLimit(`submit:${ip}`, 5, 30 * 60 * 1000);
+  const limit = await rateLimit(`submit:${ip}`, 5, 30 * 60 * 1000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many submissions. Please try again later." },
