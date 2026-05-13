@@ -6,7 +6,9 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions, addresses, intelAddresses } from "@/lib/db";
 import type { IntelPayload, AddressRole } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { JsonLd } from "@/components/json-ld";
 import { explorerUrl } from "@/lib/chains";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -143,10 +145,29 @@ export default async function IntelDetailPage({
       ? `@${row.submitterHandle}`
       : "Anonymous";
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: payload.headline,
+    description: payload.body.slice(0, 300),
+    datePublished: row.publishedAt?.toISOString(),
+    author: {
+      "@type": payload.anonymous ? "Organization" : "Person",
+      name: payload.anonymous ? "Rex Intel Services (Anonymous source)" : sourceLabel,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Rex Intel Services",
+      url: absoluteUrl("/"),
+    },
+    mainEntityOfPage: absoluteUrl(`/intel/${params.publicId}`),
+  };
+
   return (
     <PublicShell
       classification={[{ text: "● Open Channel // Intel Wire Detail" }]}
     >
+      <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/intel"

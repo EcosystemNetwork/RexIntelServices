@@ -6,6 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { JobPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { JsonLd } from "@/components/json-ld";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +58,32 @@ export default async function JobDetailPage({
   if (!row) notFound();
   const p = row.payload;
 
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: p.title,
+    description: p.description,
+    datePosted: row.publishedAt?.toISOString(),
+    validThrough: p.expiresAt,
+    employmentType: p.employmentType,
+    hiringOrganization: {
+      "@type": "Organization",
+      name: p.company,
+      url: p.companyUrl,
+    },
+    jobLocationType: p.remote ? "TELECOMMUTE" : undefined,
+    jobLocation: p.location
+      ? {
+          "@type": "Place",
+          address: { "@type": "PostalAddress", addressLocality: p.location },
+        }
+      : undefined,
+    url: absoluteUrl(`/jobs/${params.publicId}`),
+  };
+
   return (
     <PublicShell classification={[{ text: "● Open Channel // Job Detail" }]}>
+      <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/jobs"

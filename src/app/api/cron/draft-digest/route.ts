@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { and, asc, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { db, submissions, campaigns } from "@/lib/db";
-import type { IntelPayload, EventPayload } from "@/lib/db/schema";
+import type {
+  IntelPayload,
+  EventPayload,
+  PopupCityPayload,
+  GrantPayload,
+  AcceleratorPayload,
+} from "@/lib/db/schema";
 import { renderDigest } from "@/lib/email/digest-template";
 
 /**
@@ -51,48 +57,108 @@ export async function GET(req: Request) {
     });
   }
 
+  // Pop-up cities use a longer lookahead (60 days) since residencies usually
+  // have an application deadline weeks before they start. Grants + accelerators
+  // are sorted by recency-of-publication — fresh listings bubble up.
+  const sixtyDaysOut = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
   // Exclude submissions already featured in a previous digest. This keeps
   // each item from showing up week after week if it's still in the lookback
   // window, and means an empty week is genuinely empty (not a re-run).
-  const [intelRows, eventRows] = await Promise.all([
-    db
-      .select({
-        id: submissions.id,
-        publicId: submissions.publicId,
-        payload: submissions.payload,
-        publishedAt: submissions.publishedAt,
-      })
-      .from(submissions)
-      .where(
-        and(
-          eq(submissions.type, "intel"),
-          eq(submissions.status, "approved"),
-          gte(submissions.publishedAt, sevenDaysAgo),
-          isNull(submissions.featuredInCampaignId),
-        ),
-      )
-      .orderBy(desc(submissions.publishedAt))
-      .limit(20),
-    db
-      .select({
-        id: submissions.id,
-        publicId: submissions.publicId,
-        payload: submissions.payload,
-        eventStartsAt: submissions.eventStartsAt,
-      })
-      .from(submissions)
-      .where(
-        and(
-          eq(submissions.type, "event"),
-          eq(submissions.status, "approved"),
-          gte(submissions.eventStartsAt, now),
-          lt(submissions.eventStartsAt, fourteenDaysOut),
-          isNull(submissions.featuredInCampaignId),
-        ),
-      )
-      .orderBy(asc(submissions.eventStartsAt))
-      .limit(15),
-  ]);
+  const [intelRows, eventRows, popupRows, grantRows, acceleratorRows] =
+    await Promise.all([
+      db
+        .select({
+          id: submissions.id,
+          publicId: submissions.publicId,
+          payload: submissions.payload,
+          publishedAt: submissions.publishedAt,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.type, "intel"),
+            eq(submissions.status, "approved"),
+            gte(submissions.publishedAt, sevenDaysAgo),
+            isNull(submissions.featuredInCampaignId),
+          ),
+        )
+        .orderBy(desc(submissions.publishedAt))
+        .limit(20),
+      db
+        .select({
+          id: submissions.id,
+          publicId: submissions.publicId,
+          payload: submissions.payload,
+          eventStartsAt: submissions.eventStartsAt,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.type, "event"),
+            eq(submissions.status, "approved"),
+            gte(submissions.eventStartsAt, now),
+            lt(submissions.eventStartsAt, fourteenDaysOut),
+            isNull(submissions.featuredInCampaignId),
+          ),
+        )
+        .orderBy(asc(submissions.eventStartsAt))
+        .limit(15),
+      db
+        .select({
+          id: submissions.id,
+          publicId: submissions.publicId,
+          payload: submissions.payload,
+          eventStartsAt: submissions.eventStartsAt,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.type, "popup_city"),
+            eq(submissions.status, "approved"),
+            gte(submissions.eventStartsAt, now),
+            lt(submissions.eventStartsAt, sixtyDaysOut),
+            isNull(submissions.featuredInCampaignId),
+          ),
+        )
+        .orderBy(asc(submissions.eventStartsAt))
+        .limit(5),
+      db
+        .select({
+          id: submissions.id,
+          publicId: submissions.publicId,
+          payload: submissions.payload,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.type, "grant"),
+            eq(submissions.status, "approved"),
+            gte(submissions.publishedAt, thirtyDaysAgo),
+            isNull(submissions.featuredInCampaignId),
+          ),
+        )
+        .orderBy(desc(submissions.publishedAt))
+        .limit(5),
+      db
+        .select({
+          id: submissions.id,
+          publicId: submissions.publicId,
+          payload: submissions.payload,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.type, "accelerator"),
+            eq(submissions.status, "approved"),
+            gte(submissions.publishedAt, thirtyDaysAgo),
+            isNull(submissions.featuredInCampaignId),
+          ),
+        )
+        .orderBy(desc(submissions.publishedAt))
+        .limit(5),
+    ]);
 
   const intel = intelRows.map((r) => ({
     publicId: r.publicId,
@@ -104,15 +170,39 @@ export async function GET(req: Request) {
     payload: r.payload as EventPayload,
     eventStartsAt: r.eventStartsAt,
   }));
+  const popupCities = popupRows.map((r) => ({
+    publicId: r.publicId,
+    payload: r.payload as PopupCityPayload,
+    eventStartsAt: r.eventStartsAt,
+  }));
+  const grants = grantRows.map((r) => ({
+    publicId: r.publicId,
+    payload: r.payload as GrantPayload,
+  }));
+  const accelerators = acceleratorRows.map((r) => ({
+    publicId: r.publicId,
+    payload: r.payload as AcceleratorPayload,
+  }));
 
-  // If there's literally nothing to send, don't create an empty draft.
-  // Reduces noise in the campaigns list during slow weeks.
-  if (intel.length === 0 && events.length === 0) {
+  // If there's literally nothing to send across any board, don't create an
+  // empty draft. Reduces noise in the campaigns list during slow weeks.
+  const totalItems =
+    intel.length +
+    events.length +
+    popupCities.length +
+    grants.length +
+    accelerators.length;
+  if (totalItems === 0) {
     return NextResponse.json({
       ok: true,
-      skipped: "no intel or upcoming events in window",
-      intelCount: 0,
-      eventCount: 0,
+      skipped: "no new content across any board in window",
+      counts: {
+        intel: 0,
+        events: 0,
+        popupCities: 0,
+        grants: 0,
+        accelerators: 0,
+      },
     });
   }
 
@@ -128,7 +218,15 @@ export async function GET(req: Request) {
     );
   }
 
-  const rendered = renderDigest({ intel, events, baseUrl, issueDate: now });
+  const rendered = renderDigest({
+    intel,
+    events,
+    popupCities,
+    grants,
+    accelerators,
+    baseUrl,
+    issueDate: now,
+  });
 
   const [draft] = await db
     .insert(campaigns)
@@ -150,6 +248,9 @@ export async function GET(req: Request) {
   const featuredIds = [
     ...intelRows.map((r) => r.id),
     ...eventRows.map((r) => r.id),
+    ...popupRows.map((r) => r.id),
+    ...grantRows.map((r) => r.id),
+    ...acceleratorRows.map((r) => r.id),
   ];
   if (featuredIds.length > 0) {
     await db
@@ -161,8 +262,13 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     campaignId: draft.id,
-    intelCount: intel.length,
-    eventCount: events.length,
+    counts: {
+      intel: intel.length,
+      events: events.length,
+      popupCities: popupCities.length,
+      grants: grants.length,
+      accelerators: accelerators.length,
+    },
     subject: rendered.subject,
   });
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { AcceleratorPayload } from "@/lib/db/schema";
 import { ResourceListShell, EmptyState } from "@/components/resource-shell";
@@ -19,7 +19,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function AcceleratorsPage() {
+export default async function AcceleratorsPage({
+  searchParams,
+}: {
+  searchParams: { filter?: string };
+}) {
+  const filter = searchParams.filter === "rolling"
+    ? "rolling"
+    : searchParams.filter === "scheduled"
+      ? "scheduled"
+      : null;
+
+  const filterClause =
+    filter === "rolling"
+      ? sql`(${submissions.payload}->>'rolling')::boolean = true`
+      : filter === "scheduled"
+        ? sql`${submissions.payload}->>'nextDeadline' IS NOT NULL`
+        : sql`true`;
+
   const rows = await db
     .select({
       id: submissions.id,
@@ -30,7 +47,11 @@ export default async function AcceleratorsPage() {
     })
     .from(submissions)
     .where(
-      and(eq(submissions.type, "accelerator"), eq(submissions.status, "approved")),
+      and(
+        eq(submissions.type, "accelerator"),
+        eq(submissions.status, "approved"),
+        filterClause,
+      ),
     )
     .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
     .limit(200);
@@ -63,6 +84,29 @@ export default async function AcceleratorsPage() {
           — programs from a16zcrypto, Alliance, Orange DAO and similar trusted hosts publish instantly.
         </>
       }
+      filters={
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            INTAKE ▸
+          </span>
+          <FilterChip href="/accelerators" active={!filter}>All</FilterChip>
+          <FilterChip
+            href="/accelerators?filter=rolling"
+            active={filter === "rolling"}
+          >
+            Rolling
+          </FilterChip>
+          <FilterChip
+            href="/accelerators?filter=scheduled"
+            active={filter === "scheduled"}
+          >
+            Scheduled cohort
+          </FilterChip>
+        </div>
+      }
     >
       {visible.length === 0 ? (
         <EmptyState>No accelerator programs on file yet.</EmptyState>
@@ -79,6 +123,30 @@ export default async function AcceleratorsPage() {
         </div>
       )}
     </ResourceListShell>
+  );
+}
+
+function FilterChip({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="px-2.5 py-1 rounded-sm uppercase tracking-widest transition-all"
+      style={{
+        background: active ? "var(--rex-bg)" : "transparent",
+        color: active ? "var(--rex-accent)" : "var(--rex-text-dim)",
+        border: `1px solid ${active ? "var(--rex-accent)" : "var(--rex-border-subtle)"}`,
+      }}
+    >
+      {children}
+    </Link>
   );
 }
 

@@ -120,6 +120,14 @@ export default async function IntelPage({
               Drop intel →
             </Link>
           </p>
+          <div className="mt-3">
+            <a
+              href="/intel/feed.xml"
+              className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
+            >
+              ⌁ RSS
+            </a>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">

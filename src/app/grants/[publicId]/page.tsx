@@ -6,6 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { GrantPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { JsonLd } from "@/components/json-ld";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -67,8 +69,22 @@ export default async function GrantDetailPage({
       ? "Rolling — accepting applications continuously"
       : null;
 
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "MonetaryGrant",
+    name: p.name,
+    description: p.description,
+    url: absoluteUrl(`/grants/${params.publicId}`),
+    funder: {
+      "@type": "Organization",
+      name: p.organization,
+      url: p.organizationUrl,
+    },
+  };
+
   return (
     <PublicShell classification={[{ text: "● Open Channel // Grant Detail" }]}>
+      <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/grants"

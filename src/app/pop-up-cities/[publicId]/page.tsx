@@ -6,6 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { PopupCityPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { JsonLd } from "@/components/json-ld";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -69,8 +71,35 @@ export default async function PopUpCityDetailPage({
       })
     : null;
 
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: p.name,
+    startDate: p.startsAt,
+    endDate: p.endsAt,
+    description: p.description,
+    url: absoluteUrl(`/pop-up-cities/${params.publicId}`),
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    eventStatus: "https://schema.org/EventScheduled",
+    image: p.imageUrl ? [p.imageUrl] : undefined,
+    location: {
+      "@type": "Place",
+      name: p.venue ?? [p.city, p.country].filter(Boolean).join(", "),
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: p.city,
+        addressCountry: p.country,
+        streetAddress: p.venue,
+      },
+    },
+    organizer: p.organization
+      ? { "@type": "Organization", name: p.organization, url: p.organizationUrl }
+      : undefined,
+  };
+
   return (
     <PublicShell classification={[{ text: "● Open Channel // Pop-Up City Detail" }]}>
+      <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/pop-up-cities"

@@ -6,6 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { AcceleratorPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { JsonLd } from "@/components/json-ld";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -67,8 +69,24 @@ export default async function AcceleratorDetailPage({
       ? "Rolling — accepting applications continuously"
       : null;
 
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "EducationalOccupationalProgram",
+    name: p.name,
+    description: p.description,
+    url: absoluteUrl(`/accelerators/${params.publicId}`),
+    provider: {
+      "@type": "Organization",
+      name: p.organization,
+      url: p.organizationUrl,
+    },
+    timeToComplete: p.duration,
+    educationalProgramMode: p.location?.toLowerCase().includes("remote") ? "online" : "onsite",
+  };
+
   return (
     <PublicShell classification={[{ text: "● Open Channel // Accelerator Detail" }]}>
+      <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/accelerators"

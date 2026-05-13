@@ -98,9 +98,19 @@ export default async function EventsPage({
               analysts and submitted by the field.
             </p>
           </div>
-          <Link href="/submit?type=event" className="rex-btn whitespace-nowrap">
-            + Add Event ▸
-          </Link>
+          <div className="flex flex-col items-end gap-2">
+            <Link href="/submit?type=event" className="rex-btn whitespace-nowrap">
+              + Add Event ▸
+            </Link>
+            <div className="flex gap-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
+              <a href="/events/feed.xml" className="hover:text-[var(--rex-accent)] transition-colors">
+                ⌁ RSS
+              </a>
+              <a href="/events/calendar.ics" className="hover:text-[var(--rex-accent)] transition-colors">
+                ⌁ iCal
+              </a>
+            </div>
+          </div>
         </div>
 
         <div

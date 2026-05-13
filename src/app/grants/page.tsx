@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { GrantPayload } from "@/lib/db/schema";
 import { ResourceListShell, EmptyState } from "@/components/resource-shell";
@@ -19,7 +19,26 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function GrantsPage() {
+export default async function GrantsPage({
+  searchParams,
+}: {
+  searchParams: { filter?: string };
+}) {
+  // Filters: `rolling` shows only rolling intake, `deadline` shows only
+  // grants with a fixed deadline. No filter = everything.
+  const filter = searchParams.filter === "rolling"
+    ? "rolling"
+    : searchParams.filter === "deadline"
+      ? "deadline"
+      : null;
+
+  const filterClause =
+    filter === "rolling"
+      ? sql`(${submissions.payload}->>'rolling')::boolean = true`
+      : filter === "deadline"
+        ? sql`${submissions.payload}->>'deadline' IS NOT NULL`
+        : sql`true`;
+
   const rows = await db
     .select({
       id: submissions.id,
@@ -29,7 +48,13 @@ export default async function GrantsPage() {
       featured: submissions.featured,
     })
     .from(submissions)
-    .where(and(eq(submissions.type, "grant"), eq(submissions.status, "approved")))
+    .where(
+      and(
+        eq(submissions.type, "grant"),
+        eq(submissions.status, "approved"),
+        filterClause,
+      ),
+    )
     .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
     .limit(200);
 
@@ -58,6 +83,23 @@ export default async function GrantsPage() {
           — programs from ethereum.org, optimism.io, gitcoin.co and similar trusted hosts publish instantly.
         </>
       }
+      filters={
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            INTAKE ▸
+          </span>
+          <FilterChip href="/grants" active={!filter}>All</FilterChip>
+          <FilterChip href="/grants?filter=rolling" active={filter === "rolling"}>
+            Rolling
+          </FilterChip>
+          <FilterChip href="/grants?filter=deadline" active={filter === "deadline"}>
+            With deadline
+          </FilterChip>
+        </div>
+      }
     >
       {visible.length === 0 ? (
         <EmptyState>No grant programs on file yet.</EmptyState>
@@ -74,6 +116,30 @@ export default async function GrantsPage() {
         </div>
       )}
     </ResourceListShell>
+  );
+}
+
+function FilterChip({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="px-2.5 py-1 rounded-sm uppercase tracking-widest transition-all"
+      style={{
+        background: active ? "var(--rex-bg)" : "transparent",
+        color: active ? "var(--rex-accent)" : "var(--rex-text-dim)",
+        border: `1px solid ${active ? "var(--rex-accent)" : "var(--rex-border-subtle)"}`,
+      }}
+    >
+      {children}
+    </Link>
   );
 }
 

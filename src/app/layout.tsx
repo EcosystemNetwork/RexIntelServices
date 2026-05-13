@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +25,18 @@ export const metadata: Metadata = {
       "Monthly intelligence briefings delivered straight to your inbox.",
     type: "website",
   },
+  alternates: {
+    // Surfaced to feed-reader auto-discovery via <link rel="alternate"> tags.
+    types: {
+      "application/rss+xml": [
+        { url: "/intel/feed.xml", title: "Rex Intel — Intel Wire" },
+        { url: "/events/feed.xml", title: "Rex Intel — Field Calendar" },
+      ],
+      "text/calendar": [
+        { url: "/events/calendar.ics", title: "Rex Intel — Field Calendar (iCal)" },
+      ],
+    },
+  },
 };
 
 export default function RootLayout({
@@ -32,7 +46,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased noise-bg">{children}</body>
+      <body className="antialiased noise-bg">
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

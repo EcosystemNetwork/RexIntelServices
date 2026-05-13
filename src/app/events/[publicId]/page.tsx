@@ -6,6 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { JsonLd } from "@/components/json-ld";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -79,10 +81,37 @@ export default async function EventDetailPage({
   const start = new Date(payload.startsAt);
   const end = payload.endsAt ? new Date(payload.endsAt) : null;
 
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: payload.name,
+    startDate: payload.startsAt,
+    endDate: payload.endsAt,
+    description: payload.description,
+    url: absoluteUrl(`/events/${params.publicId}`),
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    eventStatus: "https://schema.org/EventScheduled",
+    image: payload.imageUrl ? [payload.imageUrl] : undefined,
+    location: {
+      "@type": "Place",
+      name: payload.venue ?? [payload.city, payload.country].filter(Boolean).join(", "),
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: payload.city,
+        addressCountry: payload.country,
+        streetAddress: payload.venue,
+      },
+    },
+    organizer: payload.url
+      ? { "@type": "Organization", name: payload.name, url: payload.url }
+      : undefined,
+  };
+
   return (
     <PublicShell
       classification={[{ text: "● Open Channel // Field Calendar Detail" }]}
     >
+      <JsonLd data={jsonLd} />
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/events"
