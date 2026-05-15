@@ -36,6 +36,7 @@ type Tab =
   | "accelerator"
   | "capital"
   | "residency"
+  | "perks"
   | "job";
 type FormStatus = "idle" | "loading" | "success" | "error";
 
@@ -46,6 +47,7 @@ const TAB_LABELS: Record<Tab, string> = {
   grant: "Grant",
   accelerator: "Accelerator",
   capital: "Capital",
+  perks: "Perks",
   job: "Job",
   intel: "Intel",
 };
@@ -59,6 +61,7 @@ const TAB_ORDER: Tab[] = [
   "grant",
   "accelerator",
   "capital",
+  "perks",
   "job",
   "intel",
 ];
@@ -132,6 +135,7 @@ export default function SubmitForm() {
         {tab === "popup_city" && <PopupCityForm />}
         {tab === "residency" && <ResidencyForm />}
         {tab === "capital" && <CapitalForm />}
+        {tab === "perks" && <PerksForm />}
         {tab === "grant" && <GrantForm />}
         {tab === "accelerator" && <AcceleratorForm />}
         {tab === "job" && <JobForm />}
@@ -2005,6 +2009,142 @@ function ResidencyForm() {
       <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
 
       <SubmitRow status={status} message={message} label="Submit Residency ▸" />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Perks form — infra credits, vendor perks, cloud programs
+// ─────────────────────────────────────────────────────────────────────
+
+function PerksForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [value, setValue] = useState("");
+  const [category, setCategory] = useState("");
+  const [ecosystem, setEcosystem] = useState("");
+  const [eligibility, setEligibility] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [rolling, setRolling] = useState(false);
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    const payload = {
+      name,
+      organization,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      value: value || undefined,
+      category: category || undefined,
+      ecosystem: ecosystem || undefined,
+      eligibility: eligibility || undefined,
+      applyUrl: applyUrl || undefined,
+      deadline: deadline ? new Date(deadline).toISOString() : undefined,
+      rolling: rolling || undefined,
+      tags: parseTagsInput(tagsRaw),
+    };
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "perks",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+          turnstileToken,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        trackSubmitSuccess(data);
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
+
+      <Field label="Perk Name">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={200} className="rex-input w-full" placeholder="Alchemy Solana Fund Credits" />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Organization">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Alchemy" />
+        </Field>
+        <Field label="Organization URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What the perk includes, evaluation period, anything builders should know before applying." />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Value (opt.)">
+          <input type="text" value={value} onChange={(e) => setValue(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Up to $25k in credits" />
+        </Field>
+        <Field label="Category (opt.)">
+          <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="Infra · RPC" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Ecosystem (opt.)">
+          <input type="text" value={ecosystem} onChange={(e) => setEcosystem(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="Solana / Ethereum / Multi-chain" />
+        </Field>
+        <Field label="Apply URL (opt.)">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Eligibility (opt.)">
+        <textarea value={eligibility} onChange={(e) => setEligibility(e.target.value)} maxLength={500} rows={2} className="rex-input w-full resize-y" placeholder="Solana builders, any stage. No prior infrastructure provider required." />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3 items-end">
+        <Field label="Deadline (opt.)">
+          <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="rex-input w-full font-mono text-xs" disabled={rolling} />
+        </Field>
+        <label className="flex items-center gap-2 text-xs font-mono text-[var(--rex-text-muted)] pb-2">
+          <input type="checkbox" checked={rolling} onChange={(e) => setRolling(e.target.checked)} />
+          Rolling intake (no deadline)
+        </label>
+      </div>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="credits, solana, rpc" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Perk ▸" />
     </form>
   );
 }

@@ -61,6 +61,7 @@ export const submissionTypeEnum = pgEnum("submission_type", [
   "hackathon",
   "capital",
   "residency",
+  "perks",
 ]);
 
 export const submissionStatusEnum = pgEnum("submission_status", [
@@ -448,6 +449,36 @@ export type ResidencyPayload = {
   imageUrl?: string;
 };
 
+// Vendor + service perks programs: infra credits (RPCs, compute, indexers),
+// AWS Activate-style cloud credits, legal/accounting templates, and similar.
+// Distinct from grants (non-dilutive cash) and capital (equity) — the value
+// is in-kind: credits, free tier extensions, services. Same intake shape
+// across providers so the lane stays scannable.
+export type PerksPayload = {
+  name: string;
+  organization: string; // Alchemy, QuickNode, AWS, Stripe, etc.
+  organizationUrl?: string;
+  description: string;
+  // Free-form: "Up to $25k in credits", "$5k AWS credits + support",
+  // "Free Pro tier for 12 months". Surfaced as the headline chip.
+  value?: string;
+  // What the perk is — "Infra · RPC", "Compute · GPU", "Legal · Templates",
+  // "Cloud · Credits". Drives the category filter chips on the lane.
+  category?: string;
+  // Ecosystem narrowing — "Solana", "Ethereum", "Bitcoin", "Multi-chain",
+  // "Any". Lets a Solana builder filter to just Solana-relevant perks.
+  ecosystem?: string;
+  // Free-form eligibility blurb: "Solana builders, any stage",
+  // "Pre-revenue startups <2 years old", "AWS Activate-eligible teams".
+  eligibility?: string;
+  applyUrl?: string;
+  // ISO timestamp. Most perks are rolling — use rolling=true in that case.
+  deadline?: string;
+  rolling?: boolean;
+  tags?: string[];
+  imageUrl?: string;
+};
+
 export type SubmissionPayload =
   | IntelPayload
   | EventPayload
@@ -457,7 +488,8 @@ export type SubmissionPayload =
   | GrantPayload
   | AcceleratorPayload
   | CapitalPayload
-  | ResidencyPayload;
+  | ResidencyPayload
+  | PerksPayload;
 
 export const submissions = pgTable(
   "submissions",

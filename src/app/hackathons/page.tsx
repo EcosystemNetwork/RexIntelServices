@@ -5,6 +5,9 @@ import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { ProxiedImage } from "@/components/proxied-image";
+import { resolveLoc } from "@/lib/loc-context";
+import { LocationDatalist, LOCATION_DATALIST_ID } from "@/components/location-datalist";
+import { LocationPill } from "@/components/location-pill";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +36,8 @@ export default async function HackathonsPage({
 }) {
   const showPast = searchParams.view === "past";
   const q = (searchParams.q ?? "").trim().slice(0, 80);
-  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
+  // Cookie fallback for cross-lane location stickiness.
+  const loc = resolveLoc(searchParams.loc);
   const mode =
     searchParams.mode === "online" || searchParams.mode === "irl"
       ? searchParams.mode
@@ -146,6 +150,8 @@ export default async function HackathonsPage({
       ]}
     >
       <main className="max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
+        <LocationPill />
+        <LocationDatalist />
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <p
@@ -216,6 +222,8 @@ export default async function HackathonsPage({
             defaultValue={loc}
             placeholder="City or country…"
             className="rex-input min-w-[160px] max-w-[220px]"
+            list={LOCATION_DATALIST_ID}
+            autoComplete="off"
           />
           <select
             name="mode"

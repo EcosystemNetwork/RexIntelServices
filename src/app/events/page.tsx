@@ -5,6 +5,9 @@ import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { ProxiedImage } from "@/components/proxied-image";
+import { resolveLoc } from "@/lib/loc-context";
+import { LocationDatalist, LOCATION_DATALIST_ID } from "@/components/location-datalist";
+import { LocationPill } from "@/components/location-pill";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +15,7 @@ export const metadata: Metadata = {
   title: "Events — Rex Intel Services",
   description:
     "Curated calendar of crypto intelligence conferences, workshops, and closed-door sessions worth tracking.",
+  alternates: { canonical: "/events" },
   openGraph: {
     title: "Events — Rex Intel Services",
     description:
@@ -26,7 +30,10 @@ export default async function EventsPage({
   searchParams: { view?: string; loc?: string };
 }) {
   const showPast = searchParams.view === "past";
-  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
+  // Cookie fallback: when the user has previously scoped to a city on another
+  // lane, that scope follows them here unless they explicitly override with a
+  // URL param.
+  const loc = resolveLoc(searchParams.loc);
   const now = new Date();
   // Past is recent-past only — older entries stay in the DB but don't bloat the tab.
   const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -102,6 +109,7 @@ export default async function EventsPage({
       ]}
     >
       <main className="max-w-4xl mx-auto px-6 pt-8 md:pt-14 pb-24">
+        <LocationPill />
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <p
@@ -183,6 +191,8 @@ export default async function EventsPage({
             defaultValue={loc}
             placeholder="Filter by city or country…"
             className="rex-input flex-1 min-w-[220px] max-w-md"
+            list={LOCATION_DATALIST_ID}
+            autoComplete="off"
           />
           <button type="submit" className="rex-btn whitespace-nowrap">
             Apply ▸
@@ -196,6 +206,8 @@ export default async function EventsPage({
             </Link>
           )}
         </form>
+
+        <LocationDatalist />
 
         {visible.length === 0 ? (
           <div

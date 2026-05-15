@@ -811,6 +811,35 @@ export const TRUSTED_RESIDENCY_HOSTS = new Set([
   "luma.com",
 ]);
 
+// Vendor + infra perks programs. These are operated by well-known providers
+// with their own intake — auto-publishing a perk implies "this is a real
+// program from this vendor," not "we vouch for the terms." Bar is recognized
+// brand + dedicated perks/credits landing page.
+export const TRUSTED_PERKS_HOSTS = new Set([
+  "alchemy.com",
+  "quicknode.com",
+  "helius.dev",
+  "infura.io",
+  "thirdweb.com",
+  "moralis.io",
+  "tenderly.co",
+  "blockdaemon.com",
+  "chainstack.com",
+  "ankr.com",
+  "aws.amazon.com",
+  "stripe.com",
+  "atlas.stripe.com",
+  "mercury.com",
+  "brex.com",
+  "ramp.com",
+  "linear.app",
+  "notion.so",
+  "vercel.com",
+  "supabase.com",
+  "neon.tech",
+  "github.com",
+]);
+
 // Known accelerator/incubator brands. Keep tight — auto-publishing a
 // program implies endorsement.
 export const TRUSTED_ACCELERATOR_HOSTS = new Set([
@@ -877,6 +906,10 @@ export function isTrustedCapitalUrl(rawUrl: string | undefined): boolean {
 export function isTrustedResidencyUrl(rawUrl: string | undefined): boolean {
   const host = hostOf(rawUrl);
   return host ? TRUSTED_RESIDENCY_HOSTS.has(host) : false;
+}
+export function isTrustedPerksUrl(rawUrl: string | undefined): boolean {
+  const host = hostOf(rawUrl);
+  return host ? TRUSTED_PERKS_HOSTS.has(host) : false;
 }
 export function isTrustedJobUrl(rawUrl: string | undefined): boolean {
   const host = hostOf(rawUrl);

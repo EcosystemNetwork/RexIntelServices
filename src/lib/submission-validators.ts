@@ -8,6 +8,7 @@ import type {
   AcceleratorPayload,
   CapitalPayload,
   ResidencyPayload,
+  PerksPayload,
   SubmissionPayload,
 } from "@/lib/db/schema";
 
@@ -34,7 +35,8 @@ export type SubmissionType =
   | "popup_city"
   | "hackathon"
   | "capital"
-  | "residency";
+  | "residency"
+  | "perks";
 
 /** Dispatch by submission type. Useful when the caller has a runtime string. */
 export function validateBySubmissionType(
@@ -60,6 +62,8 @@ export function validateBySubmissionType(
       return validateCapitalPayload(raw);
     case "residency":
       return validateResidencyPayload(raw);
+    case "perks":
+      return validatePerksPayload(raw);
   }
 }
 
@@ -480,6 +484,53 @@ export function validateResidencyPayload(
       cohortSize: trimToString(p.cohortSize, 100),
       cost: trimToString(p.cost, 200),
       focus: trimToString(p.focus, 200),
+      tags: sanitizeTagList(p.tags),
+      imageUrl: sanitizeSingleUrl(p.imageUrl),
+    },
+  };
+}
+
+export function validatePerksPayload(
+  raw: unknown,
+): ValidationResult<PerksPayload> {
+  if (!raw || typeof raw !== "object")
+    return { ok: false, error: "payload is required" };
+  const p = raw as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim() : "";
+  const organization =
+    typeof p.organization === "string" ? p.organization.trim() : "";
+  const description =
+    typeof p.description === "string" ? p.description.trim() : "";
+
+  if (name.length < 2 || name.length > 200)
+    return { ok: false, error: "Perk name must be 2–200 characters." };
+  if (organization.length < 2 || organization.length > 120)
+    return { ok: false, error: "Organization must be 2–120 characters." };
+  if (description.length < 20 || description.length > 5000)
+    return { ok: false, error: "Description must be 20–5000 characters." };
+
+  const deadline =
+    typeof p.deadline === "string" &&
+    p.deadline.trim() &&
+    !isNaN(Date.parse(p.deadline))
+      ? p.deadline.trim()
+      : undefined;
+  const rolling = typeof p.rolling === "boolean" ? p.rolling : undefined;
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      organization,
+      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
+      description,
+      value: trimToString(p.value, 200),
+      category: trimToString(p.category, 100),
+      ecosystem: trimToString(p.ecosystem, 100),
+      eligibility: trimToString(p.eligibility, 500),
+      applyUrl: sanitizeSingleUrl(p.applyUrl),
+      deadline,
+      rolling,
       tags: sanitizeTagList(p.tags),
       imageUrl: sanitizeSingleUrl(p.imageUrl),
     },

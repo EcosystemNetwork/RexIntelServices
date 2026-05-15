@@ -12,6 +12,7 @@ type TypeFilter =
   | "popup_city"
   | "grant"
   | "accelerator"
+  | "perks"
   | "job";
 
 // Order + display labels for the type filter row. Keep this list aligned
@@ -24,6 +25,7 @@ const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
   { key: "popup_city", label: "Cities" },
   { key: "grant", label: "Grants" },
   { key: "accelerator", label: "Accel" },
+  { key: "perks", label: "Perks" },
   { key: "job", label: "Jobs" },
 ];
 
@@ -36,6 +38,9 @@ const PUBLIC_PATH: Record<string, (publicId: string) => string> = {
   popup_city: (id) => `/pop-up-cities/${id}`,
   grant: (id) => `/grants/${id}`,
   accelerator: (id) => `/accelerators/${id}`,
+  capital: (id) => `/capital/${id}`,
+  residency: (id) => `/pop-up-cities/${id}`,
+  perks: (id) => `/perks/${id}`,
   job: (id) => `/jobs/${id}`,
 };
 

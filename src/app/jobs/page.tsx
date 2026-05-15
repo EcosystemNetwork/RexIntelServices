@@ -4,6 +4,9 @@ import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { JobPayload } from "@/lib/db/schema";
 import { ResourceListShell, EmptyState } from "@/components/resource-shell";
+import { resolveLoc } from "@/lib/loc-context";
+import { LocationDatalist, LOCATION_DATALIST_ID } from "@/components/location-datalist";
+import { LocationPill } from "@/components/location-pill";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +42,8 @@ export default async function JobsPage({
       ? "senior"
       : null;
 
-  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
+  // Cookie fallback for cross-lane location stickiness.
+  const loc = resolveLoc(searchParams.loc);
 
   const filterClause =
     filter === "remote"
@@ -125,6 +129,8 @@ export default async function JobsPage({
               defaultValue={loc}
               placeholder="Location — e.g. Remote, NYC, EU…"
               className="rex-input flex-1 min-w-[220px] max-w-md"
+              list={LOCATION_DATALIST_ID}
+              autoComplete="off"
             />
             <button type="submit" className="rex-btn whitespace-nowrap">
               Apply ▸

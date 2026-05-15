@@ -7,6 +7,7 @@ import type {
   CapitalPayload,
   GrantPayload,
   IntelPayload,
+  PerksPayload,
   PopupCityPayload,
   ResidencyPayload,
 } from "@/lib/db/schema";
@@ -20,13 +21,15 @@ type Lane =
   | "grants"
   | "cities"
   | "capital"
-  | "residencies";
+  | "residencies"
+  | "perks";
 
 const LANES: { id: Lane; label: string }[] = [
   { id: "signals", label: "Signals" },
   { id: "accelerators", label: "Accel" },
   { id: "grants", label: "Grants" },
   { id: "capital", label: "Capital" },
+  { id: "perks", label: "Perks" },
   { id: "cities", label: "Cities" },
   { id: "residencies", label: "Residencies" },
 ];
@@ -112,6 +115,18 @@ const LANE_COPY: Record<
     submitHref: "/submit?type=residency",
     submitLabel: "+ Add Residency ▸",
   },
+  perks: {
+    kicker: "▸ Intel · Perks",
+    title: "Free credits + builder discounts.",
+    subtitle:
+      "Infra credits, cloud perks, and vendor programs — what builders can claim without giving up equity or cash. Curated by RexIntel.",
+    classification: [
+      { text: "● Open Channel // Intel · Builder Perks" },
+      { text: "Credits + Vendor Programs", show: "sm" },
+    ],
+    submitHref: "/submit?type=perks",
+    submitLabel: "+ Add Perk ▸",
+  },
 };
 
 const SEVERITY_TONE: Record<
@@ -146,7 +161,8 @@ function laneFrom(value: string | undefined): Lane {
     value === "grants" ||
     value === "cities" ||
     value === "capital" ||
-    value === "residencies"
+    value === "residencies" ||
+    value === "perks"
   ) {
     return value;
   }
@@ -167,10 +183,15 @@ export function generateMetadata({
     cities: "Pop-Up Cities — Intel · Rex Intel Services",
     capital: "Capital — Funds taking pitches · Rex Intel Services",
     residencies: "Residencies — Intel · Rex Intel Services",
+    perks: "Perks — Credits + Vendor Programs · Rex Intel Services",
   };
+  // Canonical points to the lane URL only — strip filter/severity/category/view
+  // params so SERPs treat all filter combinations as the same canonical page.
+  const canonical = lane === "signals" ? "/intel" : `/intel?lane=${lane}`;
   return {
     title: titles[lane],
     description: copy.subtitle,
+    alternates: { canonical },
     openGraph: {
       title: titles[lane],
       description: copy.subtitle,
@@ -244,6 +265,7 @@ export default async function IntelHubPage({
         {lane === "residencies" && (
           <ResidenciesLane view={searchParams.view} />
         )}
+        {lane === "perks" && <PerksLane filter={searchParams.filter} />}
         {lane === "cities" && <CitiesLane view={searchParams.view} />}
       </main>
     </PublicShell>
@@ -1353,6 +1375,194 @@ function ResidencyCard({
       >
         ▸
       </span>
+    </Link>
+  );
+}
+
+// =====================================================================
+// Lane: Perks
+// =====================================================================
+
+async function PerksLane({ filter }: { filter?: string }) {
+  // Filter narrows by ecosystem since a Solana builder doesn't care about
+  // Ethereum-only credits and vice versa. "any" is the common case so it's
+  // the implicit default.
+  const ecosystem =
+    filter === "solana"
+      ? "solana"
+      : filter === "ethereum"
+        ? "ethereum"
+        : filter === "any"
+          ? "any"
+          : null;
+
+  const filterClause =
+    ecosystem === "solana"
+      ? sql`LOWER(${submissions.payload}->>'ecosystem') LIKE '%solana%'`
+      : ecosystem === "ethereum"
+        ? sql`LOWER(${submissions.payload}->>'ecosystem') LIKE '%ethereum%' OR LOWER(${submissions.payload}->>'ecosystem') LIKE '%evm%'`
+        : ecosystem === "any"
+          ? sql`LOWER(${submissions.payload}->>'ecosystem') IN ('any', 'multi-chain', 'all') OR ${submissions.payload}->>'ecosystem' IS NULL`
+          : sql`true`;
+
+  const rows = await db
+    .select({
+      id: submissions.id,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+      featured: submissions.featured,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "perks"),
+        eq(submissions.status, "approved"),
+        filterClause,
+      ),
+    )
+    .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
+    .limit(200);
+
+  const visible = rows.map((r) => ({ ...r, payload: r.payload as PerksPayload }));
+
+  return (
+    <>
+      <PasteHint>
+        Run a credits / perks program?{" "}
+        <Link
+          href="/submit?type=perks"
+          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Submit it
+        </Link>{" "}
+        — programs from alchemy.com, quicknode.com, helius.dev, stripe.com and similar trusted hosts publish instantly.
+      </PasteHint>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          ECOSYSTEM ▸
+        </span>
+        <Chip href="/intel?lane=perks" active={!ecosystem}>
+          All
+        </Chip>
+        <Chip
+          href="/intel?lane=perks&filter=solana"
+          active={ecosystem === "solana"}
+        >
+          Solana
+        </Chip>
+        <Chip
+          href="/intel?lane=perks&filter=ethereum"
+          active={ecosystem === "ethereum"}
+        >
+          Ethereum / EVM
+        </Chip>
+        <Chip
+          href="/intel?lane=perks&filter=any"
+          active={ecosystem === "any"}
+        >
+          Any / Multi-chain
+        </Chip>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>No perks on file for this filter yet.</EmptyState>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((p) => (
+            <PerksCard
+              key={p.id}
+              publicId={p.publicId}
+              payload={p.payload}
+              featured={p.featured}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function PerksCard({
+  publicId,
+  payload,
+  featured = false,
+}: {
+  publicId: string;
+  payload: PerksPayload;
+  featured?: boolean;
+}) {
+  const deadlineLabel = payload.deadline
+    ? new Date(payload.deadline).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : payload.rolling
+      ? "Rolling"
+      : null;
+
+  return (
+    <Link
+      href={`/perks/${publicId}`}
+      className="rex-card block p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+        {featured && <FeaturedTag />}
+        <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+        {payload.category && (
+          <span style={{ color: "var(--rex-text-muted)" }}>· {payload.category}</span>
+        )}
+        {payload.ecosystem && (
+          <span style={{ color: "var(--rex-text-dim)" }}>· {payload.ecosystem}</span>
+        )}
+        {payload.value && (
+          <span className="ml-auto" style={{ color: "var(--rex-accent)" }}>
+            {payload.value}
+          </span>
+        )}
+      </div>
+
+      <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+        {payload.name}
+      </h3>
+
+      <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
+        {payload.description}
+      </p>
+
+      {(payload.eligibility || deadlineLabel) && (
+        <div
+          className="mt-3 text-[10px] font-mono"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {payload.eligibility && (
+            <>
+              Eligible: <span className="text-[var(--rex-text-muted)]">{payload.eligibility}</span>
+            </>
+          )}
+          {payload.eligibility && deadlineLabel && " · "}
+          {deadlineLabel && (
+            <>
+              {payload.rolling && !payload.deadline ? "" : "Apply by: "}
+              <span className="text-[var(--rex-text-muted)]">{deadlineLabel}</span>
+            </>
+          )}
+        </div>
+      )}
     </Link>
   );
 }

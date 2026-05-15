@@ -28,6 +28,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/intel?lane=cities`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/intel?lane=grants`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/intel?lane=accelerators`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel?lane=capital`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel?lane=residencies`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel?lane=perks`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/jobs`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
     { url: `${base}/submit`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
@@ -55,6 +58,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     grant: "/grants",
     accelerator: "/accelerators",
     job: "/jobs",
+    hackathon: "/hackathons",
+    capital: "/capital",
+    perks: "/perks",
   };
 
   const submissionEntries: MetadataRoute.Sitemap = [];

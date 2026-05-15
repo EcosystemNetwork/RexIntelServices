@@ -17,6 +17,7 @@ import {
   validateAcceleratorPayload,
   validateCapitalPayload,
   validateResidencyPayload,
+  validatePerksPayload,
   sanitizeSingleUrl,
 } from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
@@ -30,6 +31,7 @@ import {
   isTrustedAcceleratorUrl,
   isTrustedCapitalUrl,
   isTrustedResidencyUrl,
+  isTrustedPerksUrl,
 } from "@/lib/event-parser";
 import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
 import { sendAdminAlertEmail } from "@/lib/email/admin-alert-email";
@@ -75,7 +77,8 @@ export async function POST(req: NextRequest) {
       | "popup_city"
       | "hackathon"
       | "capital"
-      | "residency";
+      | "residency"
+      | "perks";
     payload?: unknown;
     addresses?: unknown;
     submitterEmail?: string;
@@ -110,13 +113,14 @@ export async function POST(req: NextRequest) {
     "hackathon",
     "capital",
     "residency",
+    "perks",
   ] as const;
   type SubmissionType = (typeof ALL_TYPES)[number];
   if (!body.type || !ALL_TYPES.includes(body.type as SubmissionType)) {
     return NextResponse.json(
       {
         error:
-          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon, capital, residency",
+          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon, capital, residency, perks",
       },
       { status: 400 },
     );
@@ -143,6 +147,8 @@ export async function POST(req: NextRequest) {
         return validateCapitalPayload(body.payload);
       case "residency":
         return validateResidencyPayload(body.payload);
+      case "perks":
+        return validatePerksPayload(body.payload);
     }
   })();
 
@@ -218,6 +224,7 @@ export async function POST(req: NextRequest) {
       (submissionType === "accelerator" && isTrustedAcceleratorUrl(payloadUrl)) ||
       (submissionType === "capital" && isTrustedCapitalUrl(payloadUrl)) ||
       (submissionType === "residency" && isTrustedResidencyUrl(payloadUrl)) ||
+      (submissionType === "perks" && isTrustedPerksUrl(payloadUrl)) ||
       (submissionType === "job" && isTrustedJobUrl(payloadUrl)));
 
   const status: "approved" | "pending" | "spam" = honeypotTripped
@@ -302,6 +309,7 @@ export async function POST(req: NextRequest) {
     accelerator: "Accelerator",
     capital: "Capital source",
     residency: "Residency",
+    perks: "Perk",
     job: "Job posting",
   };
   const label = SURFACE_LABEL[submissionType] ?? "Submission";

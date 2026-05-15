@@ -39,6 +39,9 @@ const TYPE_GUARD: Record<string, true> = {
   accelerator: true,
   popup_city: true,
   hackathon: true,
+  capital: true,
+  residency: true,
+  perks: true,
 };
 
 async function loadByToken(token: string) {

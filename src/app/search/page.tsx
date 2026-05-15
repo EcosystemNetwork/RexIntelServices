@@ -12,6 +12,8 @@ import type {
   CapitalPayload,
 } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { resolveLoc } from "@/lib/loc-context";
+import { LOCATION_DATALIST_ID } from "@/components/location-datalist";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +89,8 @@ export default async function SearchPage({
   searchParams: { q?: string; loc?: string; type?: string };
 }) {
   const q = (searchParams.q ?? "").trim().slice(0, 80);
-  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
+  // Cookie fallback so a sticky city scope follows the user into /search.
+  const loc = resolveLoc(searchParams.loc);
   const type = asType(searchParams.type);
 
   const hasQuery = Boolean(q || loc);
@@ -215,6 +218,8 @@ export default async function SearchPage({
             defaultValue={loc}
             placeholder="City or country…"
             className="rex-input min-w-[180px] max-w-[240px]"
+            list={LOCATION_DATALIST_ID}
+            autoComplete="off"
           />
           <select
             name="type"
