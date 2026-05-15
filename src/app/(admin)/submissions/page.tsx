@@ -63,6 +63,11 @@ export default function SubmissionsPage() {
   // concurrently (rare, but possible) so we track per-id rather than a single
   // boolean.
   const [reviewing, setReviewing] = useState<Set<string>>(new Set());
+  // Bulk selection — only meaningful when statusFilter is "pending" since
+  // that's the only state with actionable rows. We auto-clear on view
+  // change so the selection never targets the wrong page of rows.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -77,7 +82,46 @@ export default function SubmissionsPage() {
 
   useEffect(() => {
     fetchData();
+    // Reset bulk selection when the visible row set changes. Otherwise a
+    // moderator who selected items then switched filters could trigger a
+    // bulk action on rows they can't see.
+    setSelected(new Set());
   }, [fetchData]);
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function bulkReview(action: "approve" | "reject" | "spam") {
+    if (selected.size === 0 || bulkBusy) return;
+    const label = action === "approve" ? "approve" : action === "reject" ? "reject" : "mark as spam";
+    const cap = label.charAt(0).toUpperCase() + label.slice(1);
+    if (!confirm(`${cap} ${selected.size} submission${selected.size === 1 ? "" : "s"}?`)) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/submissions/bulk-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "Bulk action failed.");
+      } else {
+        setSelected(new Set());
+        await fetchData();
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function review(id: string, action: "approve" | "reject" | "spam") {
     if (reviewing.has(id)) return;
@@ -190,6 +234,59 @@ export default function SubmissionsPage() {
         ))}
       </div>
 
+      {statusFilter === "pending" && selected.size > 0 && (
+        <div
+          className="mb-4 flex items-center gap-2 p-3 rounded-sm border"
+          style={{
+            borderColor: "var(--rex-accent)",
+            background: "rgba(95,185,31,0.06)",
+          }}
+        >
+          <span className="text-[11px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
+            {selected.size} selected ▸
+          </span>
+          <button
+            type="button"
+            onClick={() => bulkReview("approve")}
+            disabled={bulkBusy}
+            className="rex-btn"
+            style={{ opacity: bulkBusy ? 0.5 : 1 }}
+          >
+            Approve all
+          </button>
+          <button
+            type="button"
+            onClick={() => bulkReview("reject")}
+            disabled={bulkBusy}
+            className="rex-btn"
+            style={{ opacity: bulkBusy ? 0.5 : 1 }}
+          >
+            Reject all
+          </button>
+          <button
+            type="button"
+            onClick={() => bulkReview("spam")}
+            disabled={bulkBusy}
+            className="rex-btn"
+            style={{
+              borderColor: "var(--rex-danger)",
+              color: "var(--rex-danger)",
+              opacity: bulkBusy ? 0.5 : 1,
+            }}
+          >
+            Mark spam
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            disabled={bulkBusy}
+            className="ml-auto text-[11px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-white transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div
           className="border border-dashed rounded-lg p-12 text-center"
@@ -218,9 +315,12 @@ export default function SubmissionsPage() {
               submission={s}
               expanded={expandedId === s.id}
               busy={reviewing.has(s.id)}
+              selectable={statusFilter === "pending"}
+              selected={selected.has(s.id)}
               onToggle={() =>
                 setExpandedId(expandedId === s.id ? null : s.id)
               }
+              onToggleSelected={() => toggleSelected(s.id)}
               onReview={(action) => review(s.id, action)}
               onToggleFeatured={(next) => toggleFeatured(s.id, next)}
             />
@@ -287,14 +387,20 @@ function SubmissionRow({
   submission,
   expanded,
   busy,
+  selectable,
+  selected,
   onToggle,
+  onToggleSelected,
   onReview,
   onToggleFeatured,
 }: {
   submission: Submission;
   expanded: boolean;
   busy: boolean;
+  selectable: boolean;
+  selected: boolean;
   onToggle: () => void;
+  onToggleSelected: () => void;
   onReview: (action: "approve" | "reject" | "spam") => void;
   onToggleFeatured: (next: boolean) => void;
 }) {
@@ -312,6 +418,35 @@ function SubmissionRow({
 
   return (
     <div className="rex-card overflow-hidden">
+      {selectable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            // Clicking the checkbox shouldn't toggle the row expansion.
+            e.stopPropagation();
+            onToggleSelected();
+          }}
+          aria-label={selected ? "Deselect" : "Select"}
+          className="px-4 self-stretch flex items-center"
+          style={{
+            background: selected ? "rgba(95,185,31,0.06)" : "transparent",
+            borderRight: "1px solid var(--rex-border-subtle)",
+          }}
+        >
+          <span
+            className="inline-flex items-center justify-center w-4 h-4 rounded-sm border"
+            style={{
+              borderColor: selected ? "var(--rex-accent)" : "var(--rex-border)",
+              background: selected ? "var(--rex-accent)" : "transparent",
+              color: "var(--rex-bg)",
+              fontSize: 10,
+              lineHeight: 1,
+            }}
+          >
+            {selected ? "✓" : ""}
+          </span>
+        </button>
+      )}
       <button
         onClick={onToggle}
         className="w-full text-left p-4 flex items-center gap-4 hover:bg-[var(--rex-surface-2)] transition-colors"

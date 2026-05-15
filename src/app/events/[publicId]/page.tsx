@@ -7,6 +7,7 @@ import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
+import { ProxiedImage } from "@/components/proxied-image";
 import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
@@ -131,11 +132,13 @@ export default async function EventDetailPage({
                 background: "var(--rex-bg)",
               }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ProxiedImage
                 src={payload.imageUrl}
                 alt={payload.name}
+                width={1200}
+                height={630}
                 className="absolute inset-0 w-full h-full object-cover"
+                priority
               />
             </div>
           )}

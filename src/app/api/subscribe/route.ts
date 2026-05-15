@@ -10,6 +10,7 @@ import {
 } from "@/lib/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 /**
  * Public API endpoint for newsletter signups.
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
     firstName?: string;
     website?: string;
     persona?: string;
+    turnstileToken?: string;
   };
   try {
     body = await req.json();
@@ -51,6 +53,13 @@ export async function POST(req: NextRequest) {
   // the request succeeded so we don't tip them off, but skip writing.
   if (body.website && body.website.trim() !== "") {
     return NextResponse.json({ ok: true, message: "You're in! Welcome to Rex Intel Services." });
+  }
+
+  // Turnstile captcha verification. Skipped automatically when env vars
+  // aren't configured.
+  const captcha = await verifyTurnstileToken(body.turnstileToken, ip);
+  if (!captcha.ok) {
+    return NextResponse.json({ error: captcha.error }, { status: 400 });
   }
 
   const email = body.email?.toLowerCase().trim();

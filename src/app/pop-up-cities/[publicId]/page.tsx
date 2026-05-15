@@ -2,11 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { PopupCityPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
+import { ProxiedImage } from "@/components/proxied-image";
 import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,11 @@ const loadCity = cache(async (publicId: string) => {
     .where(
       and(
         eq(submissions.publicId, publicId),
-        eq(submissions.type, "popup_city"),
+        // Residencies share this detail page since both types have the same
+        // (name, multi-week dates, location, apply URL) shape — keeps the
+        // residency lane working without forking the renderer. If they
+        // diverge later, split into /residencies/[publicId] then.
+        inArray(submissions.type, ["popup_city", "residency"]),
         eq(submissions.status, "approved"),
       ),
     )
@@ -110,11 +115,13 @@ export default async function PopUpCityDetailPage({
         </Link>
 
         {p.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <ProxiedImage
             src={p.imageUrl}
             alt=""
+            width={1200}
+            height={384}
             className="w-full h-48 object-cover rounded-lg mb-4 border border-[var(--rex-border-subtle)]"
+            priority
           />
         )}
 

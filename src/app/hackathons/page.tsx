@@ -4,6 +4,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { ProxiedImage } from "@/components/proxied-image";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +23,57 @@ export const metadata: Metadata = {
 export default async function HackathonsPage({
   searchParams,
 }: {
-  searchParams: { view?: string };
+  searchParams: {
+    view?: string;
+    q?: string;
+    loc?: string;
+    mode?: string;
+    sort?: string;
+  };
 }) {
   const showPast = searchParams.view === "past";
-  const now = new Date();
+  const q = (searchParams.q ?? "").trim().slice(0, 80);
+  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
+  const mode =
+    searchParams.mode === "online" || searchParams.mode === "irl"
+      ? searchParams.mode
+      : "all";
+  const sort = searchParams.sort === "ending" ? "ending" : "start";
 
-  const hackathonFilter = and(
+  const now = new Date();
+  // Past is recent-past only — a year-old hackathon graveyard isn't useful
+  // social proof, and full history bloats the tab.
+  const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // Online seed convention is city='Online' (case-insensitive). Anything else
+  // is treated as in-person / hybrid for filtering — hybrids still have a real
+  // host city, so they show up under "In-person".
+  const cityLower = sql`LOWER(COALESCE(${submissions.payload}->>'city', ''))`;
+  const onlineMatch = sql`${cityLower} IN ('online', 'virtual', 'remote', 'global')`;
+
+  const filters = [
+    eq(submissions.type, "event"),
+    eq(submissions.status, "approved"),
+    sql`${submissions.payload}->>'eventType' = 'hackathon'`,
+  ];
+  if (mode === "online") filters.push(onlineMatch);
+  if (mode === "irl") filters.push(sql`NOT (${onlineMatch})`);
+  if (q) {
+    const like = `%${q.replace(/[%_\\]/g, "\\$&")}%`;
+    filters.push(
+      sql`(${submissions.payload}->>'name' ILIKE ${like} OR ${submissions.payload}->>'description' ILIKE ${like})`,
+    );
+  }
+  if (loc) {
+    const like = `%${loc.replace(/[%_\\]/g, "\\$&")}%`;
+    filters.push(
+      sql`(${submissions.payload}->>'city' ILIKE ${like} OR ${submissions.payload}->>'country' ILIKE ${like})`,
+    );
+  }
+  const hackathonFilter = and(...filters);
+  // Counts in the tabs ignore search/mode so the totals don't shrink as the
+  // user narrows — they show the size of each bucket overall.
+  const bucketCountFilter = and(
     eq(submissions.type, "event"),
     eq(submissions.status, "approved"),
     sql`${submissions.payload}->>'eventType' = 'hackathon'`,
@@ -37,6 +83,12 @@ export default async function HackathonsPage({
   // hackathon that started weeks ago but runs through next month belongs in
   // Upcoming, not Past — Past means it's actually over.
   const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+  const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+
+  const upcomingOrder =
+    sort === "ending"
+      ? [desc(submissions.featured), sql`${effectiveEnd} ASC`]
+      : [desc(submissions.featured), asc(submissions.eventStartsAt)];
 
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all(
     [
@@ -52,25 +104,19 @@ export default async function HackathonsPage({
         .where(
           and(
             hackathonFilter,
-            showPast
-              ? sql`${effectiveEnd} < ${now}`
-              : sql`${effectiveEnd} >= ${now}`,
+            showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
           ),
         )
-        .orderBy(
-          ...(showPast
-            ? [sql`${effectiveEnd} DESC`]
-            : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
-        )
+        .orderBy(...(showPast ? [sql`${effectiveEnd} DESC`] : upcomingOrder))
         .limit(100),
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(hackathonFilter, sql`${effectiveEnd} >= ${now}`)),
+        .where(and(bucketCountFilter, sql`${effectiveEnd} >= ${now}`)),
       db
         .select({ pastCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(hackathonFilter, sql`${effectiveEnd} < ${now}`)),
+        .where(and(bucketCountFilter, pastWindow)),
     ],
   );
 
@@ -78,6 +124,19 @@ export default async function HackathonsPage({
     ...r,
     payload: r.payload as EventPayload,
   }));
+
+  const tabHref = (view: "upcoming" | "past") => {
+    const params = new URLSearchParams();
+    if (view === "past") params.set("view", "past");
+    if (q) params.set("q", q);
+    if (loc) params.set("loc", loc);
+    if (mode !== "all") params.set("mode", mode);
+    if (sort !== "start") params.set("sort", sort);
+    const qs = params.toString();
+    return qs ? `/hackathons?${qs}` : "/hackathons";
+  };
+  const filtersActive =
+    Boolean(q) || Boolean(loc) || mode !== "all" || sort !== "start";
 
   return (
     <PublicShell
@@ -129,14 +188,67 @@ export default async function HackathonsPage({
           — set the event type to <span className="text-[var(--rex-accent)]">Hackathon</span> and it lands here automatically.
         </div>
 
-        <div className="flex gap-2 mb-6">
-          <ViewTab href="/hackathons" active={!showPast}>
+        <div className="flex gap-2 mb-4">
+          <ViewTab href={tabHref("upcoming")} active={!showPast}>
             Upcoming · {upcomingCount}
           </ViewTab>
-          <ViewTab href="/hackathons?view=past" active={showPast}>
+          <ViewTab href={tabHref("past")} active={showPast}>
             Past · {pastCount}
           </ViewTab>
         </div>
+
+        <form
+          method="get"
+          action="/hackathons"
+          className="mb-6 flex flex-wrap items-center gap-2"
+        >
+          {showPast && <input type="hidden" name="view" value="past" />}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Search name or description…"
+            className="rex-input flex-1 min-w-[220px] max-w-md"
+          />
+          <input
+            type="search"
+            name="loc"
+            defaultValue={loc}
+            placeholder="City or country…"
+            className="rex-input min-w-[160px] max-w-[220px]"
+          />
+          <select
+            name="mode"
+            defaultValue={mode}
+            className="rex-input max-w-[160px]"
+            aria-label="Mode"
+          >
+            <option value="all">All modes</option>
+            <option value="irl">In-person</option>
+            <option value="online">Online</option>
+          </select>
+          <select
+            name="sort"
+            defaultValue={sort}
+            className="rex-input max-w-[180px]"
+            aria-label="Sort"
+            disabled={showPast}
+          >
+            <option value="start">Starting soon</option>
+            <option value="ending">Ending soon</option>
+          </select>
+          <button type="submit" className="rex-btn whitespace-nowrap">
+            Apply ▸
+          </button>
+          {filtersActive && (
+            <Link
+              href={showPast ? "/hackathons?view=past" : "/hackathons"}
+              className="text-[11px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
+            >
+              Clear
+            </Link>
+          )}
+        </form>
 
         {visible.length === 0 ? (
           <div
@@ -146,9 +258,11 @@ export default async function HackathonsPage({
               color: "var(--rex-text-dim)",
             }}
           >
-            {showPast
-              ? "No past hackathons on file yet."
-              : "No upcoming hackathons on file. Check back, or submit one."}
+            {filtersActive
+              ? "No hackathons match those filters."
+              : showPast
+                ? "No hackathons wrapped in the last 30 days."
+                : "No upcoming hackathons on file. Check back, or submit one."}
           </div>
         ) : (
           <div className="space-y-2">
@@ -158,6 +272,7 @@ export default async function HackathonsPage({
                 publicId={e.publicId}
                 payload={e.payload}
                 featured={e.featured}
+                showEndingSoon={!showPast}
               />
             ))}
           </div>
@@ -195,10 +310,12 @@ function HackathonCard({
   publicId,
   payload,
   featured = false,
+  showEndingSoon = true,
 }: {
   publicId: string;
   payload: EventPayload;
   featured?: boolean;
+  showEndingSoon?: boolean;
 }) {
   const start = new Date(payload.startsAt);
   const end = payload.endsAt ? new Date(payload.endsAt) : null;
@@ -212,7 +329,24 @@ function HackathonCard({
     : dateLabel;
   const monthLabel = start.toLocaleDateString(undefined, { month: "short" });
   const dayLabel = start.getDate();
-  const location = [payload.city, payload.country].filter(Boolean).join(", ");
+  const cityLower = (payload.city ?? "").trim().toLowerCase();
+  const isOnline = ["online", "virtual", "remote", "global"].includes(cityLower);
+  const location = isOnline
+    ? "Online"
+    : [payload.city, payload.country].filter(Boolean).join(", ");
+  const effectiveEnd = end ?? start;
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const daysToEnd = Math.ceil(
+    (effectiveEnd.getTime() - Date.now()) / msPerDay,
+  );
+  const endsSoon =
+    showEndingSoon && daysToEnd >= 0 && daysToEnd <= 14;
+  const endsSoonLabel =
+    daysToEnd === 0
+      ? "Ends today"
+      : daysToEnd === 1
+        ? "Ends tomorrow"
+        : `Ends in ${daysToEnd}d`;
 
   return (
     <Link
@@ -254,10 +388,11 @@ function HackathonCard({
             borderColor: "var(--rex-border)",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ProxiedImage
             src={payload.imageUrl}
             alt=""
+            width={192}
+            height={112}
             className="w-full h-full object-cover"
           />
         </div>
@@ -287,6 +422,30 @@ function HackathonCard({
           >
             Hackathon
           </span>
+          <span
+            className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+            style={{
+              background: isOnline
+                ? "rgba(31,168,224,0.06)"
+                : "rgba(95,185,31,0.06)",
+              color: isOnline ? "var(--rex-accent-2)" : "var(--rex-accent)",
+              border: `1px solid ${isOnline ? "rgba(31,168,224,0.25)" : "rgba(95,185,31,0.3)"}`,
+            }}
+          >
+            {isOnline ? "Online" : "In-person"}
+          </span>
+          {endsSoon && (
+            <span
+              className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+              style={{
+                background: "rgba(255,168,0,0.08)",
+                color: "#ffb84d",
+                border: "1px solid rgba(255,168,0,0.35)",
+              }}
+            >
+              ⏳ {endsSoonLabel}
+            </span>
+          )}
           {payload.priceTier && (
             <span
               className="text-[10px] font-mono uppercase tracking-widest"

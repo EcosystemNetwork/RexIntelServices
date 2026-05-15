@@ -6,6 +6,8 @@ import type {
   PopupCityPayload,
   GrantPayload,
   AcceleratorPayload,
+  CapitalPayload,
+  ResidencyPayload,
   SubmissionPayload,
 } from "@/lib/db/schema";
 
@@ -30,7 +32,9 @@ export type SubmissionType =
   | "grant"
   | "accelerator"
   | "popup_city"
-  | "hackathon";
+  | "hackathon"
+  | "capital"
+  | "residency";
 
 /** Dispatch by submission type. Useful when the caller has a runtime string. */
 export function validateBySubmissionType(
@@ -52,6 +56,10 @@ export function validateBySubmissionType(
       return validatePopupCityPayload(raw);
     case "hackathon":
       return validateHackathonPayload(raw);
+    case "capital":
+      return validateCapitalPayload(raw);
+    case "residency":
+      return validateResidencyPayload(raw);
   }
 }
 
@@ -377,6 +385,101 @@ export function validateAcceleratorPayload(
       applyUrl: sanitizeSingleUrl(p.applyUrl),
       nextDeadline,
       rolling: p.rolling === true,
+      tags: sanitizeTagList(p.tags),
+      imageUrl: sanitizeSingleUrl(p.imageUrl),
+    },
+  };
+}
+
+export function validateCapitalPayload(
+  raw: unknown,
+): ValidationResult<CapitalPayload> {
+  if (!raw || typeof raw !== "object")
+    return { ok: false, error: "payload is required" };
+  const p = raw as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim() : "";
+  const organization =
+    typeof p.organization === "string" ? p.organization.trim() : "";
+  const description =
+    typeof p.description === "string" ? p.description.trim() : "";
+
+  if (name.length < 2 || name.length > 200)
+    return { ok: false, error: "Fund name must be 2–200 characters." };
+  if (organization.length < 2 || organization.length > 120)
+    return { ok: false, error: "Organization must be 2–120 characters." };
+  if (description.length < 20 || description.length > 5000)
+    return { ok: false, error: "Description must be 20–5000 characters." };
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      organization,
+      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
+      description,
+      stage: trimToString(p.stage, 200),
+      checkSize: trimToString(p.checkSize, 200),
+      location: trimToString(p.location, 200),
+      focus: trimToString(p.focus, 200),
+      pitchUrl: sanitizeSingleUrl(p.pitchUrl),
+      decisionWindow: trimToString(p.decisionWindow, 200),
+      tags: sanitizeTagList(p.tags),
+      imageUrl: sanitizeSingleUrl(p.imageUrl),
+    },
+  };
+}
+
+export function validateResidencyPayload(
+  raw: unknown,
+): ValidationResult<ResidencyPayload> {
+  if (!raw || typeof raw !== "object")
+    return { ok: false, error: "payload is required" };
+  const p = raw as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim() : "";
+  const organization =
+    typeof p.organization === "string" ? p.organization.trim() : "";
+  const description =
+    typeof p.description === "string" ? p.description.trim() : "";
+
+  if (name.length < 3 || name.length > 200)
+    return { ok: false, error: "Name must be 3–200 characters." };
+  if (organization.length < 2 || organization.length > 120)
+    return { ok: false, error: "Organization must be 2–120 characters." };
+  if (description.length < 20 || description.length > 5000)
+    return { ok: false, error: "Description must be 20–5000 characters." };
+
+  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
+  if (!startsAt || isNaN(Date.parse(startsAt)))
+    return { ok: false, error: "Start date is required (ISO format)." };
+  const endsAt = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
+  if (!endsAt || isNaN(Date.parse(endsAt)))
+    return { ok: false, error: "End date is required (ISO format)." };
+
+  const applicationDeadline =
+    typeof p.applicationDeadline === "string" &&
+    p.applicationDeadline.trim() &&
+    !isNaN(Date.parse(p.applicationDeadline))
+      ? p.applicationDeadline.trim()
+      : undefined;
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      organization,
+      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
+      description,
+      startsAt,
+      endsAt,
+      city: trimToString(p.city, 100),
+      country: trimToString(p.country, 100),
+      venue: trimToString(p.venue, 200),
+      url: sanitizeSingleUrl(p.url),
+      applyUrl: sanitizeSingleUrl(p.applyUrl),
+      applicationDeadline,
+      cohortSize: trimToString(p.cohortSize, 100),
+      cost: trimToString(p.cost, 200),
+      focus: trimToString(p.focus, 200),
       tags: sanitizeTagList(p.tags),
       imageUrl: sanitizeSingleUrl(p.imageUrl),
     },

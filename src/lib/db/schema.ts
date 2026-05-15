@@ -59,6 +59,8 @@ export const submissionTypeEnum = pgEnum("submission_type", [
   "accelerator",
   "popup_city",
   "hackathon",
+  "capital",
+  "residency",
 ]);
 
 export const submissionStatusEnum = pgEnum("submission_status", [
@@ -399,6 +401,53 @@ export type AcceleratorPayload = {
   imageUrl?: string;
 };
 
+// VC funds and angels that publicly accept cold pitches. Distinct from
+// accelerators — no cohort, no fixed program, equity check on a rolling
+// basis. Surfaced on /intel?lane=capital so founders can shortlist
+// first-check leads without trawling individual fund sites.
+export type CapitalPayload = {
+  name: string; // fund / firm name (often same as organization)
+  organization: string;
+  organizationUrl?: string;
+  description: string;
+  stage?: string; // "Pre-seed", "Seed → Series A"
+  checkSize?: string; // "$250k–$2M", "Up to $500k"
+  location?: string; // HQ — "San Francisco", "Columbia, MO", "Remote-friendly"
+  focus?: string; // "Generalist", "AI / agents", "DeFi infra"
+  pitchUrl?: string; // public pitch portal — what makes the entry actionable
+  // Free-form turnaround promise the fund advertises. Surfaced as a chip
+  // because it's the most differentiating signal for founders comparing leads.
+  decisionWindow?: string; // "Decision in <3 weeks", "30-day cycle"
+  tags?: string[];
+  imageUrl?: string;
+};
+
+// Multi-week founder / builder residency programs. Distinct from
+// accelerators (no equity check, typically), from pop-up cities (smaller
+// + tightly-curated cohort, themed), and from grants (no money — selection
+// + housing + community is the value). Examples: The Bridge, Stripe Atlas
+// retreats, Mercury cohort weeks.
+export type ResidencyPayload = {
+  name: string;
+  organization: string;
+  organizationUrl?: string;
+  description: string;
+  // Dates are required so the listing can bucket past vs upcoming. ISO.
+  startsAt: string;
+  endsAt: string;
+  city?: string;
+  country?: string;
+  venue?: string;
+  url?: string;
+  applyUrl?: string;
+  applicationDeadline?: string;
+  cohortSize?: string; // "20 founders", "Up to 50"
+  cost?: string; // "Free + travel covered", "$5k tuition"
+  focus?: string;
+  tags?: string[];
+  imageUrl?: string;
+};
+
 export type SubmissionPayload =
   | IntelPayload
   | EventPayload
@@ -406,7 +455,9 @@ export type SubmissionPayload =
   | PopupCityPayload
   | HackathonPayload
   | GrantPayload
-  | AcceleratorPayload;
+  | AcceleratorPayload
+  | CapitalPayload
+  | ResidencyPayload;
 
 export const submissions = pgTable(
   "submissions",

@@ -15,6 +15,8 @@ import {
   validatePopupCityPayload,
   validateGrantPayload,
   validateAcceleratorPayload,
+  validateCapitalPayload,
+  validateResidencyPayload,
   sanitizeSingleUrl,
 } from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
@@ -26,10 +28,13 @@ import {
   isTrustedJobUrl,
   isTrustedGrantUrl,
   isTrustedAcceleratorUrl,
+  isTrustedCapitalUrl,
+  isTrustedResidencyUrl,
 } from "@/lib/event-parser";
 import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
 import { sendAdminAlertEmail } from "@/lib/email/admin-alert-email";
 import { absoluteUrl } from "@/lib/site-url";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 type AddressInput = {
   chain: string;
@@ -68,12 +73,15 @@ export async function POST(req: NextRequest) {
       | "grant"
       | "accelerator"
       | "popup_city"
-      | "hackathon";
+      | "hackathon"
+      | "capital"
+      | "residency";
     payload?: unknown;
     addresses?: unknown;
     submitterEmail?: string;
     submitterHandle?: string;
     website?: string;
+    turnstileToken?: string;
   };
   try {
     body = await req.json();
@@ -85,6 +93,13 @@ export async function POST(req: NextRequest) {
   // and return a generic success so the bot doesn't probe further.
   const honeypotTripped = !!(body.website && body.website.trim() !== "");
 
+  // Turnstile captcha verification. Skipped automatically when env vars
+  // aren't set, so local dev + first-deploys aren't blocked.
+  const captcha = await verifyTurnstileToken(body.turnstileToken, ip);
+  if (!captcha.ok) {
+    return NextResponse.json({ error: captcha.error }, { status: 400 });
+  }
+
   const ALL_TYPES = [
     "intel",
     "event",
@@ -93,13 +108,15 @@ export async function POST(req: NextRequest) {
     "accelerator",
     "popup_city",
     "hackathon",
+    "capital",
+    "residency",
   ] as const;
   type SubmissionType = (typeof ALL_TYPES)[number];
   if (!body.type || !ALL_TYPES.includes(body.type as SubmissionType)) {
     return NextResponse.json(
       {
         error:
-          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon",
+          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon, capital, residency",
       },
       { status: 400 },
     );
@@ -122,6 +139,10 @@ export async function POST(req: NextRequest) {
         return validatePopupCityPayload(body.payload);
       case "hackathon":
         return validateHackathonPayload(body.payload);
+      case "capital":
+        return validateCapitalPayload(body.payload);
+      case "residency":
+        return validateResidencyPayload(body.payload);
     }
   })();
 
@@ -156,7 +177,8 @@ export async function POST(req: NextRequest) {
   const isTimeAnchored =
     submissionType === "event" ||
     submissionType === "popup_city" ||
-    submissionType === "hackathon";
+    submissionType === "hackathon" ||
+    submissionType === "residency";
   const eventStartsAt = isTimeAnchored
     ? new Date((validation.payload as { startsAt: string }).startsAt)
     : null;
@@ -176,9 +198,15 @@ export async function POST(req: NextRequest) {
   // Trust-tier auto-approval per surface. Intel always goes through human
   // review — moderation is the product. Each other surface has its own
   // allowlist of hosts that we'll trust to vet content.
-  const payloadUrl = (validation.payload as { url?: string; applyUrl?: string; companyUrl?: string }).url
+  // Pull whichever public URL the payload provides — different types use
+  // different field names. Capital uses pitchUrl; jobs use companyUrl;
+  // others use url/applyUrl. Trust verdict is based on whichever one we
+  // find first.
+  const payloadUrl = (validation.payload as { url?: string }).url
     ?? (validation.payload as { applyUrl?: string }).applyUrl
-    ?? (validation.payload as { companyUrl?: string }).companyUrl;
+    ?? (validation.payload as { pitchUrl?: string }).pitchUrl
+    ?? (validation.payload as { companyUrl?: string }).companyUrl
+    ?? (validation.payload as { organizationUrl?: string }).organizationUrl;
 
   const autoApprove =
     !honeypotTripped &&
@@ -188,6 +216,8 @@ export async function POST(req: NextRequest) {
       (submissionType === "hackathon" && isTrustedHackathonUrl(payloadUrl)) ||
       (submissionType === "grant" && isTrustedGrantUrl(payloadUrl)) ||
       (submissionType === "accelerator" && isTrustedAcceleratorUrl(payloadUrl)) ||
+      (submissionType === "capital" && isTrustedCapitalUrl(payloadUrl)) ||
+      (submissionType === "residency" && isTrustedResidencyUrl(payloadUrl)) ||
       (submissionType === "job" && isTrustedJobUrl(payloadUrl)));
 
   const status: "approved" | "pending" | "spam" = honeypotTripped
@@ -270,12 +300,17 @@ export async function POST(req: NextRequest) {
     hackathon: "Hackathon",
     grant: "Grant program",
     accelerator: "Accelerator",
+    capital: "Capital source",
+    residency: "Residency",
     job: "Job posting",
   };
   const label = SURFACE_LABEL[submissionType] ?? "Submission";
 
   return NextResponse.json({
     ok: true,
+    // Echo back so the client can fire one shared analytics call without
+    // capturing the literal in each form's closure.
+    type: submissionType,
     autoApproved: autoApprove,
     // Only surface the edit URL to the client when we'd also email it. Keeps
     // intel/anonymous flows from accidentally rendering an "Edit" button.

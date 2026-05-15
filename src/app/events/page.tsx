@@ -4,6 +4,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
+import { ProxiedImage } from "@/components/proxied-image";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +23,28 @@ export const metadata: Metadata = {
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: { view?: string };
+  searchParams: { view?: string; loc?: string };
 }) {
   const showPast = searchParams.view === "past";
+  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
   const now = new Date();
+  // Past is recent-past only — older entries stay in the DB but don't bloat the tab.
+  const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const baseFilter = and(
+  const baseFilters = [
+    eq(submissions.type, "event"),
+    eq(submissions.status, "approved"),
+  ];
+  if (loc) {
+    const like = `%${loc.replace(/[%_\\]/g, "\\$&")}%`;
+    baseFilters.push(
+      sql`(${submissions.payload}->>'city' ILIKE ${like} OR ${submissions.payload}->>'country' ILIKE ${like})`,
+    );
+  }
+  const baseFilter = and(...baseFilters);
+  // Bucket counts ignore the location filter so the tab totals don't shrink as
+  // the user narrows.
+  const bucketCountFilter = and(
     eq(submissions.type, "event"),
     eq(submissions.status, "approved"),
   );
@@ -35,6 +52,7 @@ export default async function EventsPage({
   // Past = the event has actually ended. Falls back to startsAt for rows
   // without an endsAt (single-day events).
   const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+  const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
 
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] =
     await Promise.all([
@@ -50,9 +68,7 @@ export default async function EventsPage({
         .where(
           and(
             baseFilter,
-            showPast
-              ? sql`${effectiveEnd} < ${now}`
-              : sql`${effectiveEnd} >= ${now}`,
+            showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
           ),
         )
         // Pin featured rows to the top of upcoming; past view stays purely
@@ -66,11 +82,11 @@ export default async function EventsPage({
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(baseFilter, sql`${effectiveEnd} >= ${now}`)),
+        .where(and(bucketCountFilter, sql`${effectiveEnd} >= ${now}`)),
       db
         .select({ pastCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(baseFilter, sql`${effectiveEnd} < ${now}`)),
+        .where(and(bucketCountFilter, pastWindow)),
     ]);
 
   const visible = visibleRows.map((r) => ({
@@ -136,14 +152,50 @@ export default async function EventsPage({
           and it goes live in seconds — no review required for trusted sources.
         </div>
 
-        <div className="flex gap-2 mb-6">
-          <ViewTab href="/events" active={!showPast}>
+        <div className="flex gap-2 mb-4">
+          <ViewTab
+            href={loc ? `/events?loc=${encodeURIComponent(loc)}` : "/events"}
+            active={!showPast}
+          >
             Upcoming · {upcomingCount}
           </ViewTab>
-          <ViewTab href="/events?view=past" active={showPast}>
+          <ViewTab
+            href={
+              loc
+                ? `/events?view=past&loc=${encodeURIComponent(loc)}`
+                : "/events?view=past"
+            }
+            active={showPast}
+          >
             Past · {pastCount}
           </ViewTab>
         </div>
+
+        <form
+          method="get"
+          action="/events"
+          className="mb-6 flex flex-wrap items-center gap-2"
+        >
+          {showPast && <input type="hidden" name="view" value="past" />}
+          <input
+            type="search"
+            name="loc"
+            defaultValue={loc}
+            placeholder="Filter by city or country…"
+            className="rex-input flex-1 min-w-[220px] max-w-md"
+          />
+          <button type="submit" className="rex-btn whitespace-nowrap">
+            Apply ▸
+          </button>
+          {loc && (
+            <Link
+              href={showPast ? "/events?view=past" : "/events"}
+              className="text-[11px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
+            >
+              Clear
+            </Link>
+          )}
+        </form>
 
         {visible.length === 0 ? (
           <div
@@ -153,9 +205,11 @@ export default async function EventsPage({
               color: "var(--rex-text-dim)",
             }}
           >
-            {showPast
-              ? "No past events on file yet."
-              : "No upcoming events on file. Check back, or submit one."}
+            {loc
+              ? `No events matching “${loc}”.`
+              : showPast
+                ? "No events wrapped in the last 30 days."
+                : "No upcoming events on file. Check back, or submit one."}
           </div>
         ) : (
           <div className="space-y-2">
@@ -258,10 +312,11 @@ function EventCard({
             borderColor: "var(--rex-border)",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ProxiedImage
             src={payload.imageUrl}
             alt=""
+            width={192}
+            height={112}
             className="w-full h-full object-cover"
           />
         </div>

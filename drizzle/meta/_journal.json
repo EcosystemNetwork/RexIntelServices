@@ -78,6 +78,20 @@
       "when": 1778669049809,
       "tag": "0010_thick_madame_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778828191502,
+      "tag": "0011_stiff_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778829190924,
+      "tag": "0012_remarkable_longshot",
+      "breakpoints": true
     }
   ]
 }

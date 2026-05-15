@@ -10,22 +10,58 @@ import {
   type ChainSlug,
   type AddressRoleSlug,
 } from "@/lib/chains";
+import { Turnstile } from "@/components/turnstile";
+import { track } from "@vercel/analytics";
 
-type Tab = "intel" | "event" | "popup_city" | "grant" | "accelerator" | "job";
+// Wrapped so each form can fire a single line without try/catching the
+// analytics call — best-effort, never blocks the submission flow.
+// Type is read from the API response (data.type), so we don't have to thread
+// the literal through each form's closure.
+function trackSubmitSuccess(data: { type?: unknown; autoApproved?: unknown }) {
+  try {
+    track("submit_success", {
+      type: typeof data.type === "string" ? data.type : "unknown",
+      autoApproved: data.autoApproved === true,
+    });
+  } catch {
+    /* analytics is best-effort */
+  }
+}
+
+type Tab =
+  | "intel"
+  | "event"
+  | "popup_city"
+  | "grant"
+  | "accelerator"
+  | "capital"
+  | "residency"
+  | "job";
 type FormStatus = "idle" | "loading" | "success" | "error";
 
 const TAB_LABELS: Record<Tab, string> = {
   event: "Event",
   popup_city: "Pop-Up City",
+  residency: "Residency",
   grant: "Grant",
   accelerator: "Accelerator",
+  capital: "Capital",
   job: "Job",
   intel: "Intel",
 };
 // Order is intentional — Event first (highest-volume), Intel last (most
 // specialized / requires moderator review). Pop-up cities sit next to events
 // because they share the same intake flow / lu.ma URLs.
-const TAB_ORDER: Tab[] = ["event", "popup_city", "grant", "accelerator", "job", "intel"];
+const TAB_ORDER: Tab[] = [
+  "event",
+  "popup_city",
+  "residency",
+  "grant",
+  "accelerator",
+  "capital",
+  "job",
+  "intel",
+];
 
 type AddressRow = {
   chain: ChainSlug;
@@ -94,6 +130,8 @@ export default function SubmitForm() {
         {tab === "intel" && <IntelForm />}
         {tab === "event" && <EventForm />}
         {tab === "popup_city" && <PopupCityForm />}
+        {tab === "residency" && <ResidencyForm />}
+        {tab === "capital" && <CapitalForm />}
         {tab === "grant" && <GrantForm />}
         {tab === "accelerator" && <AcceleratorForm />}
         {tab === "job" && <JobForm />}
@@ -142,6 +180,7 @@ function IntelForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [addressRows, setAddressRows] = useState<AddressRow[]>([]);
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
@@ -197,10 +236,12 @@ function IntelForm() {
           submitterEmail: anonymous ? undefined : submitterEmail || undefined,
           submitterHandle: anonymous ? undefined : submitterHandle || undefined,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
+        trackSubmitSuccess(data);
         setStatus("success");
         setMessage(data.message);
         setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
@@ -221,6 +262,7 @@ function IntelForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
 
       <div>
         <Label>Headline</Label>
@@ -490,6 +532,7 @@ function EventForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
   // Surfaced by the API for non-anonymous submissions so the success panel
@@ -583,10 +626,12 @@ function EventForm() {
           submitterEmail: submitterEmail || undefined,
           submitterHandle: submitterHandle || undefined,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
+        trackSubmitSuccess(data);
         setStatus("success");
         setMessage(data.message);
         setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
@@ -607,6 +652,7 @@ function EventForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
 
       <div className="border border-[var(--rex-accent)]/30 bg-[var(--rex-accent)]/[0.04] rounded-sm p-4">
         <Label>Got a lu.ma / Eventbrite link?</Label>
@@ -844,6 +890,7 @@ function PopupCityForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
   // Surfaced by the API for non-anonymous submissions so the success panel
@@ -899,10 +946,12 @@ function PopupCityForm() {
           submitterEmail: submitterEmail || undefined,
           submitterHandle: submitterHandle || undefined,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
+        trackSubmitSuccess(data);
         setStatus("success");
         setMessage(data.message);
         setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
@@ -921,6 +970,7 @@ function PopupCityForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
 
       <UrlPasteBox
         endpoint="/api/events/parse-url"
@@ -1058,6 +1108,7 @@ function GrantForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
   // Surfaced by the API for non-anonymous submissions so the success panel
@@ -1091,10 +1142,12 @@ function GrantForm() {
           submitterEmail: submitterEmail || undefined,
           submitterHandle: submitterHandle || undefined,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
+        trackSubmitSuccess(data);
         setStatus("success");
         setMessage(data.message);
         setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
@@ -1113,6 +1166,7 @@ function GrantForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
 
       <Field label="Grant Name">
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Ecosystem Support Program" />
@@ -1185,6 +1239,7 @@ function AcceleratorForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
   // Surfaced by the API for non-anonymous submissions so the success panel
@@ -1218,10 +1273,12 @@ function AcceleratorForm() {
           submitterEmail: submitterEmail || undefined,
           submitterHandle: submitterHandle || undefined,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
+        trackSubmitSuccess(data);
         setStatus("success");
         setMessage(data.message);
         setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
@@ -1240,6 +1297,7 @@ function AcceleratorForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
 
       <Field label="Program Name">
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Alliance DAO Cohort 12" />
@@ -1324,6 +1382,7 @@ function JobForm() {
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
   const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
   const [message, setMessage] = useState("");
   // Surfaced by the API for non-anonymous submissions so the success panel
@@ -1356,10 +1415,12 @@ function JobForm() {
           submitterEmail: submitterEmail || undefined,
           submitterHandle: submitterHandle || undefined,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
+        trackSubmitSuccess(data);
         setStatus("success");
         setMessage(data.message);
         setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
@@ -1397,6 +1458,7 @@ function JobForm() {
   return (
     <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
       <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
 
       <UrlPasteBox
         endpoint="/api/jobs/parse-url"
@@ -1654,6 +1716,297 @@ function parseTagsInput(raw: string): string[] | undefined {
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
   return tags.length ? tags : undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Capital form — VC/angel fund taking cold pitches
+// ─────────────────────────────────────────────────────────────────────
+
+function CapitalForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [stage, setStage] = useState("");
+  const [checkSize, setCheckSize] = useState("");
+  const [location, setLocation] = useState("");
+  const [focus, setFocus] = useState("");
+  const [pitchUrl, setPitchUrl] = useState("");
+  const [decisionWindow, setDecisionWindow] = useState("");
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    const payload = {
+      name,
+      organization,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      stage: stage || undefined,
+      checkSize: checkSize || undefined,
+      location: location || undefined,
+      focus: focus || undefined,
+      pitchUrl: pitchUrl || undefined,
+      decisionWindow: decisionWindow || undefined,
+      tags: parseTagsInput(tagsRaw),
+    };
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "capital",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+          turnstileToken,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        trackSubmitSuccess(data);
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
+
+      <Field label="Fund Name">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={200} className="rex-input w-full" placeholder="Long Journey Ventures" />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Organization">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Long Journey" />
+        </Field>
+        <Field label="Organization URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="Thesis, what you fund, cold pitch policy, recent investments." />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Stage (opt.)">
+          <input type="text" value={stage} onChange={(e) => setStage(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Pre-seed → Series A" />
+        </Field>
+        <Field label="Check Size (opt.)">
+          <input type="text" value={checkSize} onChange={(e) => setCheckSize(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="$250k–$2M" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Location (opt.)">
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="San Francisco" />
+        </Field>
+        <Field label="Focus (opt.)">
+          <input type="text" value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Generalist / Crypto / AI" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Cold Pitch URL">
+          <input type="url" value={pitchUrl} onChange={(e) => setPitchUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+        <Field label="Decision Window (opt.)">
+          <input type="text" value={decisionWindow} onChange={(e) => setDecisionWindow(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Decision in <3 weeks" />
+        </Field>
+      </div>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="generalist, ai, defi" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Fund ▸" />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Residency form — multi-week founder/builder residency
+// ─────────────────────────────────────────────────────────────────────
+
+function ResidencyForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [venue, setVenue] = useState("");
+  const [url, setUrl] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [applicationDeadline, setApplicationDeadline] = useState("");
+  const [cohortSize, setCohortSize] = useState("");
+  const [cost, setCost] = useState("");
+  const [focus, setFocus] = useState("");
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    const payload = {
+      name,
+      organization,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      startsAt: startsAt ? new Date(startsAt).toISOString() : "",
+      endsAt: endsAt ? new Date(endsAt).toISOString() : "",
+      city: city || undefined,
+      country: country || undefined,
+      venue: venue || undefined,
+      url: url || undefined,
+      applyUrl: applyUrl || undefined,
+      applicationDeadline: applicationDeadline
+        ? new Date(applicationDeadline).toISOString()
+        : undefined,
+      cohortSize: cohortSize || undefined,
+      cost: cost || undefined,
+      focus: focus || undefined,
+      tags: parseTagsInput(tagsRaw),
+    };
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "residency",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+          turnstileToken,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        trackSubmitSuccess(data);
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
+
+      <Field label="Residency Name">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="The Bridge Cohort 2026.2" />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Organization">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="The Bridge" />
+        </Field>
+        <Field label="Organization URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What the cohort builds, who attends, daily structure." />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Starts">
+          <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required className="rex-input w-full" />
+        </Field>
+        <Field label="Ends">
+          <input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} required className="rex-input w-full" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="City">
+          <input type="text" value={city} onChange={(e) => setCity(e.target.value)} maxLength={100} className="rex-input w-full" />
+        </Field>
+        <Field label="Country">
+          <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} maxLength={100} className="rex-input w-full" />
+        </Field>
+        <Field label="Venue (opt.)">
+          <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} maxLength={200} className="rex-input w-full" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Cohort Size (opt.)">
+          <input type="text" value={cohortSize} onChange={(e) => setCohortSize(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="20 founders" />
+        </Field>
+        <Field label="Cost (opt.)">
+          <input type="text" value={cost} onChange={(e) => setCost(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Free + travel covered" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Program URL (opt.)">
+          <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+        <Field label="Apply URL">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Application Deadline (opt.)">
+          <input type="datetime-local" value={applicationDeadline} onChange={(e) => setApplicationDeadline(e.target.value)} className="rex-input w-full" />
+        </Field>
+        <Field label="Focus (opt.)">
+          <input type="text" value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Early-stage founders / AI" />
+        </Field>
+      </div>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="founders, ai, retreat" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Residency ▸" />
+    </form>
+  );
 }
 
 function Honeypot({

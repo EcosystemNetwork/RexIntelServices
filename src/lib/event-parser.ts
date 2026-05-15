@@ -776,6 +776,41 @@ export const TRUSTED_GRANT_HOSTS = new Set([
   "solana.org",
 ]);
 
+// Tier-one VC funds that publicly accept cold pitches. Auto-publishing
+// these implies endorsement, so the bar is high — list only funds with a
+// well-known public pitch portal. Anything else lands in moderation.
+export const TRUSTED_CAPITAL_HOSTS = new Set([
+  "ycombinator.com",
+  "a16z.com",
+  "a16zcrypto.com",
+  "paradigm.xyz",
+  "sequoiacap.com",
+  "founders.fund",
+  "lightspeed.com",
+  "indexventures.com",
+  "1confirmation.com",
+  "haun.co",
+  "variant.fund",
+  "polychain.capital",
+  "multicoin.capital",
+  "robotventures.co",
+  "longjourney.com",
+  "south-park.commons",
+  "southparkcommons.com",
+]);
+
+// Multi-week founder/builder residency programs. Bar is high — these are
+// editorially-curated rather than crowd-submitted, so the trusted set
+// just covers the established programs we know vet attendees.
+export const TRUSTED_RESIDENCY_HOSTS = new Set([
+  "join-thebridge.com",
+  "thebridge.com",
+  "atlas.stripe.com",
+  "mercury.com",
+  "lu.ma",
+  "luma.com",
+]);
+
 // Known accelerator/incubator brands. Keep tight — auto-publishing a
 // program implies endorsement.
 export const TRUSTED_ACCELERATOR_HOSTS = new Set([
@@ -834,6 +869,14 @@ export function isTrustedGrantUrl(rawUrl: string | undefined): boolean {
 export function isTrustedAcceleratorUrl(rawUrl: string | undefined): boolean {
   const host = hostOf(rawUrl);
   return host ? TRUSTED_ACCELERATOR_HOSTS.has(host) : false;
+}
+export function isTrustedCapitalUrl(rawUrl: string | undefined): boolean {
+  const host = hostOf(rawUrl);
+  return host ? TRUSTED_CAPITAL_HOSTS.has(host) : false;
+}
+export function isTrustedResidencyUrl(rawUrl: string | undefined): boolean {
+  const host = hostOf(rawUrl);
+  return host ? TRUSTED_RESIDENCY_HOSTS.has(host) : false;
 }
 export function isTrustedJobUrl(rawUrl: string | undefined): boolean {
   const host = hostOf(rawUrl);

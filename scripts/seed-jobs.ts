@@ -160,6 +160,20 @@ const jobs: JobPayload[] = [
     applyUrl: "https://jobs.ashbyhq.com/Privy",
     tags: ["wallets", "auth", "developer-tools"],
   },
+  {
+    title: "Fellows Program — Research",
+    company: "Anthropic",
+    companyUrl: "https://www.anthropic.com/",
+    description:
+      "4-month full-time research fellowship with mentorship from senior Anthropic researchers. Five workstreams: AI Safety, AI Security, ML Systems & Performance, Reinforcement Learning, and Economics & Policy. Expected output is a public research artifact (typically a paper). Python fluency + strong CS/math/physics background; no prior research experience required.",
+    location: "Remote (US, UK, Canada) — optional desk in Berkeley or London",
+    remote: true,
+    employmentType: "contract",
+    seniority: "junior",
+    compensation: "$3,850/wk USD ($2,310 GBP / $4,300 CAD) + ~$15k/mo compute",
+    applyUrl: "https://job-boards.greenhouse.io/anthropic/jobs/5023394008",
+    tags: ["ai-safety", "research", "fellowship", "ml", "rl"],
+  },
 ];
 
 async function upsert(payload: JobPayload) {

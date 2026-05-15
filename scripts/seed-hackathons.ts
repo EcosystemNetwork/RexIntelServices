@@ -311,6 +311,57 @@ const inputs: SeedInput[] = [
       "One-day SF builder hackathon by tokens&. 9:30 AM – 7:30 PM PDT, with kickoff, day-long hack, demos and awards. Partners: AWS, ElevenLabs, Luminai. Judges from Luminai, Anthropic and Gap Inc. Approval required to attend.",
   },
 
+  // === ElevenHacks (ElevenLabs 11-week weekly hackathon series) ===
+  {
+    name: "Hack #9: Stripe x ElevenLabs",
+    startDate: "2026-05-14",
+    endDate: "2026-05-21",
+    city: "Online",
+    url: "https://hacks.elevenlabs.io/hackathons/8",
+    description:
+      "Week 9 of ElevenHacks — ElevenLabs' 11-week online series (Mar 19 – May 28, 2026, $240K+ total prizes). This week's Stripe challenge: build something people will pay for using Stripe + ElevenLabs voice APIs. $18,980 prize pool split across Stripe credits and ElevenLabs Scale plans (1st $10,990, 2nd $5,660, 3rd $2,330). Opens Thu 14 May 17:00 UK; submissions close Thu 21 May 17:00 UK; winners Tue 26 May. Judges: Rajan Patel (Stripe), Joe Reeve (ElevenLabs).",
+  },
+  {
+    name: "Hack #10: Blackbox x ElevenLabs",
+    startDate: "2026-05-21",
+    endDate: "2026-05-28",
+    city: "Online",
+    url: "https://hacks.elevenlabs.io/hackathons/9",
+    description:
+      "Week 10 of ElevenHacks — ElevenLabs' 11-week online series. This week's Blackbox AI challenge combines Blackbox's coding agents with ElevenLabs voice APIs. Opens Thu 21 May 17:00 UK; submissions close Thu 28 May 17:00 UK. Prize pool TBA.",
+  },
+  {
+    name: "Hack #11: D-ID x ElevenLabs",
+    startDate: "2026-05-28",
+    endDate: "2026-06-04",
+    city: "Online",
+    url: "https://hacks.elevenlabs.io/hackathons/10",
+    description:
+      "Final week of ElevenHacks — ElevenLabs' 11-week online series. D-ID's digital-human / avatar APIs paired with ElevenLabs voice APIs. $11,980 prize pool. Opens Thu 28 May 17:00 UK.",
+  },
+
+  // === Canteen / Circle / Arc (Agora) ===
+  {
+    name: "Agora Agents Hackathon",
+    startDate: "2026-05-11",
+    endDate: "2026-05-25",
+    city: "Online",
+    url: "https://agora.thecanteenapp.com/",
+    description:
+      "Two-week online hackathon run by Canteen with Circle and Arc, focused on AI agents that trade, invest, create, and interface with markets — settling on Arc (Circle's L1) using USDC. $50K total prizes: $40K grand prizes (1st $10K; 2×$7.5K second; 3×$5K third), ~10–12 standout-team awards ($7.5K), feedback incentives ($500) and easter-egg bounties ($2K). Six Requests for Builders: perps trading, prediction-market trading, prediction-market verticals, portfolio management, cross-platform arbitrage, social trading intelligence. Submissions require a live working product demo and public GitHub repo.",
+  },
+
+  // === Sui Foundation ===
+  {
+    name: "Sui Overflow 2026",
+    startDate: "2026-05-01",
+    endDate: "2026-06-30",
+    city: "Online",
+    url: "https://overflow.sui.io/",
+    description:
+      "Sui Foundation's global online hackathon. $1M+ total prize pool — $500K+ in core track prizes plus specialized track pools. Tracks: Agentic Web, DeFi & Payments, Walrus, DeepBook, Infra & DevX, EVE, ONE Championship, Degen, Payments & Wallets, Entertainment & Culture, and Explorations (multi-chain/RWA). Project submissions due May 23. Demo days June 13–14. Winners announced end of June. $2,500 university awards available. OceanDAO Summit follows in Athens July 21–31.",
+  },
+
   // === Arbitrum Open House ===
   {
     name: "Arbitrum Open House London 2026",

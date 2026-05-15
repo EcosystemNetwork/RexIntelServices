@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { UniversalSearch } from "@/components/universal-search";
 
 export function PublicHeader({
   // When the hero animation is present it already paints the wordmark, so we
@@ -33,6 +34,7 @@ export function PublicHeader({
         )}
       </Link>
       <div className="flex items-center gap-2.5 sm:gap-4 text-[10px] sm:text-[11px] font-mono uppercase tracking-widest shrink-0">
+        <UniversalSearch />
         <PublicNavLink href="/intel">Intel</PublicNavLink>
         <PublicNavLink href="/events">Events</PublicNavLink>
         <PublicNavLink href="/hackathons">Hacks</PublicNavLink>

@@ -22,15 +22,15 @@ const cities: PopupCityPayload[] = [
     organization: "Edge City",
     organizationUrl: "https://www.edgecity.live/",
     description:
-      "Month-long pop-up village in Healdsburg, California. A focused environment for builders, researchers, and operators across longevity, AI, crypto, and frontier tech to live and work together. Application-based intake.",
+      "Month-long pop-up village in Healdsburg, California — 1,000+ people from the frontiers of tech, science, culture, and policy living and building together. Programming runs in four weekly themes: Protocols for Flourishing (longevity, bio, neuro), Intelligence & Autonomy (AI, governance, d/acc), Emergent Futures & World Building (decentralized tech, creative AI, spatial computing), and Environments of Tomorrow (new urbanism, energy, climate, food). Application-based; pricing rises monthly so earlier apps fare better.",
     startsAt: "2026-05-30T12:00:00Z",
     endsAt: "2026-06-27T12:00:00Z",
     city: "Healdsburg",
     country: "United States",
-    url: "https://edgeesmeralda.com/",
-    applyUrl: "https://edgeesmeralda.com/",
-    focus: "Longevity, AI, crypto, frontier tech",
-    tags: ["edge-city", "frontier-tech", "longevity"],
+    url: "https://www.edgeesmeralda.com/",
+    applyUrl: "https://edgeesmeralda.simplefi.tech/auth",
+    focus: "Longevity, AI, d/acc, urbanism, frontier tech",
+    tags: ["edge-city", "frontier-tech", "longevity", "ai", "d-acc"],
   },
   {
     name: "Network School",
@@ -66,6 +66,7 @@ const cities: PopupCityPayload[] = [
 
 async function upsert(payload: PopupCityPayload) {
   const eventStartsAt = new Date(payload.startsAt);
+  const eventEndsAt = new Date(payload.endsAt);
   const existing = await db
     .select({ id: submissions.id, publicId: submissions.publicId })
     .from(submissions)
@@ -83,6 +84,7 @@ async function upsert(payload: PopupCityPayload) {
       .set({
         payload,
         eventStartsAt,
+        eventEndsAt,
         status: "approved",
         publishedAt: new Date(),
         updatedAt: new Date(),
@@ -98,6 +100,7 @@ async function upsert(payload: PopupCityPayload) {
       status: "approved",
       payload,
       eventStartsAt,
+      eventEndsAt,
       publishedAt: new Date(),
     })
     .returning({ publicId: submissions.publicId });

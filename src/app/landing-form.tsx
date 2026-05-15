@@ -2,14 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { track } from "@vercel/analytics";
 import { MarketIcon, SignalIcon, ShieldIcon } from "@/components/icons";
 import { PublicShell } from "@/components/public-shell";
+import { Turnstile } from "@/components/turnstile";
 
 export default function LandingForm() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   // Honeypot — bots autofill any visible/known field. Real users never see this.
   const [website, setWebsite] = useState("");
+  // Captcha token from Cloudflare Turnstile. Widget only renders + populates
+  // this when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set; otherwise stays "" and
+  // the server-side verifier no-ops.
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -28,11 +34,20 @@ export default function LandingForm() {
           email,
           firstName,
           website,
+          turnstileToken,
         }),
       });
       const data = await res.json();
 
       if (res.ok) {
+        // Conversion event. Vercel Analytics: appears in the funnel
+        // dashboard alongside page views. No PII — just the fact a
+        // signup completed.
+        try {
+          track("subscribe_success", { source: "landing" });
+        } catch {
+          /* analytics is best-effort; never block UX */
+        }
         setStatus("success");
         setMessage("Clearance granted. Next transmission inbound.");
         setEmail("");
@@ -80,8 +95,9 @@ export default function LandingForm() {
         </h1>
 
         <p className="text-sm sm:text-base md:text-lg text-[var(--rex-text-muted)] leading-relaxed max-w-xl mx-auto mb-10 animate-fade-in animate-fade-in-delay-3">
-          Curated market analysis, alpha signals, and strategic intel —
-          condensed into one monthly briefing that cuts through the noise.
+          Crypto market intel, on-chain signals, and the events, grants,
+          accelerators and pop-up cities the field is moving through — one
+          weekly briefing, plus live boards.
         </p>
 
         <div className="animate-fade-in animate-fade-in-delay-3">
@@ -190,8 +206,10 @@ export default function LandingForm() {
                 </p>
               )}
 
+              <Turnstile onToken={setTurnstileToken} className="mt-3 flex justify-center" />
+
               <p className="text-[11px] font-mono tracking-wider text-[var(--rex-text-dim)] mt-4">
-                NO COST · ONE TRANSMISSION / MONTH · REVOKE ANYTIME
+                NO COST · WEEKLY TRANSMISSION · REVOKE ANYTIME
               </p>
             </form>
           )}

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { filter?: string };
+  searchParams: { filter?: string; loc?: string };
 }) {
   // Filter out listings with an expiresAt in the past. Listings without an
   // expiresAt fall back to "still open"; if they get stale a moderator can
@@ -39,12 +39,20 @@ export default async function JobsPage({
       ? "senior"
       : null;
 
+  const loc = (searchParams.loc ?? "").trim().slice(0, 80);
+
   const filterClause =
     filter === "remote"
       ? sql`(${submissions.payload}->>'remote')::boolean = true`
       : filter === "senior"
         ? sql`${submissions.payload}->>'seniority' IN ('senior','staff','principal','exec')`
         : sql`true`;
+
+  // Job locations are free-form ("Remote (US)", "NYC + Remote"), so a single
+  // ILIKE against payload->>'location' is the right primitive here.
+  const locClause = loc
+    ? sql`${submissions.payload}->>'location' ILIKE ${`%${loc.replace(/[%_\\]/g, "\\$&")}%`}`
+    : sql`true`;
 
   const rows = await db
     .select({
@@ -61,6 +69,7 @@ export default async function JobsPage({
         eq(submissions.status, "approved"),
         notExpired,
         filterClause,
+        locClause,
       ),
     )
     .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
@@ -80,25 +89,64 @@ export default async function JobsPage({
       submitHref="/submit?type=job"
       submitLabel="+ Post a Job ▸"
       filters={
-        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-          <span
-            className="uppercase tracking-widest"
-            style={{ color: "var(--rex-text-dim)" }}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <span
+              className="uppercase tracking-widest"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              FILTER ▸
+            </span>
+            <FilterChip href={chipHref(null, loc)} active={!filter}>
+              All
+            </FilterChip>
+            <FilterChip
+              href={chipHref("remote", loc)}
+              active={filter === "remote"}
+            >
+              Remote
+            </FilterChip>
+            <FilterChip
+              href={chipHref("senior", loc)}
+              active={filter === "senior"}
+            >
+              Senior+
+            </FilterChip>
+          </div>
+          <form
+            method="get"
+            action="/jobs"
+            className="flex flex-wrap items-center gap-2"
           >
-            FILTER ▸
-          </span>
-          <FilterChip href="/jobs" active={!filter}>All</FilterChip>
-          <FilterChip href="/jobs?filter=remote" active={filter === "remote"}>
-            Remote
-          </FilterChip>
-          <FilterChip href="/jobs?filter=senior" active={filter === "senior"}>
-            Senior+
-          </FilterChip>
+            {filter && <input type="hidden" name="filter" value={filter} />}
+            <input
+              type="search"
+              name="loc"
+              defaultValue={loc}
+              placeholder="Location — e.g. Remote, NYC, EU…"
+              className="rex-input flex-1 min-w-[220px] max-w-md"
+            />
+            <button type="submit" className="rex-btn whitespace-nowrap">
+              Apply ▸
+            </button>
+            {loc && (
+              <Link
+                href={filter ? `/jobs?filter=${filter}` : "/jobs"}
+                className="text-[11px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
+              >
+                Clear
+              </Link>
+            )}
+          </form>
         </div>
       }
     >
       {visible.length === 0 ? (
-        <EmptyState>No open roles on the board yet.</EmptyState>
+        <EmptyState>
+          {loc
+            ? `No open roles matching “${loc}”.`
+            : "No open roles on the board yet."}
+        </EmptyState>
       ) : (
         <div className="space-y-2">
           {visible.map((j) => (
@@ -113,6 +161,14 @@ export default async function JobsPage({
       )}
     </ResourceListShell>
   );
+}
+
+function chipHref(filter: "remote" | "senior" | null, loc: string) {
+  const params = new URLSearchParams();
+  if (filter) params.set("filter", filter);
+  if (loc) params.set("loc", loc);
+  const qs = params.toString();
+  return qs ? `/jobs?${qs}` : "/jobs";
 }
 
 function FilterChip({

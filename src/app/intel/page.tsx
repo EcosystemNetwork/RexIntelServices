@@ -4,21 +4,31 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type {
   AcceleratorPayload,
+  CapitalPayload,
   GrantPayload,
   IntelPayload,
   PopupCityPayload,
+  ResidencyPayload,
 } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
-type Lane = "signals" | "accelerators" | "grants" | "cities";
+type Lane =
+  | "signals"
+  | "accelerators"
+  | "grants"
+  | "cities"
+  | "capital"
+  | "residencies";
 
 const LANES: { id: Lane; label: string }[] = [
   { id: "signals", label: "Signals" },
   { id: "accelerators", label: "Accel" },
   { id: "grants", label: "Grants" },
+  { id: "capital", label: "Capital" },
   { id: "cities", label: "Cities" },
+  { id: "residencies", label: "Residencies" },
 ];
 
 const LANE_COPY: Record<
@@ -80,6 +90,28 @@ const LANE_COPY: Record<
     submitHref: "/submit?type=popup_city",
     submitLabel: "+ Add City ▸",
   },
+  capital: {
+    kicker: "▸ Intel · Capital",
+    title: "Funds taking cold pitches.",
+    subtitle:
+      "Pre-seed and early-stage VC funds with public pitch portals. Rolling intake, equity checks, real first-check leads — not cohort programs. Curated by RexIntel.",
+    classification: [
+      { text: "● Open Channel // Intel · Capital Allocation" },
+      { text: "Open Funds / Cold Pitch Portals", show: "sm" },
+    ],
+  },
+  residencies: {
+    kicker: "▸ Intel · Residencies",
+    title: "Programs that put builders in a room together.",
+    subtitle:
+      "Multi-week founder + builder residencies — cohort retreats, themed sprints, application-based intake. Distinct from pop-up cities (festivals) and accelerators (equity checks).",
+    classification: [
+      { text: "● Open Channel // Intel · Builder Residencies" },
+      { text: "Cohort Retreats / Apply", show: "sm" },
+    ],
+    submitHref: "/submit?type=residency",
+    submitLabel: "+ Add Residency ▸",
+  },
 };
 
 const SEVERITY_TONE: Record<
@@ -109,7 +141,13 @@ const SEVERITY_TONE: Record<
 };
 
 function laneFrom(value: string | undefined): Lane {
-  if (value === "accelerators" || value === "grants" || value === "cities") {
+  if (
+    value === "accelerators" ||
+    value === "grants" ||
+    value === "cities" ||
+    value === "capital" ||
+    value === "residencies"
+  ) {
     return value;
   }
   return "signals";
@@ -127,6 +165,8 @@ export function generateMetadata({
     accelerators: "Accelerators — Intel · Rex Intel Services",
     grants: "Grants — Intel · Rex Intel Services",
     cities: "Pop-Up Cities — Intel · Rex Intel Services",
+    capital: "Capital — Funds taking pitches · Rex Intel Services",
+    residencies: "Residencies — Intel · Rex Intel Services",
   };
   return {
     title: titles[lane],
@@ -200,6 +240,10 @@ export default async function IntelHubPage({
           <AcceleratorsLane filter={searchParams.filter} />
         )}
         {lane === "grants" && <GrantsLane filter={searchParams.filter} />}
+        {lane === "capital" && <CapitalLane filter={searchParams.filter} />}
+        {lane === "residencies" && (
+          <ResidenciesLane view={searchParams.view} />
+        )}
         {lane === "cities" && <CitiesLane view={searchParams.view} />}
       </main>
     </PublicShell>
@@ -793,6 +837,8 @@ function GrantCard({
 async function CitiesLane({ view }: { view?: string }) {
   const showPast = view === "past";
   const now = new Date();
+  // Past is recent-past only — keeps the tab from turning into a graveyard.
+  const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const baseFilter = and(
     eq(submissions.type, "popup_city"),
@@ -802,6 +848,7 @@ async function CitiesLane({ view }: { view?: string }) {
   // A residency that opened weeks ago but runs through next month is still
   // current — bucket on the end, not the start.
   const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+  const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
 
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all([
     db
@@ -816,9 +863,7 @@ async function CitiesLane({ view }: { view?: string }) {
       .where(
         and(
           baseFilter,
-          showPast
-            ? sql`${effectiveEnd} < ${now}`
-            : sql`${effectiveEnd} >= ${now}`,
+          showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
         ),
       )
       .orderBy(
@@ -834,7 +879,7 @@ async function CitiesLane({ view }: { view?: string }) {
     db
       .select({ pastCount: sql<number>`count(*)::int` })
       .from(submissions)
-      .where(and(baseFilter, sql`${effectiveEnd} < ${now}`)),
+      .where(and(baseFilter, pastWindow)),
   ]);
 
   const visible = visibleRows.map((r) => ({
@@ -867,7 +912,7 @@ async function CitiesLane({ view }: { view?: string }) {
       {visible.length === 0 ? (
         <EmptyState>
           {showPast
-            ? "No past pop-up cities on file."
+            ? "No pop-up cities wrapped in the last 30 days."
             : "No upcoming pop-up cities on file. Know one we should add?"}
         </EmptyState>
       ) : (
@@ -965,6 +1010,349 @@ function PopupCityCard({
           {applyDeadline && ` · Apply by ${applyDeadline}`}
         </div>
       </div>
+    </Link>
+  );
+}
+
+// =====================================================================
+// Lane: Capital
+// =====================================================================
+
+async function CapitalLane({ filter }: { filter?: string }) {
+  // Stage filter narrows the list — most readers shopping for first-check
+  // capital are at one specific stage at a time, so this is the highest-value
+  // pivot. Free-form match against payload.stage so it lines up with what we
+  // actually seed.
+  const stage =
+    filter === "pre-seed"
+      ? "pre-seed"
+      : filter === "seed"
+        ? "seed"
+        : null;
+
+  const filterClause =
+    stage === "pre-seed"
+      ? sql`LOWER(${submissions.payload}->>'stage') LIKE '%pre-seed%'`
+      : stage === "seed"
+        ? sql`LOWER(${submissions.payload}->>'stage') LIKE '%seed%' AND LOWER(${submissions.payload}->>'stage') NOT LIKE '%pre-seed%'`
+        : sql`true`;
+
+  const rows = await db
+    .select({
+      id: submissions.id,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+      featured: submissions.featured,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "capital"),
+        eq(submissions.status, "approved"),
+        filterClause,
+      ),
+    )
+    .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
+    .limit(200);
+
+  const visible = rows.map((r) => ({ ...r, payload: r.payload as CapitalPayload }));
+
+  return (
+    <>
+      <PasteHint>
+        Run a fund taking cold pitches?{" "}
+        <a
+          href="mailto:hello@rexintelservices.com"
+          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Email us
+        </a>{" "}
+        — we curate this lane manually so the bar stays high. No application form, no fees.
+      </PasteHint>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          STAGE ▸
+        </span>
+        <Chip href="/intel?lane=capital" active={!stage}>
+          All
+        </Chip>
+        <Chip
+          href="/intel?lane=capital&filter=pre-seed"
+          active={stage === "pre-seed"}
+        >
+          Pre-seed
+        </Chip>
+        <Chip href="/intel?lane=capital&filter=seed" active={stage === "seed"}>
+          Seed
+        </Chip>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>No funds on file for this filter yet.</EmptyState>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((c) => (
+            <CapitalCard
+              key={c.id}
+              publicId={c.publicId}
+              payload={c.payload}
+              featured={c.featured}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function CapitalCard({
+  publicId,
+  payload,
+  featured = false,
+}: {
+  publicId: string;
+  payload: CapitalPayload;
+  featured?: boolean;
+}) {
+  return (
+    <Link
+      href={`/capital/${publicId}`}
+      className="rex-card block p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+        {featured && <FeaturedTag />}
+        <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+        {payload.stage && (
+          <span style={{ color: "var(--rex-text-muted)" }}>· {payload.stage}</span>
+        )}
+        {payload.checkSize && (
+          <span style={{ color: "var(--rex-text-muted)" }}>· {payload.checkSize}</span>
+        )}
+        {payload.location && (
+          <span style={{ color: "var(--rex-text-dim)" }}>· {payload.location}</span>
+        )}
+        {payload.decisionWindow && (
+          <span className="ml-auto" style={{ color: "var(--rex-accent)" }}>
+            {payload.decisionWindow}
+          </span>
+        )}
+      </div>
+
+      <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+        {payload.name}
+      </h3>
+
+      <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
+        {payload.description}
+      </p>
+
+      {payload.focus && (
+        <div
+          className="mt-3 text-[10px] font-mono"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          Focus: <span className="text-[var(--rex-text-muted)]">{payload.focus}</span>
+        </div>
+      )}
+    </Link>
+  );
+}
+
+async function ResidenciesLane({ view }: { view?: string }) {
+  const showPast = view === "past";
+  const now = new Date();
+  const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const baseFilter = and(
+    eq(submissions.type, "residency"),
+    eq(submissions.status, "approved"),
+  );
+
+  const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+  const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+
+  const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all([
+    db
+      .select({
+        id: submissions.id,
+        publicId: submissions.publicId,
+        payload: submissions.payload,
+        publishedAt: submissions.publishedAt,
+        featured: submissions.featured,
+      })
+      .from(submissions)
+      .where(
+        and(
+          baseFilter,
+          showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
+        ),
+      )
+      .orderBy(
+        ...(showPast
+          ? [sql`${effectiveEnd} DESC`]
+          : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
+      )
+      .limit(100),
+    db
+      .select({ upcomingCount: sql<number>`count(*)::int` })
+      .from(submissions)
+      .where(and(baseFilter, sql`${effectiveEnd} >= ${now}`)),
+    db
+      .select({ pastCount: sql<number>`count(*)::int` })
+      .from(submissions)
+      .where(and(baseFilter, pastWindow)),
+  ]);
+
+  const visible = visibleRows.map((r) => ({
+    ...r,
+    payload: r.payload as ResidencyPayload,
+  }));
+
+  return (
+    <>
+      <PasteHint>
+        Running a builder residency?{" "}
+        <Link
+          href="/submit?type=residency"
+          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Submit it
+        </Link>{" "}
+        — programs from join-thebridge.com, lu.ma residencies, and similar trusted hosts publish instantly.
+      </PasteHint>
+
+      <div className="flex gap-2 mb-6">
+        <Chip href="/intel?lane=residencies" active={!showPast}>
+          Upcoming · {upcomingCount}
+        </Chip>
+        <Chip href="/intel?lane=residencies&view=past" active={showPast}>
+          Past · {pastCount}
+        </Chip>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>
+          {showPast
+            ? "No residencies wrapped in the last 30 days."
+            : "No upcoming residencies on file. Know one we should add?"}
+        </EmptyState>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((r) => (
+            <ResidencyCard
+              key={r.id}
+              publicId={r.publicId}
+              payload={r.payload}
+              featured={r.featured}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ResidencyCard({
+  publicId,
+  payload,
+  featured = false,
+}: {
+  publicId: string;
+  payload: ResidencyPayload;
+  featured?: boolean;
+}) {
+  const start = new Date(payload.startsAt);
+  const end = new Date(payload.endsAt);
+  const range = formatRange(start, end);
+  const location = [payload.city, payload.country].filter(Boolean).join(", ");
+  const applyDeadline = payload.applicationDeadline
+    ? new Date(payload.applicationDeadline).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
+  // Residency detail page reuses the pop-up-city detail route — they share
+  // shape (multi-week dates + apply URL). If the two diverge, fork later.
+  return (
+    <Link
+      href={`/pop-up-cities/${publicId}`}
+      className="rex-card flex items-center gap-5 p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div
+        className="flex-shrink-0 w-16 h-16 rounded-sm flex flex-col items-center justify-center border text-center px-1"
+        style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
+      >
+        <div
+          className="text-[9px] font-mono uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {start.toLocaleDateString(undefined, { month: "short" })}
+        </div>
+        <div className="text-xl font-display text-white leading-none">
+          {start.getDate()}
+        </div>
+        <div
+          className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          → {end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+          {featured && <FeaturedTag />}
+          <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+          {payload.cohortSize && (
+            <span style={{ color: "var(--rex-text-muted)" }}>· {payload.cohortSize}</span>
+          )}
+          {payload.cost && (
+            <span style={{ color: "var(--rex-text-muted)" }}>· {payload.cost}</span>
+          )}
+        </div>
+        <div className="text-white text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
+          {payload.name}
+        </div>
+        <div
+          className="text-xs mt-0.5 font-mono"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {range}
+          {location && ` · ${location}`}
+          {applyDeadline && ` · Apply by ${applyDeadline}`}
+        </div>
+      </div>
+
+      <span
+        className="text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ color: "var(--rex-accent)" }}
+      >
+        ▸
+      </span>
     </Link>
   );
 }
