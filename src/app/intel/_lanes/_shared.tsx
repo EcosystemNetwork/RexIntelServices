@@ -21,7 +21,7 @@ export function parseSector(v: string | undefined): Sector | null {
 // re-buckets historical rows on the next read, so prefer additive edits.
 const SECTOR_RE: Record<Sector, string> = {
   ai: String.raw`\y(ai|a\.i\.|llm|llms|ml|robot|robots|robotics|robotic|agentic|agents?|machine learning|generative|alignment|foundation model|embodied|deep learning|computer vision|nlp|gpu|frontier model|frontier models)\y`,
-  web3: String.raw`\y(web3|crypto|blockchain|ethereum|solana|defi|nft|nfts|dao|daos|zk|zero[- ]knowledge|evm|bitcoin|onchain|rollup|rollups|l1|l2|stablecoin|stablecoins|mev|wallet|wallets|smart contracts?|tokeni[sz]ed?|tokeni[sz]ation)\y`,
+  web3: String.raw`\y(web3|crypto|blockchain|ethereum|solana|defi|nft|nfts|dao|daos|zk|zero[- ]knowledge|evm|bitcoin|onchain|rollup|rollups|l1|l2|stablecoin|stablecoins|mev|wallet|wallets|smart contracts?|tokeni[sz]ed?|tokeni[sz]ation|worldcoin|world id|world chain|world app|base chain|polkadot|cosmos|polygon|arbitrum|optimism|avalanche|near protocol|aptos|sui|starknet|cardano|tron|monad|berachain|sonic|cronos|filecoin|chainlink|gitcoin|uniswap|aave|maker dao|protocol guild)\y`,
 };
 
 /**
