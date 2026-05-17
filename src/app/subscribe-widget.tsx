@@ -4,6 +4,18 @@ import { useState } from "react";
 import { track } from "@vercel/analytics";
 import { Turnstile } from "@/components/turnstile";
 
+// The 5 wedge personas the brief promises segment-targeted briefings to.
+// Kept here (not imported from /lib/personas) so we surface only the
+// strategic five on the public form — the broader 9-slug set in
+// /lib/personas is what the server accepts for back-compat / power users.
+const SIGNUP_PERSONAS: Array<{ slug: string; label: string }> = [
+  { slug: "compliance", label: "Compliance / AML" },
+  { slug: "exchange-risk", label: "Exchange / Trust & Safety" },
+  { slug: "investigator", label: "Investigator / Researcher" },
+  { slug: "gov-le", label: "Government / Law Enforcement" },
+  { slug: "fund-risk", label: "Fund / Treasury Risk" },
+];
+
 /**
  * Subscribe form for the landing page. Holds all React state — extracted into
  * a client component so the surrounding page (which renders PublicShell) can
@@ -13,6 +25,7 @@ import { Turnstile } from "@/components/turnstile";
 export function SubscribeWidget({ transmissionId }: { transmissionId: string }) {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [persona, setPersona] = useState("");
   // Honeypot — bots autofill any visible/known field. Real users never see this.
   const [website, setWebsite] = useState("");
   // Captcha token from Cloudflare Turnstile. Widget only renders + populates
@@ -36,6 +49,7 @@ export function SubscribeWidget({ transmissionId }: { transmissionId: string }) 
         body: JSON.stringify({
           email,
           firstName,
+          persona: persona || undefined,
           website,
           turnstileToken,
         }),
@@ -52,6 +66,7 @@ export function SubscribeWidget({ transmissionId }: { transmissionId: string }) 
         setMessage("Clearance granted. Next transmission inbound.");
         setEmail("");
         setFirstName("");
+        setPersona("");
         setWebsite("");
       } else {
         setStatus("error");
@@ -164,6 +179,29 @@ export function SubscribeWidget({ transmissionId }: { transmissionId: string }) 
             "Authorize ▸"
           )}
         </button>
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-2">
+        <label
+          htmlFor="subscribe-persona"
+          className="mono-label whitespace-nowrap text-[10px]"
+        >
+          ▸ Operator Class
+        </label>
+        <select
+          id="subscribe-persona"
+          value={persona}
+          onChange={(e) => setPersona(e.target.value)}
+          className="rex-input flex-1 text-xs"
+          aria-label="Your role (optional — helps us target briefings)"
+        >
+          <option value="">Unaffiliated / Other (optional)</option>
+          {SIGNUP_PERSONAS.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {status === "error" && (

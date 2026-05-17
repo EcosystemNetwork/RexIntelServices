@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
@@ -8,6 +8,7 @@ import type { JobPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { absoluteUrl } from "@/lib/site-url";
+import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export async function generateMetadata({
 }: {
   params: { publicId: string };
 }): Promise<Metadata> {
-  const row = await loadJob(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) return { title: "Job not found — Rex Intel Services" };
+  const row = await loadJob(realId);
   if (!row) return { title: "Job not found — Rex Intel Services" };
   const p = row.payload;
   const desc = p.description.replace(/\s+/g, " ").trim().slice(0, 200);
@@ -54,9 +57,15 @@ export default async function JobDetailPage({
 }: {
   params: { publicId: string };
 }) {
-  const row = await loadJob(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) notFound();
+  const row = await loadJob(realId);
   if (!row) notFound();
   const p = row.payload;
+  const canonical = detailSegment(realId, p.title);
+  if (params.publicId !== canonical) {
+    redirect(detailHref("/jobs", realId, p.title));
+  }
 
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -78,7 +87,11 @@ export default async function JobDetailPage({
           address: { "@type": "PostalAddress", addressLocality: p.location },
         }
       : undefined,
-    url: absoluteUrl(`/jobs/${params.publicId}`),
+    applicantLocationRequirements: p.remote
+      ? { "@type": "Country", name: "Anywhere" }
+      : undefined,
+    directApply: p.applyUrl ? true : undefined,
+    url: absoluteUrl(detailHref("/jobs", realId, p.title)),
   };
 
   return (

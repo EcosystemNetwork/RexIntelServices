@@ -1,7 +1,7 @@
 import { cache } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
@@ -9,6 +9,7 @@ import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { ProxiedImage } from "@/components/proxied-image";
 import { absoluteUrl } from "@/lib/site-url";
+import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export async function generateMetadata({
 }: {
   params: { publicId: string };
 }): Promise<Metadata> {
-  const row = await loadEvent(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) return { title: "Event not found — Rex Intel Services" };
+  const row = await loadEvent(realId);
   if (!row) {
     return { title: "Event not found — Rex Intel Services" };
   }
@@ -75,13 +78,23 @@ export default async function EventDetailPage({
 }: {
   params: { publicId: string };
 }) {
-  const row = await loadEvent(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) notFound();
+  const row = await loadEvent(realId);
   if (!row) notFound();
 
   const payload = row.payload as EventPayload;
+  // Canonicalize: anyone hitting the bare publicId or a stale/mismatched slug
+  // gets a 301 to the slug-prefixed URL.
+  const canonical = detailSegment(realId, payload.name);
+  if (params.publicId !== canonical) {
+    redirect(detailHref("/events", realId, payload.name));
+  }
+
   const start = new Date(payload.startsAt);
   const end = payload.endsAt ? new Date(payload.endsAt) : null;
 
+  const isOnline = !payload.city && !payload.venue && !payload.country;
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -89,20 +102,28 @@ export default async function EventDetailPage({
     startDate: payload.startsAt,
     endDate: payload.endsAt,
     description: payload.description,
-    url: absoluteUrl(`/events/${params.publicId}`),
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    url: absoluteUrl(detailHref("/events", realId, payload.name)),
+    eventAttendanceMode: isOnline
+      ? "https://schema.org/OnlineEventAttendanceMode"
+      : "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
+    isAccessibleForFree: payload.priceTier === "free" ? true : undefined,
     image: payload.imageUrl ? [payload.imageUrl] : undefined,
-    location: {
-      "@type": "Place",
-      name: payload.venue ?? [payload.city, payload.country].filter(Boolean).join(", "),
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: payload.city,
-        addressCountry: payload.country,
-        streetAddress: payload.venue,
-      },
-    },
+    location: isOnline
+      ? {
+          "@type": "VirtualLocation",
+          url: payload.url ?? absoluteUrl(detailHref("/events", realId, payload.name)),
+        }
+      : {
+          "@type": "Place",
+          name: payload.venue ?? [payload.city, payload.country].filter(Boolean).join(", "),
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: payload.city,
+            addressCountry: payload.country,
+            streetAddress: payload.venue,
+          },
+        },
     organizer: payload.url
       ? { "@type": "Organization", name: payload.name, url: payload.url }
       : undefined,

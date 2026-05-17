@@ -14,13 +14,20 @@ import type {
 import { PublicShell } from "@/components/public-shell";
 import { resolveLoc } from "@/lib/loc-context";
 import { LOCATION_DATALIST_ID } from "@/components/location-datalist";
+import { logoUrlFor } from "@/lib/logo";
+import { detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Search — Rex Intel Services",
   description:
-    "Search across events, jobs, hackathons, grants, accelerators, capital, and pop-up cities.",
+    "Search across events, jobs, hackathons, grants, accelerators, capital, residencies, perks, and pop-up cities.",
+  alternates: { canonical: "/search" },
+  // Search results page shouldn't compete with the indexed detail pages —
+  // let crawlers find deep links via the sitemap instead of indexing long-tail
+  // query permutations.
+  robots: { index: false, follow: true },
 };
 
 type SearchableType =
@@ -30,7 +37,9 @@ type SearchableType =
   | "popup_city"
   | "grant"
   | "accelerator"
-  | "capital";
+  | "capital"
+  | "residency"
+  | "perks";
 
 const ALL_TYPES: SearchableType[] = [
   "event",
@@ -40,6 +49,8 @@ const ALL_TYPES: SearchableType[] = [
   "grant",
   "accelerator",
   "capital",
+  "residency",
+  "perks",
 ];
 
 const TYPE_LABEL: Record<SearchableType, string> = {
@@ -50,17 +61,34 @@ const TYPE_LABEL: Record<SearchableType, string> = {
   grant: "Grants",
   accelerator: "Accelerators",
   capital: "Capital",
+  residency: "Residencies",
+  perks: "Perks",
 };
 
-const TYPE_HREF: Record<SearchableType, (publicId: string) => string> = {
-  event: (id) => `/events/${id}`,
-  job: (id) => `/jobs/${id}`,
-  hackathon: (id) => `/hackathons/${id}`,
-  popup_city: (id) => `/pop-up-cities/${id}`,
-  grant: (id) => `/grants/${id}`,
-  accelerator: (id) => `/accelerators/${id}`,
-  capital: (id) => `/capital/${id}`,
+// Residency detail reuses the pop-up-city route — they share the multi-week
+// date + apply-URL shape. Match the convention used by the residencies lane.
+const TYPE_PREFIX: Record<SearchableType, string> = {
+  event: "/events",
+  job: "/jobs",
+  hackathon: "/hackathons",
+  popup_city: "/pop-up-cities",
+  grant: "/grants",
+  accelerator: "/accelerators",
+  capital: "/capital",
+  residency: "/pop-up-cities",
+  perks: "/perks",
 };
+
+// Pull the human-readable title from a payload regardless of type — different
+// shapes name the headline field differently.
+function payloadTitle(payload: unknown): string {
+  const p = (payload ?? {}) as {
+    name?: string;
+    title?: string;
+    headline?: string;
+  };
+  return p.name ?? p.title ?? p.headline ?? "";
+}
 
 const TYPE_LANE_HREF: Record<SearchableType, string> = {
   event: "/events",
@@ -70,6 +98,8 @@ const TYPE_LANE_HREF: Record<SearchableType, string> = {
   grant: "/intel?lane=grants",
   accelerator: "/intel?lane=accelerators",
   capital: "/intel?lane=capital",
+  residency: "/intel?lane=residencies",
+  perks: "/intel?lane=perks",
 };
 
 function escapeLike(s: string) {
@@ -108,7 +138,7 @@ export default async function SearchPage({
   } else {
     // Restrict to publicly-routable types only.
     filters.push(
-      sql`${submissions.type} IN ('event','job','hackathon','popup_city','grant','accelerator','capital')`,
+      sql`${submissions.type} IN ('event','job','hackathon','popup_city','grant','accelerator','capital','residency','perks')`,
     );
   }
 
@@ -295,7 +325,11 @@ export default async function SearchPage({
                     {bucket.map((r) => (
                       <ResultCard
                         key={r.id}
-                        href={TYPE_HREF[t](r.publicId)}
+                        href={detailHref(
+                          TYPE_PREFIX[t],
+                          r.publicId,
+                          payloadTitle(r.payload),
+                        )}
                         type={t}
                         payload={r.payload as never}
                       />
@@ -351,37 +385,67 @@ function ResultCard({
       : undefined;
   const where = flatLoc ?? [city, country].filter(Boolean).join(", ");
 
+  const orgUrl = "organizationUrl" in payload ? payload.organizationUrl : undefined;
+  const companyUrl = "companyUrl" in payload ? payload.companyUrl : undefined;
+  const applyUrl = "applyUrl" in payload ? payload.applyUrl : undefined;
+  const eventUrl = "url" in payload && typeof payload.url === "string" ? payload.url : undefined;
+  const logo = logoUrlFor(orgUrl, companyUrl, applyUrl, eventUrl);
+  const initial = (issuer || title).trim().slice(0, 1).toUpperCase();
+
   return (
     <Link
       href={href}
-      className="rex-card block p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      className="rex-card flex gap-4 p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
     >
-      <div className="flex items-center gap-2 mb-1.5 text-[10px] font-mono uppercase tracking-widest flex-wrap">
-        <span
-          className="px-1.5 py-0.5 rounded-sm"
-          style={{
-            background: "rgba(31,168,224,0.1)",
-            color: "var(--rex-accent-2)",
-            border: "1px solid rgba(31,168,224,0.25)",
-          }}
-        >
-          {TYPE_LABEL[type]}
-        </span>
-        {issuer && (
-          <span style={{ color: "var(--rex-text-dim)" }}>· {issuer}</span>
-        )}
-        {where && (
-          <span style={{ color: "var(--rex-text-muted)" }}>· {where}</span>
+      <div
+        className="flex-shrink-0 w-10 h-10 rounded-sm flex items-center justify-center border overflow-hidden"
+        style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
+      >
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logo}
+            alt={`${issuer || title} logo`}
+            width={32}
+            height={32}
+            loading="lazy"
+            className="w-7 h-7 object-contain"
+          />
+        ) : (
+          <span className="font-display text-base text-white" aria-hidden="true">
+            {initial}
+          </span>
         )}
       </div>
-      <div className="text-white text-base font-medium group-hover:text-[var(--rex-accent)] transition-colors">
-        {title}
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1.5 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+          <span
+            className="px-1.5 py-0.5 rounded-sm"
+            style={{
+              background: "rgba(31,168,224,0.1)",
+              color: "var(--rex-accent-2)",
+              border: "1px solid rgba(31,168,224,0.25)",
+            }}
+          >
+            {TYPE_LABEL[type]}
+          </span>
+          {issuer && (
+            <span style={{ color: "var(--rex-text-dim)" }}>· {issuer}</span>
+          )}
+          {where && (
+            <span style={{ color: "var(--rex-text-muted)" }}>· {where}</span>
+          )}
+        </div>
+        <div className="text-white text-base font-medium group-hover:text-[var(--rex-accent)] transition-colors">
+          {title}
+        </div>
+        {"description" in payload && payload.description && (
+          <p className="text-xs text-[var(--rex-text-muted)] mt-1 line-clamp-2 leading-relaxed">
+            {payload.description}
+          </p>
+        )}
       </div>
-      {"description" in payload && payload.description && (
-        <p className="text-xs text-[var(--rex-text-muted)] mt-1 line-clamp-2 leading-relaxed">
-          {payload.description}
-        </p>
-      )}
     </Link>
   );
 }

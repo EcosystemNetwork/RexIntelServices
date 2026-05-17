@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
@@ -8,8 +9,93 @@ import { ProxiedImage } from "@/components/proxied-image";
 import { resolveLoc } from "@/lib/loc-context";
 import { LocationDatalist, LOCATION_DATALIST_ID } from "@/components/location-datalist";
 import { LocationPill } from "@/components/location-pill";
+import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
+import { detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Cached query function for the events board. Keyed on the filter params
+ * (loc, showPast); revalidates on the submissions tag whenever an admin
+ * approves / edits / features a row.
+ *
+ * The `now`/`pastFloor` arguments are quantized to the nearest hour by the
+ * caller so the cache key doesn't churn every millisecond while still keeping
+ * the upcoming/past boundary fresh enough for users.
+ */
+const getEventsBoard = unstable_cache(
+  async (loc: string, showPast: boolean, nowMs: number, pastFloorMs: number) => {
+    const now = new Date(nowMs);
+    const pastFloor = new Date(pastFloorMs);
+
+    const baseFilters = [
+      eq(submissions.type, "event"),
+      eq(submissions.status, "approved"),
+    ];
+    if (loc) {
+      const like = `%${loc.replace(/[%_\\]/g, "\\$&")}%`;
+      baseFilters.push(
+        sql`(${submissions.payload}->>'city' ILIKE ${like} OR ${submissions.payload}->>'country' ILIKE ${like})`,
+      );
+    }
+    const baseFilter = and(...baseFilters);
+    // Bucket counts ignore the location filter so the tab totals don't shrink
+    // as the user narrows.
+    const bucketCountFilter = and(
+      eq(submissions.type, "event"),
+      eq(submissions.status, "approved"),
+    );
+
+    // Past = the event has actually ended. Falls back to startsAt for rows
+    // without an endsAt (single-day events).
+    const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+    const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+
+    const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all([
+      db
+        .select({
+          id: submissions.id,
+          publicId: submissions.publicId,
+          payload: submissions.payload,
+          publishedAt: submissions.publishedAt,
+          featured: submissions.featured,
+        })
+        .from(submissions)
+        .where(
+          and(
+            baseFilter,
+            showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
+          ),
+        )
+        .orderBy(
+          ...(showPast
+            ? [sql`${effectiveEnd} DESC`]
+            : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
+        )
+        .limit(100),
+      db
+        .select({ upcomingCount: sql<number>`count(*)::int` })
+        .from(submissions)
+        .where(and(bucketCountFilter, sql`${effectiveEnd} >= ${now}`)),
+      db
+        .select({ pastCount: sql<number>`count(*)::int` })
+        .from(submissions)
+        .where(and(bucketCountFilter, pastWindow)),
+    ]);
+
+    return { visibleRows, upcomingCount, pastCount };
+  },
+  ["events-board"],
+  { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
+);
+
+// Quantize a Date to the start of the current hour so cache keys are stable
+// for ~60 minutes at a time. Without this, every request mints a new
+// timestamp and the cache never hits.
+function hourBucket(d: Date): number {
+  const ms = d.getTime();
+  return ms - (ms % (60 * 60 * 1000));
+}
 
 export const metadata: Metadata = {
   title: "Events — Rex Intel Services",
@@ -32,69 +118,22 @@ export default async function EventsPage({
   const showPast = searchParams.view === "past";
   // Cookie fallback: when the user has previously scoped to a city on another
   // lane, that scope follows them here unless they explicitly override with a
-  // URL param.
+  // URL param. Read out here (before the cached call) because next/cache
+  // doesn't allow cookie access inside unstable_cache.
   const loc = resolveLoc(searchParams.loc);
+
+  // Quantize to the current hour so the cache key is stable for an hour at
+  // a time. Past floor = 30 days ago, also hour-bucketed.
   const now = new Date();
-  // Past is recent-past only — older entries stay in the DB but don't bloat the tab.
-  const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const nowBucket = hourBucket(now);
+  const pastFloorBucket = nowBucket - 30 * 24 * 60 * 60 * 1000;
 
-  const baseFilters = [
-    eq(submissions.type, "event"),
-    eq(submissions.status, "approved"),
-  ];
-  if (loc) {
-    const like = `%${loc.replace(/[%_\\]/g, "\\$&")}%`;
-    baseFilters.push(
-      sql`(${submissions.payload}->>'city' ILIKE ${like} OR ${submissions.payload}->>'country' ILIKE ${like})`,
-    );
-  }
-  const baseFilter = and(...baseFilters);
-  // Bucket counts ignore the location filter so the tab totals don't shrink as
-  // the user narrows.
-  const bucketCountFilter = and(
-    eq(submissions.type, "event"),
-    eq(submissions.status, "approved"),
+  const { visibleRows, upcomingCount, pastCount } = await getEventsBoard(
+    loc,
+    showPast,
+    nowBucket,
+    pastFloorBucket,
   );
-
-  // Past = the event has actually ended. Falls back to startsAt for rows
-  // without an endsAt (single-day events).
-  const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
-  const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
-
-  const [visibleRows, [{ upcomingCount }], [{ pastCount }]] =
-    await Promise.all([
-      db
-        .select({
-          id: submissions.id,
-          publicId: submissions.publicId,
-          payload: submissions.payload,
-          publishedAt: submissions.publishedAt,
-          featured: submissions.featured,
-        })
-        .from(submissions)
-        .where(
-          and(
-            baseFilter,
-            showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
-          ),
-        )
-        // Pin featured rows to the top of upcoming; past view stays purely
-        // chronological since featuring stale events doesn't help anyone.
-        .orderBy(
-          ...(showPast
-            ? [sql`${effectiveEnd} DESC`]
-            : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
-        )
-        .limit(100),
-      db
-        .select({ upcomingCount: sql<number>`count(*)::int` })
-        .from(submissions)
-        .where(and(bucketCountFilter, sql`${effectiveEnd} >= ${now}`)),
-      db
-        .select({ pastCount: sql<number>`count(*)::int` })
-        .from(submissions)
-        .where(and(bucketCountFilter, pastWindow)),
-    ]);
 
   const visible = visibleRows.map((r) => ({
     ...r,
@@ -286,7 +325,7 @@ function EventCard({
 
   return (
     <Link
-      href={`/events/${publicId}`}
+      href={detailHref("/events", publicId, payload.name)}
       className="rex-card flex items-center gap-5 p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
       style={
         featured

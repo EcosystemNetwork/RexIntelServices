@@ -3,6 +3,7 @@ import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import { buildRssFeed } from "@/lib/rss";
 import { absoluteUrl, siteUrl } from "@/lib/site-url";
+import { detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,13 +32,14 @@ export async function GET() {
     selfLink: absoluteUrl("/intel/feed.xml"),
     items: rows.map((r) => {
       const p = r.payload as IntelPayload;
+      const href = absoluteUrl(detailHref("/intel", r.publicId, p.headline));
       return {
         title: p.headline,
-        link: absoluteUrl(`/intel/${r.publicId}`),
+        link: href,
         description: p.body,
         pubDate: r.publishedAt,
         category: p.category,
-        guid: absoluteUrl(`/intel/${r.publicId}`),
+        guid: href,
       };
     }),
   });

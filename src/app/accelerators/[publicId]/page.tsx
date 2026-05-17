@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
@@ -8,6 +8,7 @@ import type { AcceleratorPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { absoluteUrl } from "@/lib/site-url";
+import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export async function generateMetadata({
 }: {
   params: { publicId: string };
 }): Promise<Metadata> {
-  const row = await loadAccelerator(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) return { title: "Accelerator not found — Rex Intel Services" };
+  const row = await loadAccelerator(realId);
   if (!row) return { title: "Accelerator not found — Rex Intel Services" };
   const p = row.payload;
   const desc = p.description.replace(/\s+/g, " ").trim().slice(0, 200);
@@ -54,9 +57,15 @@ export default async function AcceleratorDetailPage({
 }: {
   params: { publicId: string };
 }) {
-  const row = await loadAccelerator(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) notFound();
+  const row = await loadAccelerator(realId);
   if (!row) notFound();
   const p = row.payload;
+  const canonical = detailSegment(realId, p.name);
+  if (params.publicId !== canonical) {
+    redirect(detailHref("/accelerators", realId, p.name));
+  }
 
   const deadlineLabel = p.nextDeadline
     ? new Date(p.nextDeadline).toLocaleDateString(undefined, {
@@ -74,7 +83,7 @@ export default async function AcceleratorDetailPage({
     "@type": "EducationalOccupationalProgram",
     name: p.name,
     description: p.description,
-    url: absoluteUrl(`/accelerators/${params.publicId}`),
+    url: absoluteUrl(detailHref("/accelerators", realId, p.name)),
     provider: {
       "@type": "Organization",
       name: p.organization,

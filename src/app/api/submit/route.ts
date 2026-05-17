@@ -5,6 +5,7 @@ import {
   submissions,
   addresses,
   intelAddresses,
+  submitters,
 } from "@/lib/db";
 import type { AddressRole } from "@/lib/db/schema";
 import {
@@ -22,21 +23,12 @@ import {
 } from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { CHAIN_SLUG_SET } from "@/lib/chains";
-import {
-  isTrustedEventUrl,
-  isTrustedPopupCityUrl,
-  isTrustedHackathonUrl,
-  isTrustedJobUrl,
-  isTrustedGrantUrl,
-  isTrustedAcceleratorUrl,
-  isTrustedCapitalUrl,
-  isTrustedResidencyUrl,
-  isTrustedPerksUrl,
-} from "@/lib/event-parser";
 import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
 import { sendAdminAlertEmail } from "@/lib/email/admin-alert-email";
 import { absoluteUrl } from "@/lib/site-url";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { detectPotentialDuplicate } from "@/lib/submission-dedup";
+import { detailHref } from "@/lib/slug";
 
 type AddressInput = {
   chain: string;
@@ -85,6 +77,10 @@ export async function POST(req: NextRequest) {
     submitterHandle?: string;
     website?: string;
     turnstileToken?: string;
+    // Set true by the client after the user dismisses the "looks like a
+    // duplicate" warning. Lets a genuine reposter push through without
+    // requiring a moderator to clean up the dup later.
+    confirmedNonDuplicate?: boolean;
   };
   try {
     body = await req.json();
@@ -156,6 +152,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  // Soft de-dup: compare the validated payload against recent submissions of
+  // the same type for normalized-URL or near-identical-title collisions. If
+  // the client sets `confirmedNonDuplicate: true` (after seeing the warning
+  // once) we skip the check and let it through.
+  if (!honeypotTripped && !body.confirmedNonDuplicate) {
+    const dup = await detectPotentialDuplicate({
+      type: submissionType,
+      payload: validation.payload,
+    });
+    if (dup) {
+      const detailPath =
+        submissionType === "popup_city"
+          ? "/pop-up-cities"
+          : submissionType === "perks"
+            ? "/perks"
+            : submissionType === "capital"
+              ? "/capital"
+              : submissionType === "accelerator"
+                ? "/accelerators"
+                : submissionType === "residency"
+                  ? "/residencies"
+                  : `/${submissionType}s`;
+      return NextResponse.json(
+        {
+          error: "Looks like this might already be on file.",
+          duplicate: {
+            publicId: dup.publicId,
+            title: dup.title,
+            reason: dup.reason,
+            similarity: Math.round(dup.similarity * 100) / 100,
+            url: absoluteUrl(detailHref(detailPath, dup.publicId, dup.title)),
+          },
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   let submitterEmail = normalizeEmail(body.submitterEmail);
   if (body.submitterEmail && !submitterEmail) {
     return NextResponse.json(
@@ -201,37 +235,22 @@ export async function POST(req: NextRequest) {
   const addressInputs =
     submissionType === "intel" ? sanitizeAddresses(body.addresses) : [];
 
-  // Trust-tier auto-approval per surface. Intel always goes through human
-  // review — moderation is the product. Each other surface has its own
-  // allowlist of hosts that we'll trust to vet content.
-  // Pull whichever public URL the payload provides — different types use
-  // different field names. Capital uses pitchUrl; jobs use companyUrl;
-  // others use url/applyUrl. Trust verdict is based on whichever one we
-  // find first.
-  const payloadUrl = (validation.payload as { url?: string }).url
-    ?? (validation.payload as { applyUrl?: string }).applyUrl
-    ?? (validation.payload as { pitchUrl?: string }).pitchUrl
-    ?? (validation.payload as { companyUrl?: string }).companyUrl
-    ?? (validation.payload as { organizationUrl?: string }).organizationUrl;
+  // Upsert the submitter identity. Returns null for anonymous submissions
+  // (no email) so the FK stays NULL — that's the "anonymous" contract at the
+  // schema level, not just at the form layer.
+  const submitterId = submitterEmail
+    ? await upsertSubmitter(submitterEmail, submitterHandle)
+    : null;
 
-  const autoApprove =
-    !honeypotTripped &&
-    body.type !== "intel" &&
-    ((submissionType === "event" && isTrustedEventUrl(payloadUrl)) ||
-      (submissionType === "popup_city" && isTrustedPopupCityUrl(payloadUrl)) ||
-      (submissionType === "hackathon" && isTrustedHackathonUrl(payloadUrl)) ||
-      (submissionType === "grant" && isTrustedGrantUrl(payloadUrl)) ||
-      (submissionType === "accelerator" && isTrustedAcceleratorUrl(payloadUrl)) ||
-      (submissionType === "capital" && isTrustedCapitalUrl(payloadUrl)) ||
-      (submissionType === "residency" && isTrustedResidencyUrl(payloadUrl)) ||
-      (submissionType === "perks" && isTrustedPerksUrl(payloadUrl)) ||
-      (submissionType === "job" && isTrustedJobUrl(payloadUrl)));
+  // Every submission goes through human review — moderation is the product.
+  // Honeypot trips are still recorded so we can study spam patterns, but
+  // they're filed as spam, not pending.
+  const status: "pending" | "spam" = honeypotTripped ? "spam" : "pending";
 
-  const status: "approved" | "pending" | "spam" = honeypotTripped
-    ? "spam"
-    : autoApprove
-      ? "approved"
-      : "pending";
+  // Edit-token expiry: 1 year from creation. Long enough to forget the
+  // email and come back to fix a typo, short enough that a leaked archived
+  // inbox can't be used to silently rewrite a 5-year-old listing.
+  const editTokenExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
   const [created] = await db
     .insert(submissions)
@@ -246,7 +265,8 @@ export async function POST(req: NextRequest) {
       honeypotTripped,
       eventStartsAt,
       eventEndsAt,
-      publishedAt: autoApprove ? new Date() : null,
+      publishedAt: null,
+      editTokenExpiresAt,
     })
     .returning({ id: submissions.id, editToken: submissions.editToken });
 
@@ -297,7 +317,6 @@ export async function POST(req: NextRequest) {
       payloadName: payloadNameFromValidation,
       submitterEmail,
       submitterHandle,
-      autoApproved: autoApprove,
     });
   }
 
@@ -319,16 +338,14 @@ export async function POST(req: NextRequest) {
     // Echo back so the client can fire one shared analytics call without
     // capturing the literal in each form's closure.
     type: submissionType,
-    autoApproved: autoApprove,
+    autoApproved: false,
     // Only surface the edit URL to the client when we'd also email it. Keeps
     // intel/anonymous flows from accidentally rendering an "Edit" button.
     editUrl: shouldEmailEdit ? editUrl : null,
     message:
       submissionType === "intel"
         ? "Intel received. Our analysts will review and respond as warranted."
-        : autoApprove
-          ? `${label} published. It's live now.`
-          : `${label} received. We'll review it for the next publication.`,
+        : `${label} received. We'll review it for the next publication.`,
   });
 }
 
@@ -396,6 +413,73 @@ async function linkAddressesToSubmission(
       })
       .onConflictDoNothing();
   }
+}
+
+/**
+ * Find-or-create a submitter row keyed by lower(email). Updates display_handle
+ * if the caller provided one (so the byline always reflects the most recent
+ * preference). Slug is generated once on insert from the handle + a uuid
+ * prefix to avoid collisions; never rewritten on subsequent submissions.
+ */
+async function upsertSubmitter(
+  email: string,
+  handle: string | null,
+): Promise<string | null> {
+  const lower = email.toLowerCase();
+  const [existing] = await db
+    .select({ id: submitters.id })
+    .from(submitters)
+    .where(sql`lower(${submitters.email}) = ${lower}`)
+    .limit(1);
+
+  if (existing) {
+    if (handle && handle.trim()) {
+      await db
+        .update(submitters)
+        .set({ displayHandle: handle.trim(), updatedAt: new Date() })
+        .where(eq(submitters.id, existing.id));
+    }
+    return existing.id;
+  }
+
+  const displayHandle =
+    (handle && handle.trim()) || lower.split("@")[0] || "anon";
+  const baseSlug = displayHandle
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-+|-+$)/g, "")
+    .slice(0, 50) || "contributor";
+
+  // Insert with empty slug first, then fill from the freshly-minted id so the
+  // uuid prefix guarantees uniqueness without retries.
+  const [row] = await db
+    .insert(submitters)
+    .values({
+      email: lower,
+      displayHandle,
+      slug: "",
+    })
+    .onConflictDoNothing()
+    .returning({ id: submitters.id });
+
+  if (!row) {
+    // Lost the race to a concurrent insert — re-read.
+    const [raceRow] = await db
+      .select({ id: submitters.id })
+      .from(submitters)
+      .where(sql`lower(${submitters.email}) = ${lower}`)
+      .limit(1);
+    return raceRow?.id ?? null;
+  }
+
+  const slug = `${baseSlug}-${row.id.slice(0, 6)}`;
+  await db
+    .update(submitters)
+    .set({ slug, updatedAt: new Date() })
+    .where(eq(submitters.id, row.id));
+  return row.id;
 }
 
 function normalizeEmail(raw?: string): string | null {

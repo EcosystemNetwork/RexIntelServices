@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
@@ -8,94 +9,88 @@ import { ProxiedImage } from "@/components/proxied-image";
 import { resolveLoc } from "@/lib/loc-context";
 import { LocationDatalist, LOCATION_DATALIST_ID } from "@/components/location-datalist";
 import { LocationPill } from "@/components/location-pill";
+import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
+import { detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Hackathons — Rex Intel Services",
-  description:
-    "Curated list of crypto hackathons worth building at — ETHGlobal, Solana, Chainlink, Encode, and more.",
-  openGraph: {
-    title: "Hackathons — Rex Intel Services",
-    description:
-      "Curated list of crypto hackathons worth building at — ETHGlobal, Solana, Chainlink, Encode, and more.",
-    type: "website",
-  },
-};
+type HackathonMode = "all" | "online" | "irl";
+type HackathonSort = "start" | "ending" | "prize";
 
-export default async function HackathonsPage({
-  searchParams,
-}: {
-  searchParams: {
-    view?: string;
-    q?: string;
-    loc?: string;
-    mode?: string;
-    sort?: string;
-  };
-}) {
-  const showPast = searchParams.view === "past";
-  const q = (searchParams.q ?? "").trim().slice(0, 80);
-  // Cookie fallback for cross-lane location stickiness.
-  const loc = resolveLoc(searchParams.loc);
-  const mode =
-    searchParams.mode === "online" || searchParams.mode === "irl"
-      ? searchParams.mode
-      : "all";
-  const sort = searchParams.sort === "ending" ? "ending" : "start";
+const PRIZE_BUCKETS = [
+  { value: "0", label: "Any prize pool" },
+  { value: "1000", label: "$1K+" },
+  { value: "10000", label: "$10K+" },
+  { value: "50000", label: "$50K+" },
+  { value: "100000", label: "$100K+" },
+  { value: "250000", label: "$250K+" },
+] as const;
 
-  const now = new Date();
-  // Past is recent-past only — a year-old hackathon graveyard isn't useful
-  // social proof, and full history bloats the tab.
-  const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+const getHackathonsBoard = unstable_cache(
+  async (
+    q: string,
+    loc: string,
+    mode: HackathonMode,
+    sort: HackathonSort,
+    minPrize: number,
+    showPast: boolean,
+    nowMs: number,
+    pastFloorMs: number,
+  ) => {
+    const now = new Date(nowMs);
+    const pastFloor = new Date(pastFloorMs);
 
-  // Online seed convention is city='Online' (case-insensitive). Anything else
-  // is treated as in-person / hybrid for filtering — hybrids still have a real
-  // host city, so they show up under "In-person".
-  const cityLower = sql`LOWER(COALESCE(${submissions.payload}->>'city', ''))`;
-  const onlineMatch = sql`${cityLower} IN ('online', 'virtual', 'remote', 'global')`;
+    const cityLower = sql`LOWER(COALESCE(${submissions.payload}->>'city', ''))`;
+    const onlineMatch = sql`${cityLower} IN ('online', 'virtual', 'remote', 'global')`;
 
-  const filters = [
-    eq(submissions.type, "event"),
-    eq(submissions.status, "approved"),
-    sql`${submissions.payload}->>'eventType' = 'hackathon'`,
-  ];
-  if (mode === "online") filters.push(onlineMatch);
-  if (mode === "irl") filters.push(sql`NOT (${onlineMatch})`);
-  if (q) {
-    const like = `%${q.replace(/[%_\\]/g, "\\$&")}%`;
-    filters.push(
-      sql`(${submissions.payload}->>'name' ILIKE ${like} OR ${submissions.payload}->>'description' ILIKE ${like})`,
+    const filters = [
+      eq(submissions.type, "event"),
+      eq(submissions.status, "approved"),
+      sql`${submissions.payload}->>'eventType' = 'hackathon'`,
+    ];
+    if (mode === "online") filters.push(onlineMatch);
+    if (mode === "irl") filters.push(sql`NOT (${onlineMatch})`);
+    if (q) {
+      const like = `%${q.replace(/[%_\\]/g, "\\$&")}%`;
+      filters.push(
+        sql`(${submissions.payload}->>'name' ILIKE ${like} OR ${submissions.payload}->>'description' ILIKE ${like})`,
+      );
+    }
+    if (loc) {
+      const like = `%${loc.replace(/[%_\\]/g, "\\$&")}%`;
+      filters.push(
+        sql`(${submissions.payload}->>'city' ILIKE ${like} OR ${submissions.payload}->>'country' ILIKE ${like})`,
+      );
+    }
+    if (minPrize > 0) {
+      // payload->>'prizeUsd' is text; cast to numeric. Coalesce missing values
+      // to 0 so anything without a declared prize drops out of filtered views.
+      filters.push(
+        sql`COALESCE(NULLIF(${submissions.payload}->>'prizeUsd', ''), '0')::numeric >= ${minPrize}`,
+      );
+    }
+    const hackathonFilter = and(...filters);
+    const bucketCountFilter = and(
+      eq(submissions.type, "event"),
+      eq(submissions.status, "approved"),
+      sql`${submissions.payload}->>'eventType' = 'hackathon'`,
     );
-  }
-  if (loc) {
-    const like = `%${loc.replace(/[%_\\]/g, "\\$&")}%`;
-    filters.push(
-      sql`(${submissions.payload}->>'city' ILIKE ${like} OR ${submissions.payload}->>'country' ILIKE ${like})`,
-    );
-  }
-  const hackathonFilter = and(...filters);
-  // Counts in the tabs ignore search/mode so the totals don't shrink as the
-  // user narrows — they show the size of each bucket overall.
-  const bucketCountFilter = and(
-    eq(submissions.type, "event"),
-    eq(submissions.status, "approved"),
-    sql`${submissions.payload}->>'eventType' = 'hackathon'`,
-  );
 
-  // Bucket on the effective end (endsAt when present, else startsAt). A
-  // hackathon that started weeks ago but runs through next month belongs in
-  // Upcoming, not Past — Past means it's actually over.
-  const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
-  const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+    const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
+    const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+    const prizeExpr = sql`COALESCE(NULLIF(${submissions.payload}->>'prizeUsd', ''), '0')::numeric`;
+    const upcomingOrder =
+      sort === "ending"
+        ? [desc(submissions.featured), sql`${effectiveEnd} ASC`]
+        : sort === "prize"
+          ? [
+              desc(submissions.featured),
+              sql`${prizeExpr} DESC`,
+              asc(submissions.eventStartsAt),
+            ]
+          : [desc(submissions.featured), asc(submissions.eventStartsAt)];
 
-  const upcomingOrder =
-    sort === "ending"
-      ? [desc(submissions.featured), sql`${effectiveEnd} ASC`]
-      : [desc(submissions.featured), asc(submissions.eventStartsAt)];
-
-  const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all(
-    [
+    const [visibleRows, [{ upcomingCount }], [{ pastCount }]] = await Promise.all([
       db
         .select({
           id: submissions.id,
@@ -121,7 +116,87 @@ export default async function HackathonsPage({
         .select({ pastCount: sql<number>`count(*)::int` })
         .from(submissions)
         .where(and(bucketCountFilter, pastWindow)),
-    ],
+    ]);
+
+    return { visibleRows, upcomingCount, pastCount };
+  },
+  ["hackathons-board"],
+  { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
+);
+
+function hourBucket(d: Date): number {
+  const ms = d.getTime();
+  return ms - (ms % (60 * 60 * 1000));
+}
+
+function formatPrizeUsd(amount: number): string {
+  if (amount >= 1_000_000) {
+    const m = amount / 1_000_000;
+    return `$${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
+  }
+  if (amount >= 1_000) {
+    const k = amount / 1_000;
+    return `$${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+  }
+  return `$${amount}`;
+}
+
+export const metadata: Metadata = {
+  title: "Hackathons — Rex Intel Services",
+  description:
+    "Curated list of crypto hackathons worth building at — ETHGlobal, Solana, Chainlink, Encode, and more.",
+  alternates: { canonical: "/hackathons" },
+  openGraph: {
+    title: "Hackathons — Rex Intel Services",
+    description:
+      "Curated list of crypto hackathons worth building at — ETHGlobal, Solana, Chainlink, Encode, and more.",
+    type: "website",
+  },
+};
+
+export default async function HackathonsPage({
+  searchParams,
+}: {
+  searchParams: {
+    view?: string;
+    q?: string;
+    loc?: string;
+    mode?: string;
+    sort?: string;
+    min?: string;
+  };
+}) {
+  const showPast = searchParams.view === "past";
+  const q = (searchParams.q ?? "").trim().slice(0, 80);
+  // Cookie fallback for cross-lane location stickiness — read OUTSIDE the
+  // cached call (unstable_cache forbids cookie access).
+  const loc = resolveLoc(searchParams.loc);
+  const mode: HackathonMode =
+    searchParams.mode === "online" || searchParams.mode === "irl"
+      ? searchParams.mode
+      : "all";
+  const sort: HackathonSort =
+    searchParams.sort === "ending"
+      ? "ending"
+      : searchParams.sort === "prize"
+        ? "prize"
+        : "start";
+  const minPrize = PRIZE_BUCKETS.some((b) => b.value === searchParams.min)
+    ? Number(searchParams.min)
+    : 0;
+
+  const nowBucket = hourBucket(new Date());
+  const pastFloorBucket = nowBucket - 30 * 24 * 60 * 60 * 1000;
+
+  const { visibleRows, upcomingCount, pastCount } = await getHackathonsBoard(
+    q,
+    loc,
+    mode,
+    sort,
+    minPrize,
+    showPast,
+    nowBucket,
+    pastFloorBucket,
   );
 
   const visible = visibleRows.map((r) => ({
@@ -136,11 +211,16 @@ export default async function HackathonsPage({
     if (loc) params.set("loc", loc);
     if (mode !== "all") params.set("mode", mode);
     if (sort !== "start") params.set("sort", sort);
+    if (minPrize > 0) params.set("min", String(minPrize));
     const qs = params.toString();
     return qs ? `/hackathons?${qs}` : "/hackathons";
   };
   const filtersActive =
-    Boolean(q) || Boolean(loc) || mode !== "all" || sort !== "start";
+    Boolean(q) ||
+    Boolean(loc) ||
+    mode !== "all" ||
+    sort !== "start" ||
+    minPrize > 0;
 
   return (
     <PublicShell
@@ -236,6 +316,18 @@ export default async function HackathonsPage({
             <option value="online">Online</option>
           </select>
           <select
+            name="min"
+            defaultValue={String(minPrize)}
+            className="rex-input max-w-[180px]"
+            aria-label="Minimum prize pool"
+          >
+            {PRIZE_BUCKETS.map((b) => (
+              <option key={b.value} value={b.value}>
+                {b.label}
+              </option>
+            ))}
+          </select>
+          <select
             name="sort"
             defaultValue={sort}
             className="rex-input max-w-[180px]"
@@ -244,6 +336,7 @@ export default async function HackathonsPage({
           >
             <option value="start">Starting soon</option>
             <option value="ending">Ending soon</option>
+            <option value="prize">Biggest prizes</option>
           </select>
           <button type="submit" className="rex-btn whitespace-nowrap">
             Apply ▸
@@ -358,7 +451,7 @@ function HackathonCard({
 
   return (
     <Link
-      href={`/events/${publicId}`}
+      href={detailHref("/events", publicId, payload.name)}
       className="rex-card flex items-center gap-5 p-4 hover:bg-[var(--rex-surface-2)] transition-colors group"
       style={
         featured
@@ -452,6 +545,18 @@ function HackathonCard({
               }}
             >
               ⏳ {endsSoonLabel}
+            </span>
+          )}
+          {typeof payload.prizeUsd === "number" && payload.prizeUsd > 0 && (
+            <span
+              className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+              style={{
+                background: "rgba(95,185,31,0.12)",
+                color: "var(--rex-accent)",
+                border: "1px solid rgba(95,185,31,0.45)",
+              }}
+            >
+              ⌬ {formatPrizeUsd(payload.prizeUsd)}
             </span>
           )}
           {payload.priceTier && (

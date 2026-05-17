@@ -288,6 +288,150 @@ const grants: GrantPayload[] = [
     rolling: true,
     tags: ["alchemy", "solana", "infra", "credits"],
   },
+  {
+    name: "Filecoin Foundation — Open Grants",
+    organization: "Filecoin Foundation",
+    organizationUrl: "https://fil.org/",
+    description:
+      "Funding for projects that advance the Filecoin network — open data, archival infrastructure, retrieval markets, and decentralized storage tooling. Rolling intake plus periodic themed rounds. Foundation-administered, separate from ProtocolLabs.",
+    focus: "Decentralized storage, retrieval, public-data archives",
+    applyUrl: "https://fil.org/grants",
+    rolling: true,
+    tags: ["filecoin", "storage", "ipfs"],
+  },
+  {
+    name: "Stellar Community Fund",
+    organization: "Stellar Development Foundation",
+    organizationUrl: "https://communityfund.stellar.org/",
+    description:
+      "Quarterly grant rounds funding projects building on Stellar — stablecoin payments, cross-border remittances, DeFi protocols, asset issuance. Up to $150k per round across multiple awardees. Community-voted shortlist plus SDF technical review.",
+    amount: "Up to $150k per round",
+    focus: "Stellar applications — payments, DeFi, asset issuance",
+    applyUrl: "https://communityfund.stellar.org/",
+    rolling: false,
+    tags: ["stellar", "payments", "stablecoin"],
+  },
+  {
+    name: "Avalanche Foundation Grants",
+    organization: "Avalanche Foundation",
+    organizationUrl: "https://www.avax.network/grants",
+    description:
+      "Foundation-administered grants for builders on Avalanche — subnet deployments, DeFi protocols, gaming, infrastructure tooling. Multi-tier program from small dev grants through ecosystem-scale awards. Rolling intake.",
+    focus: "Avalanche subnets, DeFi, gaming, infra",
+    applyUrl: "https://www.avax.network/grants",
+    rolling: true,
+    tags: ["avalanche", "subnets", "defi", "gaming"],
+  },
+  {
+    name: "Polkadot Treasury (OpenGov)",
+    organization: "Polkadot DAO",
+    organizationUrl: "https://polkadot.network/treasury",
+    description:
+      "DOT-denominated funding directly from the Polkadot Treasury via OpenGov referenda. Anyone can propose; passing referenda execute on-chain disbursement. Multi-million-DOT tranches available for ecosystem-scale projects; smaller bounties for specific technical work. Decentralized intake — no foundation review gate.",
+    focus: "Polkadot ecosystem — parachains, infrastructure, tooling",
+    applyUrl: "https://polkadot.polkassembly.io/",
+    rolling: true,
+    tags: ["polkadot", "opengov", "treasury", "dao"],
+  },
+  {
+    name: "Cosmos Hub Community Pool",
+    organization: "Cosmos Hub",
+    organizationUrl: "https://hub.cosmos.network/",
+    description:
+      "ATOM-denominated grants from the Cosmos Hub community pool via governance proposals. Funds Cosmos SDK development, IBC tooling, validator infrastructure, and downstream chain integrations. Requires proposal authoring + on-chain referendum.",
+    focus: "Cosmos SDK, IBC, validator infrastructure",
+    applyUrl: "https://hub.cosmos.network/",
+    rolling: true,
+    tags: ["cosmos", "ibc", "treasury", "dao"],
+  },
+  {
+    name: "Aptos Foundation Grants",
+    organization: "Aptos Foundation",
+    organizationUrl: "https://aptosfoundation.org/grants",
+    description:
+      "Funding for builders on Aptos — Move-language tooling, DeFi protocols, NFT/gaming infrastructure, developer experience improvements. Tiered structure across Quick Grants, Project Grants, and Ecosystem Grants. Rolling application intake.",
+    focus: "Aptos ecosystem — Move, DeFi, gaming, infra",
+    applyUrl: "https://aptosfoundation.org/grants",
+    rolling: true,
+    tags: ["aptos", "move", "defi"],
+  },
+  {
+    name: "Sui Foundation Grants",
+    organization: "Sui Foundation",
+    organizationUrl: "https://sui.io/grants",
+    description:
+      "Multi-tier grants for projects building on Sui — Move-based DeFi, gaming, social, and infra. Includes Quick Grants (<$30k), Project Grants ($30k-$500k), and the Sui Builder House programming for accepted teams. Rolling intake.",
+    focus: "Sui ecosystem — Move, gaming, DeFi, social",
+    applyUrl: "https://sui.io/grants",
+    rolling: true,
+    tags: ["sui", "move", "gaming", "defi"],
+  },
+  {
+    name: "Polygon Village",
+    organization: "Polygon Labs",
+    organizationUrl: "https://polygon.technology/polygon-village",
+    description:
+      "Polygon's developer-support program with milestone-based grants, credits, BD support, and access to Polygon's partner network. Covers Polygon PoS, zkEVM, and the Polygon CDK. Tiered: from technical-credit packages through ecosystem grant funding.",
+    focus: "Polygon PoS / zkEVM / CDK builders",
+    applyUrl: "https://polygon.technology/polygon-village",
+    rolling: true,
+    tags: ["polygon", "zk", "zkevm", "cdk"],
+  },
+  {
+    name: "Starknet Foundation — Seed Grants",
+    organization: "Starknet Foundation",
+    organizationUrl: "https://www.starknet.io/grants",
+    description:
+      "STRK-denominated grants for builders on Starknet — Cairo tooling, DeFi protocols, dApps, gaming, and provable computing infrastructure. Includes a structured Seed Grant track for early-stage teams and partnerships for ecosystem-scale projects.",
+    focus: "Starknet / Cairo — DeFi, gaming, provable computing",
+    applyUrl: "https://www.starknet.io/grants",
+    rolling: true,
+    tags: ["starknet", "cairo", "zk", "stark"],
+  },
+  {
+    name: "TON Foundation Grants",
+    organization: "The Open Network Foundation",
+    organizationUrl: "https://ton.org/grants",
+    description:
+      "Funding for projects building on TON — Telegram-native mini-apps, payments, DeFi, infrastructure tooling. Open Network Foundation administers; the TON-Telegram integration gives builders distinct distribution advantages. Rolling intake plus themed rounds.",
+    focus: "TON / Telegram — mini-apps, payments, DeFi",
+    applyUrl: "https://ton.org/grants",
+    rolling: true,
+    tags: ["ton", "telegram", "mini-apps", "payments"],
+  },
+  {
+    name: "ENS DAO — Public Goods Working Group",
+    organization: "ENS DAO",
+    organizationUrl: "https://www.ensdao.org/",
+    description:
+      "ENS DAO funding for public-goods projects in the Ethereum ecosystem — not limited to ENS itself. Quarterly working-group rounds plus targeted ENS-utility grants for projects extending ENS infrastructure (subdomains, off-chain resolution, IPFS gateways).",
+    focus: "Ethereum public goods, ENS infrastructure",
+    applyUrl: "https://www.ensdao.org/",
+    rolling: false,
+    tags: ["ens", "ethereum", "public-goods", "dao"],
+  },
+  {
+    name: "Scroll — Builder Grants",
+    organization: "Scroll Foundation",
+    organizationUrl: "https://scroll.io/builders",
+    description:
+      "Builder grants and infrastructure-credit support for projects deploying on Scroll, the bytecode-equivalent zkEVM L2. Tiered grants from prototyping through production deployment; includes co-marketing and gas-rebate programs for early-stage deployments.",
+    focus: "Scroll / zkEVM — DeFi, infra, dApps",
+    applyUrl: "https://scroll.io/builders",
+    rolling: true,
+    tags: ["scroll", "zk", "zkevm", "l2"],
+  },
+  {
+    name: "Linea Ecosystem Funding",
+    organization: "ConsenSys / Linea",
+    organizationUrl: "https://linea.build/ecosystem-fund",
+    description:
+      "ConsenSys-administered grants and ecosystem funding for projects deploying on Linea, the EVM-equivalent zkEVM L2. Covers DeFi, identity, infrastructure, and consumer dApps. Rolling intake; structured Voyage / Surge programs run in parallel for user-facing campaigns.",
+    focus: "Linea / zkEVM — DeFi, identity, infra",
+    applyUrl: "https://linea.build/ecosystem-fund",
+    rolling: true,
+    tags: ["linea", "consensys", "zk", "zkevm", "l2"],
+  },
 ];
 
 async function upsertGrant(payload: GrantPayload) {

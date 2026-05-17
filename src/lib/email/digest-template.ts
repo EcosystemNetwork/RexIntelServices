@@ -5,6 +5,7 @@ import type {
   GrantPayload,
   AcceleratorPayload,
 } from "@/lib/db/schema";
+import { detailHref } from "@/lib/slug";
 
 export type DigestIntel = {
   publicId: string;
@@ -202,7 +203,7 @@ function renderHtml(args: {
 }
 
 function renderIntelItem(i: DigestIntel, baseUrl: string): string {
-  const url = `${baseUrl}/intel/${i.publicId}`;
+  const url = `${baseUrl}${detailHref("/intel", i.publicId, i.payload.headline)}`;
   const sevTag =
     i.payload.severity != null
       ? (() => {
@@ -228,7 +229,7 @@ function renderIntelItem(i: DigestIntel, baseUrl: string): string {
 }
 
 function renderEventItem(e: DigestEvent, baseUrl: string): string {
-  const url = `${baseUrl}/events/${e.publicId}`;
+  const url = `${baseUrl}${detailHref("/events", e.publicId, e.payload.name)}`;
   const start = e.eventStartsAt;
   const dateLine = start
     ? start.toLocaleDateString("en-US", {
@@ -254,7 +255,7 @@ function renderEventItem(e: DigestEvent, baseUrl: string): string {
 }
 
 function renderPopupItem(c: DigestPopupCity, baseUrl: string): string {
-  const url = `${baseUrl}/pop-up-cities/${c.publicId}`;
+  const url = `${baseUrl}${detailHref("/pop-up-cities", c.publicId, c.payload.name)}`;
   const start = c.eventStartsAt;
   const dateLine = start
     ? start.toLocaleDateString("en-US", {
@@ -276,7 +277,7 @@ function renderPopupItem(c: DigestPopupCity, baseUrl: string): string {
 }
 
 function renderGrantItem(g: DigestGrant, baseUrl: string): string {
-  const url = `${baseUrl}/grants/${g.publicId}`;
+  const url = `${baseUrl}${detailHref("/grants", g.publicId, g.payload.name)}`;
   const meta = [g.payload.organization, g.payload.amount, g.payload.rolling ? "Rolling" : null]
     .filter(Boolean)
     .map((s) => escape(String(s)))
@@ -292,7 +293,7 @@ function renderGrantItem(g: DigestGrant, baseUrl: string): string {
 }
 
 function renderAcceleratorItem(a: DigestAccelerator, baseUrl: string): string {
-  const url = `${baseUrl}/accelerators/${a.publicId}`;
+  const url = `${baseUrl}${detailHref("/accelerators", a.publicId, a.payload.name)}`;
   const meta = [a.payload.organization, a.payload.investment, a.payload.duration]
     .filter(Boolean)
     .map((s) => escape(String(s)))
@@ -340,7 +341,7 @@ function renderText(args: {
       if (tags) lines.push(`[${tags}]`);
       lines.push(i.payload.headline);
       lines.push(truncate(i.payload.body.replace(/\s+/g, " "), 220));
-      lines.push(`${baseUrl}/intel/${i.publicId}`);
+      lines.push(`${baseUrl}${detailHref("/intel", i.publicId, i.payload.headline)}`);
       lines.push("");
     }
   }
@@ -360,7 +361,7 @@ function renderText(args: {
       const meta = [dateLine, location, e.payload.eventType].filter(Boolean).join(" · ");
       lines.push(e.payload.name);
       if (meta) lines.push(meta);
-      lines.push(`${baseUrl}/events/${e.publicId}`);
+      lines.push(`${baseUrl}${detailHref("/events", e.publicId, e.payload.name)}`);
       lines.push("");
     }
   }
@@ -380,7 +381,7 @@ function renderText(args: {
       const meta = [dateLine, location, c.payload.focus].filter(Boolean).join(" · ");
       lines.push(c.payload.name);
       if (meta) lines.push(meta);
-      lines.push(`${baseUrl}/pop-up-cities/${c.publicId}`);
+      lines.push(`${baseUrl}${detailHref("/pop-up-cities", c.publicId, c.payload.name)}`);
       lines.push("");
     }
   }
@@ -394,7 +395,7 @@ function renderText(args: {
         .join(" · ");
       lines.push(g.payload.name);
       if (meta) lines.push(meta);
-      lines.push(`${baseUrl}/grants/${g.publicId}`);
+      lines.push(`${baseUrl}${detailHref("/grants", g.publicId, g.payload.name)}`);
       lines.push("");
     }
   }
@@ -408,7 +409,7 @@ function renderText(args: {
         .join(" · ");
       lines.push(a.payload.name);
       if (meta) lines.push(meta);
-      lines.push(`${baseUrl}/accelerators/${a.publicId}`);
+      lines.push(`${baseUrl}${detailHref("/accelerators", a.publicId, a.payload.name)}`);
       lines.push("");
     }
   }

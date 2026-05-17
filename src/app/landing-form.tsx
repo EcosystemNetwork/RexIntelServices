@@ -38,7 +38,14 @@ export default function LandingForm() {
         <p className="text-sm sm:text-base md:text-lg text-[var(--rex-text-muted)] leading-relaxed max-w-xl mx-auto mb-10 animate-fade-in animate-fade-in-delay-3">
           Crypto market intel, on-chain signals, and the events, grants,
           accelerators and pop-up cities the field is moving through — one
-          weekly briefing, plus live boards.
+          weekly briefing, plus live boards you can{" "}
+          <Link
+            href="/submit"
+            className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+          >
+            contribute to
+          </Link>
+          .
         </p>
 
         <div className="animate-fade-in animate-fade-in-delay-3">

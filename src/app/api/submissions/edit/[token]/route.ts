@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
@@ -6,6 +7,8 @@ import {
   validateBySubmissionType,
   type SubmissionType,
 } from "@/lib/submission-validators";
+import { SUBMISSIONS_TAG } from "@/lib/cache";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 /**
  * Token-based edit endpoint for non-anonymous submitters who want to fix
@@ -51,7 +54,13 @@ async function loadByToken(token: string) {
     .from(submissions)
     .where(eq(submissions.editToken, token))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  // Tokens with NULL expiry are pre-0017 legacy and never expire. Tokens
+  // with a set expiry are rejected past that timestamp.
+  if (row.editTokenExpiresAt && row.editTokenExpiresAt.getTime() < Date.now()) {
+    return null;
+  }
+  return row;
 }
 
 export async function GET(
@@ -108,11 +117,20 @@ export async function POST(
     return NextResponse.json({ error: "Unknown submission type." }, { status: 500 });
   }
 
-  let body: { payload?: unknown };
+  let body: { payload?: unknown; turnstileToken?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Possession of the 128-bit token is the primary gate; Turnstile adds a
+  // human-in-the-loop check so a leaked token can't be scripted at the full
+  // per-IP rate-limit ceiling. When Turnstile env vars aren't set the
+  // verifier returns ok:true with skipped:true (local dev pass-through).
+  const captcha = await verifyTurnstileToken(body.turnstileToken, ip);
+  if (!captcha.ok) {
+    return NextResponse.json({ error: captcha.error }, { status: 400 });
   }
 
   const validation = validateBySubmissionType(
@@ -149,6 +167,12 @@ export async function POST(
     })
     .where(eq(submissions.id, row.id))
     .returning({ id: submissions.id, publicId: submissions.publicId });
+
+  // Only approved rows are visible on listings, so only flush the cache when
+  // an approved row was edited. Pending edits don't change the public view.
+  if (row.status === "approved") {
+    revalidateTag(SUBMISSIONS_TAG);
+  }
 
   return NextResponse.json({
     ok: true,

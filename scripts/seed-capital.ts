@@ -243,6 +243,19 @@ const funds: CapitalPayload[] = [
     pitchUrl: "https://www.conviction.com/",
     tags: ["ai", "pre-seed", "infrastructure", "software-3.0"],
   },
+  {
+    name: "Slow Ventures",
+    organization: "Slow Ventures",
+    organizationUrl: "https://slow.co/",
+    description:
+      "Generalist early-stage firm (~$770M AUM, ~$1B+ deployed). Invests across security, fintech, SaaS, crypto, consumer, healthcare, and the creator economy. Founded by Dave Morin (Facebook alum) in 2009; currently led by GP Sam Lessin (ex-Facebook product, The Information columnist) and MD Kevin Colleran. Public Seed Funding Application form is the cold-inbound path; team responds within a few weeks. Warm intros preferred but not required.",
+    stage: "Pre-seed → Seed",
+    focus: "Generalist — fintech, SaaS, crypto, consumer, creator economy",
+    location: "San Francisco · Boston · New York",
+    pitchUrl: "https://slow.co/contact/",
+    decisionWindow: "Response in ~few weeks",
+    tags: ["generalist", "pre-seed", "seed", "fintech", "crypto", "creator-economy"],
+  },
 ];
 
 async function upsert(payload: CapitalPayload) {

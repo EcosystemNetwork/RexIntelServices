@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db, submissions, type Campaign } from "@/lib/db";
 import type { IntelPayload, EventPayload } from "@/lib/db/schema";
+import { detailHref } from "@/lib/slug";
 
 /**
  * Send "your submission ran" credit emails for everyone whose intel/event
@@ -62,7 +63,11 @@ export async function sendCreditEmails(campaign: Campaign): Promise<{
     const headline = isIntel
       ? (f.payload as IntelPayload).headline
       : (f.payload as EventPayload).name;
-    const url = `${baseUrl}/${isIntel ? "intel" : "events"}/${f.publicId}`;
+    const url = `${baseUrl}${detailHref(
+      isIntel ? "/intel" : "/events",
+      f.publicId,
+      headline,
+    )}`;
 
     const greeting = f.submitterHandle ? `Operator @${f.submitterHandle},` : "Operator,";
     const subject = isIntel

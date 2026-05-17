@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
@@ -8,6 +8,7 @@ import type { GrantPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { absoluteUrl } from "@/lib/site-url";
+import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export async function generateMetadata({
 }: {
   params: { publicId: string };
 }): Promise<Metadata> {
-  const row = await loadGrant(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) return { title: "Grant not found — Rex Intel Services" };
+  const row = await loadGrant(realId);
   if (!row) return { title: "Grant not found — Rex Intel Services" };
   const p = row.payload;
   const desc = p.description.replace(/\s+/g, " ").trim().slice(0, 200);
@@ -54,9 +57,15 @@ export default async function GrantDetailPage({
 }: {
   params: { publicId: string };
 }) {
-  const row = await loadGrant(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) notFound();
+  const row = await loadGrant(realId);
   if (!row) notFound();
   const p = row.payload;
+  const canonical = detailSegment(realId, p.name);
+  if (params.publicId !== canonical) {
+    redirect(detailHref("/grants", realId, p.name));
+  }
 
   const deadlineLabel = p.deadline
     ? new Date(p.deadline).toLocaleDateString(undefined, {
@@ -74,7 +83,7 @@ export default async function GrantDetailPage({
     "@type": "MonetaryGrant",
     name: p.name,
     description: p.description,
-    url: absoluteUrl(`/grants/${params.publicId}`),
+    url: absoluteUrl(detailHref("/grants", realId, p.name)),
     funder: {
       "@type": "Organization",
       name: p.organization,

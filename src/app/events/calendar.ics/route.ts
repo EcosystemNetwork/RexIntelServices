@@ -2,6 +2,7 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { absoluteUrl } from "@/lib/site-url";
+import { detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,10 +57,11 @@ export async function GET() {
     const uid = `${r.publicId}@rexintelservices.com`;
     const location = [p.venue, p.city, p.country].filter(Boolean).join(", ");
     const summary = p.name;
+    const listingUrl = absoluteUrl(detailHref("/events", r.publicId, p.name));
     const description = [
       p.description,
       p.url ? `Event page: ${p.url}` : "",
-      `Listing: ${absoluteUrl(`/events/${r.publicId}`)}`,
+      `Listing: ${listingUrl}`,
     ]
       .filter(Boolean)
       .join("\\n\\n");
@@ -73,7 +75,7 @@ export async function GET() {
       foldLine(`SUMMARY:${escapeIcal(summary)}`),
       foldLine(`DESCRIPTION:${escapeIcal(description)}`),
       location ? foldLine(`LOCATION:${escapeIcal(location)}`) : "",
-      foldLine(`URL:${absoluteUrl(`/events/${r.publicId}`)}`),
+      foldLine(`URL:${listingUrl}`),
       "END:VEVENT",
     );
   }

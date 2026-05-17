@@ -3,6 +3,7 @@ import { db, submissions } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { buildRssFeed } from "@/lib/rss";
 import { absoluteUrl, siteUrl } from "@/lib/site-url";
+import { detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -47,13 +48,14 @@ export async function GET() {
       });
       const location = [p.city, p.country].filter(Boolean).join(", ");
       const desc = `${dateLabel}${location ? " · " + location : ""}\n\n${p.description ?? ""}`;
+      const href = absoluteUrl(detailHref("/events", r.publicId, p.name));
       return {
         title: p.name,
-        link: absoluteUrl(`/events/${r.publicId}`),
+        link: href,
         description: desc,
         pubDate: r.publishedAt,
         category: p.eventType,
-        guid: absoluteUrl(`/events/${r.publicId}`),
+        guid: href,
       };
     }),
   });

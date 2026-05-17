@@ -30,7 +30,6 @@ type Args = {
   payloadName: string;
   submitterEmail: string | null;
   submitterHandle: string | null;
-  autoApproved: boolean;
 };
 
 const SURFACE_LABEL: Record<string, string> = {
@@ -61,9 +60,7 @@ export async function sendAdminAlertEmail(
 
   const surface = SURFACE_LABEL[args.submissionType] ?? "submission";
   const queueUrl = absoluteUrl("/submissions");
-  const statusLine = args.autoApproved
-    ? "Auto-approved (trusted source) — review only if you want to feature or unpublish."
-    : "Sitting in the moderation queue, waiting for review.";
+  const statusLine = "Sitting in the moderation queue, waiting for review.";
   const submitterLine = args.submitterEmail
     ? `${args.submitterEmail}${args.submitterHandle ? ` (@${args.submitterHandle})` : ""}`
     : args.submitterHandle
@@ -74,9 +71,7 @@ export async function sendAdminAlertEmail(
     await resend.emails.send({
       from: `RexIntel Ops <${fromEmail}>`,
       to: [recipient],
-      subject: args.autoApproved
-        ? `[Auto-published] ${surface}: ${args.payloadName}`
-        : `[Queue] New ${surface}: ${args.payloadName}`,
+      subject: `[Queue] New ${surface}: ${args.payloadName}`,
       html: renderHtml({
         surface,
         payloadName: args.payloadName,

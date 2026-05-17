@@ -6,6 +6,7 @@ import {
   boolean,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   index,
   uniqueIndex,
@@ -292,6 +293,25 @@ export type IntelPayload = {
   category?: string;
   severity?: "low" | "medium" | "high" | "critical";
   anonymous?: boolean;
+  // What flavor of intel this is. `tip` is the default — a community
+  // sighting or short brief. `original` is in-house signal that satisfies
+  // the editorial bar of the weekly digest (≥1 original per issue).
+  // `incident` is an evergreen postmortem (e.g. "[Protocol] hack timeline")
+  // — long-form, address-anchored, the SEO surface targeting `[protocol]
+  // hack timeline` queries.
+  kind?: "tip" | "original" | "incident";
+  // Editorial provenance grade. `primary` = first-hand evidence (on-chain
+  // proof, screenshot from the affected party, direct quote). `secondary` =
+  // reputable reporting that cites primary sources. `hearsay` = rumor or
+  // unverified DM. Surfaced as a chip on intel cards/detail so readers can
+  // judge weight at a glance; gates which rows the digest is allowed to
+  // promote to the editorial-bar slot.
+  sourceGrade?: "primary" | "secondary" | "hearsay";
+  // Snapshot of the primary source frozen against link-rot. Typically an
+  // archive.org or archive.today URL paired with the live `sources` link.
+  // Renders as a "snapshot" link next to the source and as `isBasedOn` in
+  // the article JSON-LD.
+  archiveUrl?: string;
 };
 
 export type EventPayload = {
@@ -306,6 +326,9 @@ export type EventPayload = {
   tags?: string[];
   priceTier?: "free" | "paid" | "invite";
   eventType?: "conference" | "workshop" | "meetup" | "hackathon" | "other";
+  // Hackathon prize pool in USD (numeric so the listing can filter by amount).
+  // Free-form descriptions like "ETH from sponsors" go in `description`.
+  prizeUsd?: number;
   // Path under /public (e.g. "/Rex-Intel-ETHConf-Social-Card.png") or absolute
   // URL. Rendered as a banner on the event detail page and the OG image.
   imageUrl?: string;
@@ -519,6 +542,16 @@ export const submissions = pgTable(
     editToken: text("edit_token")
       .notNull()
       .default(sql`encode(gen_random_bytes(16), 'hex')`),
+    // Optional expiry on the edit token. NULL = never expires (preserves the
+    // pre-0017 behavior for tokens already in the wild). New submissions are
+    // created with this set by /api/submit so a leaked archived email can't
+    // be used to edit a submission years later.
+    editTokenExpiresAt: timestamp("edit_token_expires_at"),
+    // Linked submitter identity. NULL for anonymous submissions; populated
+    // for any submission whose submitterEmail matches a row in submitters.
+    submitterId: uuid("submitter_id").references(() => submitters.id, {
+      onDelete: "set null",
+    }),
     // Denormalized from payload.startsAt for event submissions so we can sort
     // by date in SQL with an index instead of pulling everything and sorting
     // in app code. NULL for intel submissions.
@@ -559,6 +592,9 @@ export const submissions = pgTable(
     featuredCampaignIdx: index("submissions_featured_campaign_idx").on(
       t.featuredInCampaignId,
     ),
+    // Drives the /contributors/[slug] profile query (every submission tied
+    // to a contributor) and the accuracy-score aggregate.
+    submitterIdIdx: index("submissions_submitter_id_idx").on(t.submitterId),
   }),
 );
 
@@ -598,6 +634,34 @@ export const addresses = pgTable(
   }),
 );
 
+// =====================================================================
+// SUBMITTERS — first-class contributor identity. One row per unique
+// submitter_email (case-insensitive). Lets us render /contributors/[slug]
+// profile pages with bylines + accuracy score (featured / approved) and
+// gives a stable identity that future features (badges, monthly leaderboard
+// of contributors, etc.) can hang off. Anonymous submissions leave
+// submissions.submitter_id NULL.
+// =====================================================================
+
+export const submitters = pgTable(
+  "submitters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    displayHandle: text("display_handle").notNull(),
+    // URL slug for /contributors/[slug]. Includes a uuid-prefix suffix so
+    // collisions never happen and we never need a retry loop.
+    slug: text("slug").notNull(),
+    bio: text("bio"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    emailIdx: uniqueIndex("submitters_email_idx").on(sql`lower(${t.email})`),
+    slugIdx: uniqueIndex("submitters_slug_idx").on(t.slug),
+  }),
+);
+
 export const intelAddresses = pgTable(
   "intel_addresses",
   {
@@ -614,6 +678,112 @@ export const intelAddresses = pgTable(
     pk: primaryKey({ columns: [t.submissionId, t.addressId] }),
     // Reverse lookup: "show me every intel item that mentions this address"
     addressIdx: index("intel_addresses_address_idx").on(t.addressId),
+  }),
+);
+
+// =====================================================================
+// INTEL VOTING + MONTHLY PRIZE POOL
+//
+// Community votes on approved intel. Winning intel at month end pays
+// out from a community-funded pool wallet (USDC on Base by default —
+// see lib/prize-pool.ts). Voting is magic-link confirmed: a vote_tokens
+// row is created on email submit, and the click consumes it into an
+// intel_votes row. PK on (submission_id, subscriber_id) keeps it 1:1.
+// =====================================================================
+
+export const intelVotes = pgTable(
+  "intel_votes",
+  {
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    subscriberId: uuid("subscriber_id")
+      .notNull()
+      .references(() => subscribers.id, { onDelete: "cascade" }),
+    votedAt: timestamp("voted_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.submissionId, t.subscriberId] }),
+    subscriberIdx: index("intel_votes_subscriber_idx").on(t.subscriberId),
+    votedAtIdx: index("intel_votes_voted_at_idx").on(t.votedAt),
+  }),
+);
+
+export const voteTokens = pgTable(
+  "vote_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // sha256(random_token) — the random token only ever exists in the email
+    // link. A DB compromise yields hashes, not live voting power.
+    tokenHash: text("token_hash").notNull(),
+    email: text("email").notNull(),
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    tokenHashIdx: uniqueIndex("vote_tokens_token_hash_idx").on(t.tokenHash),
+    emailSubmissionIdx: index("vote_tokens_email_submission_idx").on(
+      t.email,
+      t.submissionId,
+    ),
+    expiresAtIdx: index("vote_tokens_expires_at_idx").on(t.expiresAt),
+  }),
+);
+
+// One row per settled month. yearMonth is UTC "YYYY-MM" — the canonical
+// bucket the leaderboard slices by. payouts is jsonb of:
+//   [{ place: 1, submissionId, amount, txHash, paidTo }]
+// so place-by-place doesn't require schema changes if we change the split.
+// MonthlyPrizePayout.amount is a numeric string (e.g. "1234.560000") — same
+// shape numeric(38,6) round-trips through the pg driver, so payouts written
+// from app code can use the same decimal-string representation as the
+// poolBalanceAtSettle column without any conversion.
+export type MonthlyPrizePayout = {
+  place: number;
+  submissionId: string;
+  amount: string;
+  txHash?: string;
+  // EVM addresses are stored lowercased so two payouts to the same wallet
+  // dedupe and joins to the addresses table hit. Caller is responsible for
+  // .toLowerCase() before insert (helper in lib/prize-pool.ts).
+  paidTo?: string;
+  notes?: string;
+};
+
+export const monthlyPrizes = pgTable(
+  "monthly_prizes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // UTC "YYYY-MM" — DB-level CHECK in migration 0016 enforces the format
+    // so a typo can't silently corrupt the leaderboard sort.
+    yearMonth: text("year_month").notNull(),
+    // numeric(38,6) — exact decimal, no float drift. 38 digits + 6 scale
+    // covers any plausible pool size at USDC's 6-decimal precision.
+    poolBalanceAtSettle: numeric("pool_balance_at_settle", {
+      precision: 38,
+      scale: 6,
+    }).notNull(),
+    poolCurrency: text("pool_currency").notNull().default("USDC"),
+    poolChain: text("pool_chain").notNull().default("base"),
+    payouts: jsonb("payouts").$type<MonthlyPrizePayout[]>().notNull().default([]),
+    settledAt: timestamp("settled_at"),
+    // ON DELETE SET NULL so offboarding an admin doesn't block deletion of
+    // the user row; the audit trail keeps the prize record with a null
+    // settler rather than a dangling FK.
+    settledBy: uuid("settled_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    yearMonthIdx: uniqueIndex("monthly_prizes_year_month_idx").on(t.yearMonth),
   }),
 );
 
@@ -667,6 +837,25 @@ export const submissionsRelations = relations(submissions, ({ one, many }) => ({
     references: [users.id],
   }),
   addresses: many(intelAddresses),
+  votes: many(intelVotes),
+}));
+
+export const intelVotesRelations = relations(intelVotes, ({ one }) => ({
+  submission: one(submissions, {
+    fields: [intelVotes.submissionId],
+    references: [submissions.id],
+  }),
+  subscriber: one(subscribers, {
+    fields: [intelVotes.subscriberId],
+    references: [subscribers.id],
+  }),
+}));
+
+export const voteTokensRelations = relations(voteTokens, ({ one }) => ({
+  submission: one(submissions, {
+    fields: [voteTokens.submissionId],
+    references: [submissions.id],
+  }),
 }));
 
 export const addressesRelations = relations(addresses, ({ many }) => ({
@@ -697,6 +886,9 @@ export type NewSubmission = typeof submissions.$inferInsert;
 export type Address = typeof addresses.$inferSelect;
 export type IntelAddress = typeof intelAddresses.$inferSelect;
 export type AddressRole = (typeof addressRoleEnum.enumValues)[number];
+export type IntelVote = typeof intelVotes.$inferSelect;
+export type VoteToken = typeof voteTokens.$inferSelect;
+export type MonthlyPrize = typeof monthlyPrizes.$inferSelect;
 
 // Persona tag slugs / labels live in /src/lib/personas.ts so client
 // components (e.g. the landing-page signup form) can import them without

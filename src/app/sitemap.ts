@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { siteUrl } from "@/lib/site-url";
+import { detailSegment } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,6 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1.0 },
     { url: `${base}/intel`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
+    { url: `${base}/intel/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/events`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${base}/hackathons`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/intel?lane=cities`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
@@ -35,14 +37,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/submit`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
 
-  // Submissions — one entry per (type, publicId), grouped so we can set
-  // a sensible per-type priority + change frequency from the same query.
+  // Submissions — one entry per (type, publicId). Pull the human-readable
+  // title field (varies per type) so the sitemap entry matches the canonical
+  // slug-prefixed URL the detail page redirects to. Also pull eventType so
+  // we can split hackathons (stored as type='event' + eventType='hackathon')
+  // off into the /hackathons routes where they're actually rendered.
   const subs = await db
     .select({
       type: submissions.type,
       publicId: submissions.publicId,
       publishedAt: submissions.publishedAt,
       updatedAt: submissions.updatedAt,
+      eventType: sql<string | null>`${submissions.payload}->>'eventType'`,
+      slugTitle: sql<string | null>`COALESCE(
+        ${submissions.payload}->>'name',
+        ${submissions.payload}->>'title',
+        ${submissions.payload}->>'headline'
+      )`,
     })
     .from(submissions)
     .where(eq(submissions.status, "approved"))
@@ -58,17 +69,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     grant: "/grants",
     accelerator: "/accelerators",
     job: "/jobs",
-    hackathon: "/hackathons",
     capital: "/capital",
     perks: "/perks",
+    residency: "/pop-up-cities",
   };
 
   const submissionEntries: MetadataRoute.Sitemap = [];
   for (const s of subs) {
-    const prefix = PATH_PREFIX[s.type];
+    // Hackathons live under type='event' with payload.eventType='hackathon';
+    // route them to /hackathons (where the listing actually renders) instead
+    // of /events.
+    const prefix =
+      s.type === "event" && s.eventType === "hackathon"
+        ? "/hackathons"
+        : PATH_PREFIX[s.type];
     if (!prefix) continue;
     submissionEntries.push({
-      url: `${base}${prefix}/${s.publicId}`,
+      url: `${base}${prefix}/${detailSegment(s.publicId, s.slugTitle)}`,
       lastModified: s.updatedAt ?? s.publishedAt ?? undefined,
       changeFrequency:
         s.type === "intel" || s.type === "event" ? "weekly" : "monthly",

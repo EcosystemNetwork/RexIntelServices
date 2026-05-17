@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
  * Admin-only: toggle the `featured` flag on a submission so it pins to
@@ -49,6 +51,10 @@ export async function POST(
   if (!row) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  // Featuring pins ordering on listing pages — flush cached listings so the
+  // change is visible immediately.
+  revalidateTag(SUBMISSIONS_TAG);
 
   return NextResponse.json({ submission: row });
 }

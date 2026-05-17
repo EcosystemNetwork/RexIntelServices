@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
  * Admin-only: approve / reject / mark-spam a submission.
@@ -55,6 +57,11 @@ export async function POST(
   if (!row) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  // Flush cached listing queries so the new state of this row is visible
+  // immediately on /events, /jobs, /hackathons etc. without waiting for the
+  // 5-minute revalidate backstop.
+  revalidateTag(SUBMISSIONS_TAG);
 
   return NextResponse.json({ submission: row });
 }

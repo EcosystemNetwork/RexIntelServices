@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { JobPayload } from "@/lib/db/schema";
@@ -7,8 +8,67 @@ import { ResourceListShell, EmptyState } from "@/components/resource-shell";
 import { resolveLoc } from "@/lib/loc-context";
 import { LocationDatalist, LOCATION_DATALIST_ID } from "@/components/location-datalist";
 import { LocationPill } from "@/components/location-pill";
+import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
+import { detailHref } from "@/lib/slug";
+import { logoUrlFor } from "@/lib/logo";
 
 export const dynamic = "force-dynamic";
+
+type JobFilter = "remote" | "senior" | null;
+
+/**
+ * Cached query for the jobs board. Keyed on (filter, loc, expiry bucket) and
+ * tag-invalidated on submissions writes.
+ */
+const getJobsBoard = unstable_cache(
+  async (filter: JobFilter, loc: string, nowMs: number) => {
+    const nowIso = new Date(nowMs).toISOString();
+    const notExpired = or(
+      isNull(sql`${submissions.payload}->>'expiresAt'`),
+      sql`(${submissions.payload}->>'expiresAt')::timestamptz > ${nowIso}::timestamptz`,
+    );
+
+    const filterClause =
+      filter === "remote"
+        ? sql`(${submissions.payload}->>'remote')::boolean = true`
+        : filter === "senior"
+          ? sql`${submissions.payload}->>'seniority' IN ('senior','staff','principal','exec')`
+          : sql`true`;
+
+    const locClause = loc
+      ? sql`${submissions.payload}->>'location' ILIKE ${`%${loc.replace(/[%_\\]/g, "\\$&")}%`}`
+      : sql`true`;
+
+    return db
+      .select({
+        id: submissions.id,
+        publicId: submissions.publicId,
+        payload: submissions.payload,
+        publishedAt: submissions.publishedAt,
+        featured: submissions.featured,
+      })
+      .from(submissions)
+      .where(
+        and(
+          eq(submissions.type, "job"),
+          eq(submissions.status, "approved"),
+          notExpired,
+          filterClause,
+          locClause,
+        ),
+      )
+      .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
+      .limit(200);
+  },
+  ["jobs-board"],
+  { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
+);
+
+// Bucket to the start of the current hour so the cache key is stable.
+function hourBucket(d: Date): number {
+  const ms = d.getTime();
+  return ms - (ms % (60 * 60 * 1000));
+}
 
 export const metadata: Metadata = {
   title: "Jobs — Rex Intel Services",
@@ -27,58 +87,18 @@ export default async function JobsPage({
 }: {
   searchParams: { filter?: string; loc?: string };
 }) {
-  // Filter out listings with an expiresAt in the past. Listings without an
-  // expiresAt fall back to "still open"; if they get stale a moderator can
-  // remove them.
-  const nowIso = new Date().toISOString();
-  const notExpired = or(
-    isNull(sql`${submissions.payload}->>'expiresAt'`),
-    sql`(${submissions.payload}->>'expiresAt')::timestamptz > ${nowIso}::timestamptz`,
-  );
+  const filter: JobFilter =
+    searchParams.filter === "remote"
+      ? "remote"
+      : searchParams.filter === "senior"
+        ? "senior"
+        : null;
 
-  const filter = searchParams.filter === "remote"
-    ? "remote"
-    : searchParams.filter === "senior"
-      ? "senior"
-      : null;
-
-  // Cookie fallback for cross-lane location stickiness.
+  // Cookie fallback for cross-lane location stickiness — read OUTSIDE the
+  // cached call because unstable_cache doesn't permit cookie access.
   const loc = resolveLoc(searchParams.loc);
 
-  const filterClause =
-    filter === "remote"
-      ? sql`(${submissions.payload}->>'remote')::boolean = true`
-      : filter === "senior"
-        ? sql`${submissions.payload}->>'seniority' IN ('senior','staff','principal','exec')`
-        : sql`true`;
-
-  // Job locations are free-form ("Remote (US)", "NYC + Remote"), so a single
-  // ILIKE against payload->>'location' is the right primitive here.
-  const locClause = loc
-    ? sql`${submissions.payload}->>'location' ILIKE ${`%${loc.replace(/[%_\\]/g, "\\$&")}%`}`
-    : sql`true`;
-
-  const rows = await db
-    .select({
-      id: submissions.id,
-      publicId: submissions.publicId,
-      payload: submissions.payload,
-      publishedAt: submissions.publishedAt,
-      featured: submissions.featured,
-    })
-    .from(submissions)
-    .where(
-      and(
-        eq(submissions.type, "job"),
-        eq(submissions.status, "approved"),
-        notExpired,
-        filterClause,
-        locClause,
-      ),
-    )
-    .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
-    .limit(200);
-
+  const rows = await getJobsBoard(filter, loc, hourBucket(new Date()));
   const visible = rows.map((r) => ({ ...r, payload: r.payload as JobPayload }));
 
   return (
@@ -210,10 +230,13 @@ function JobCard({
   payload: JobPayload;
   featured?: boolean;
 }) {
+  const logo = logoUrlFor(payload.companyUrl, payload.applyUrl);
+  const initial = (payload.company || "?").trim().slice(0, 1).toUpperCase();
+
   return (
     <Link
-      href={`/jobs/${publicId}`}
-      className="rex-card block p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      href={detailHref("/jobs", publicId, payload.title)}
+      className="rex-card flex gap-4 p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
       style={
         featured
           ? {
@@ -224,43 +247,66 @@ function JobCard({
           : undefined
       }
     >
-      <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest flex-wrap">
-        {featured && (
-          <span
-            className="px-1.5 py-0.5 rounded-sm"
-            style={{
-              background: "rgba(95,185,31,0.12)",
-              color: "var(--rex-accent)",
-              border: "1px solid rgba(95,185,31,0.45)",
-            }}
-          >
-            ★ Featured
-          </span>
-        )}
-        <span style={{ color: "var(--rex-text-dim)" }}>{payload.company}</span>
-        {payload.location && (
-          <span style={{ color: "var(--rex-text-muted)" }}>· {payload.location}</span>
-        )}
-        {payload.remote && (
-          <span style={{ color: "var(--rex-accent-2)" }}>· Remote</span>
-        )}
-        {payload.employmentType && (
-          <span style={{ color: "var(--rex-text-dim)" }}>· {payload.employmentType}</span>
-        )}
-        {payload.compensation && (
-          <span className="ml-auto" style={{ color: "var(--rex-text-muted)" }}>
-            {payload.compensation}
+      <div
+        className="flex-shrink-0 w-10 h-10 rounded-sm flex items-center justify-center border overflow-hidden"
+        style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
+      >
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logo}
+            alt={`${payload.company} logo`}
+            width={32}
+            height={32}
+            loading="lazy"
+            className="w-7 h-7 object-contain"
+          />
+        ) : (
+          <span className="font-display text-base text-white" aria-hidden="true">
+            {initial}
           </span>
         )}
       </div>
 
-      <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
-        {payload.title}
-      </h3>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+          {featured && (
+            <span
+              className="px-1.5 py-0.5 rounded-sm"
+              style={{
+                background: "rgba(95,185,31,0.12)",
+                color: "var(--rex-accent)",
+                border: "1px solid rgba(95,185,31,0.45)",
+              }}
+            >
+              ★ Featured
+            </span>
+          )}
+          <span style={{ color: "var(--rex-text-dim)" }}>{payload.company}</span>
+          {payload.location && (
+            <span style={{ color: "var(--rex-text-muted)" }}>· {payload.location}</span>
+          )}
+          {payload.remote && (
+            <span style={{ color: "var(--rex-accent-2)" }}>· Remote</span>
+          )}
+          {payload.employmentType && (
+            <span style={{ color: "var(--rex-text-dim)" }}>· {payload.employmentType}</span>
+          )}
+          {payload.compensation && (
+            <span className="ml-auto" style={{ color: "var(--rex-text-muted)" }}>
+              {payload.compensation}
+            </span>
+          )}
+        </div>
 
-      <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
-        {payload.description}
-      </p>
+        <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+          {payload.title}
+        </h3>
+
+        <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
+          {payload.description}
+        </p>
+      </div>
     </Link>
   );
 }

@@ -206,6 +206,35 @@ export async function GET(req: Request) {
     });
   }
 
+  // Editorial bar: every issue ships with ≥1 piece of original signal.
+  // (Committed 2026-05-09; see project_beat_cryptonomads_plan.md.) Requires
+  // both (a) kind ∈ {original, incident} and (b) sourceGrade != hearsay so
+  // unverified rumor never anchors the issue. Rows with no sourceGrade set
+  // are treated as eligible (legacy + ungraded grace). The bypass env var
+  // lets us run the cron in dev / staging without seed content.
+  const originalIntelCount = intel.filter(
+    (i) =>
+      (i.payload.kind === "original" || i.payload.kind === "incident") &&
+      i.payload.sourceGrade !== "hearsay",
+  ).length;
+  const bypassEditorialBar =
+    process.env.DIGEST_BYPASS_EDITORIAL_BAR === "true";
+  if (originalIntelCount === 0 && !bypassEditorialBar) {
+    return NextResponse.json({
+      ok: true,
+      skipped:
+        "editorial bar not met — no original-signal intel in window. Set DIGEST_BYPASS_EDITORIAL_BAR=true to override.",
+      counts: {
+        intel: intel.length,
+        original: 0,
+        events: events.length,
+        popupCities: popupCities.length,
+        grants: grants.length,
+        accelerators: accelerators.length,
+      },
+    });
+  }
+
   const fromName = process.env.DIGEST_FROM_NAME ?? "Rex Intel Services";
   const fromEmail = process.env.DIGEST_FROM_EMAIL;
   if (!fromEmail) {

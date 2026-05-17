@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public-shell";
+import { Turnstile } from "@/components/turnstile";
+
+const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
 /**
  * Tokenized edit form. Loads the existing submission via GET, presents the
@@ -52,6 +55,7 @@ export default function EditForm({ token }: { token: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +97,7 @@ export default function EditForm({ token }: { token: string }) {
       const res = await fetch(`/api/submissions/edit/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payload: nextPayload }),
+        body: JSON.stringify({ payload: nextPayload, turnstileToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -103,6 +107,9 @@ export default function EditForm({ token }: { token: string }) {
       setSavedAt(new Date());
       // Update the loaded payload so subsequent edits start from the saved state.
       setLoaded({ ...loaded, payload: nextPayload });
+      // Captcha tokens are single-use — reset so a follow-up edit prompts a
+      // fresh solve. Turnstile auto-renders the next widget on remount.
+      setTurnstileToken("");
     } catch {
       setSaveError("Channel disrupted. Retry.");
     } finally {
@@ -199,6 +206,10 @@ export default function EditForm({ token }: { token: string }) {
             ))
           )}
 
+          {fieldDefs.length > 0 && TURNSTILE_ENABLED && (
+            <Turnstile onToken={setTurnstileToken} className="pt-2" />
+          )}
+
           {fieldDefs.length > 0 && (
             <div className="flex items-center justify-between pt-2 border-t border-[var(--rex-border-subtle)]">
               <div className="text-[10px] font-mono" style={{ color: "var(--rex-text-dim)" }}>
@@ -210,7 +221,11 @@ export default function EditForm({ token }: { token: string }) {
                   "Changes save when you click Update."
                 )}
               </div>
-              <button type="submit" disabled={saving} className="rex-btn">
+              <button
+                type="submit"
+                disabled={saving || (TURNSTILE_ENABLED && !turnstileToken)}
+                className="rex-btn"
+              >
                 {saving ? "Saving…" : "Update ▸"}
               </button>
             </div>
@@ -227,7 +242,7 @@ export default function EditForm({ token }: { token: string }) {
 
 // ─── Field definitions per type ───────────────────────────────────────
 
-type FieldKind = "text" | "textarea" | "url" | "datetime";
+type FieldKind = "text" | "textarea" | "url" | "datetime" | "number";
 
 type FieldDef = {
   key: string;
@@ -249,6 +264,7 @@ const FIELD_DEFS: Record<string, FieldDef[]> = {
     { key: "city", label: "City", kind: "text", maxLength: 100 },
     { key: "country", label: "Country", kind: "text", maxLength: 100 },
     { key: "url", label: "Event URL", kind: "url" },
+    { key: "prizeUsd", label: "Prize Pool USD — hackathons only (opt.)", kind: "number" },
     { key: "description", label: "Description", kind: "textarea", maxLength: 1000, rows: 4 },
   ],
   popup_city: [
@@ -319,6 +335,8 @@ function initialFields(
     const raw = payload[def.key];
     if (def.kind === "datetime") {
       out[def.key] = typeof raw === "string" ? isoToDatetimeLocal(raw) : "";
+    } else if (def.kind === "number") {
+      out[def.key] = typeof raw === "number" ? String(raw) : "";
     } else {
       out[def.key] = typeof raw === "string" ? raw : "";
     }
@@ -344,6 +362,10 @@ function mergePayload(
       out[def.key] = v ? new Date(v).toISOString() : undefined;
     } else if (def.kind === "url") {
       out[def.key] = v.trim() || undefined;
+    } else if (def.kind === "number") {
+      const trimmed = v.replace(/[,_$\s]/g, "");
+      const n = trimmed ? Number(trimmed) : NaN;
+      out[def.key] = Number.isFinite(n) && n >= 0 ? n : undefined;
     } else {
       const trimmed = v.trim();
       // Required fields stay as empty strings so the server validator
@@ -387,7 +409,13 @@ function FieldRow({
     );
   }
   const inputType =
-    def.kind === "datetime" ? "datetime-local" : def.kind === "url" ? "url" : "text";
+    def.kind === "datetime"
+      ? "datetime-local"
+      : def.kind === "url"
+        ? "url"
+        : def.kind === "number"
+          ? "number"
+          : "text";
   return (
     <div>
       {label}

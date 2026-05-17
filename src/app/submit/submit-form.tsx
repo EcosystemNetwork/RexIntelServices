@@ -28,6 +28,76 @@ function trackSubmitSuccess(data: { type?: unknown; autoApproved?: unknown }) {
   }
 }
 
+// Shape echoed back by /api/submit on a 409. The form surfaces this so the
+// submitter can click through to the existing record before deciding whether
+// to push the submission anyway (which sets confirmedNonDuplicate=true).
+type DuplicateInfo = {
+  publicId: string;
+  title: string;
+  reason: "url" | "title";
+  similarity: number;
+  url: string;
+};
+
+function DuplicateBanner({
+  duplicate,
+  onProceed,
+  onDismiss,
+}: {
+  duplicate: DuplicateInfo | null;
+  onProceed: () => void;
+  onDismiss: () => void;
+}) {
+  if (!duplicate) return null;
+  const reasonLabel =
+    duplicate.reason === "url"
+      ? "Same URL is already on file."
+      : `Title is ${Math.round(duplicate.similarity * 100)}% similar to an existing record.`;
+  return (
+    <div
+      className="rounded-sm border p-4 text-sm space-y-3"
+      style={{
+        borderColor: "rgba(251,191,36,0.40)",
+        background: "rgba(251,191,36,0.06)",
+      }}
+    >
+      <div
+        className="text-[10px] font-mono uppercase tracking-widest"
+        style={{ color: "var(--rex-warning)" }}
+      >
+        ⚠ Possible duplicate
+      </div>
+      <p style={{ color: "var(--rex-text-muted)" }}>
+        {reasonLabel}{" "}
+        <a
+          href={duplicate.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2"
+        >
+          {duplicate.title}
+        </a>
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onProceed}
+          className="rex-btn-secondary text-xs"
+        >
+          Submit anyway
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-xs font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-white transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type Tab =
   | "intel"
   | "event"
@@ -180,6 +250,19 @@ function IntelForm() {
     "" | "low" | "medium" | "high" | "critical"
   >("");
   const [category, setCategory] = useState("");
+  // Self-categorization for the monthly leaderboard. Defaults to "tip" so
+  // a plain community sighting still gets a sensible label without forcing
+  // a choice. Admin can downgrade during review if a user mislabels.
+  const [intelKind, setIntelKind] = useState<
+    "tip" | "original" | "incident"
+  >("tip");
+  // Editorial provenance — "" means submitter didn't pick; we render the
+  // chip greyed-out as "Ungraded" and the digest cron treats those rows as
+  // ineligible for the editorial-bar slot.
+  const [sourceGrade, setSourceGrade] = useState<
+    "" | "primary" | "secondary" | "hearsay"
+  >("");
+  const [archiveUrl, setArchiveUrl] = useState("");
   const [anonymous, setAnonymous] = useState(true);
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
@@ -191,6 +274,7 @@ function IntelForm() {
   // Surfaced by the API for non-anonymous submissions so the success panel
   // can show the bookmarkable edit link alongside the receipt email.
   const [editUrl, setEditUrl] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
 
   function updateAddressRow(idx: number, patch: Partial<AddressRow>) {
     setAddressRows((rows) =>
@@ -204,9 +288,10 @@ function IntelForm() {
     setAddressRows((rows) => rows.filter((_, i) => i !== idx));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent, force = false) {
+    e?.preventDefault();
     setStatus("loading");
+    if (!force) setDuplicate(null);
 
     const payload = {
       headline,
@@ -215,6 +300,9 @@ function IntelForm() {
       sources: splitLines(sourcesRaw),
       severity: severity || undefined,
       category: category.trim() || undefined,
+      kind: intelKind,
+      sourceGrade: sourceGrade || undefined,
+      archiveUrl: archiveUrl.trim() || undefined,
       anonymous,
     };
 
@@ -241,9 +329,16 @@ function IntelForm() {
           submitterHandle: anonymous ? undefined : submitterHandle || undefined,
           website,
           turnstileToken,
+          confirmedNonDuplicate: force,
         }),
       });
       const data = await res.json();
+      if (res.status === 409 && data?.duplicate) {
+        setDuplicate(data.duplicate as DuplicateInfo);
+        setStatus("error");
+        setMessage(data.error ?? "Possible duplicate.");
+        return;
+      }
       if (res.ok) {
         trackSubmitSuccess(data);
         setStatus("success");
@@ -297,7 +392,62 @@ function IntelForm() {
         <Hint>{body.length}/5000</Hint>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div>
+        <Label>Type of intel</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {(
+            [
+              {
+                slug: "tip",
+                title: "Tip",
+                desc: "A sighting, lead, or short note.",
+              },
+              {
+                slug: "original",
+                title: "Original",
+                desc: "Your own analysis or research.",
+              },
+              {
+                slug: "incident",
+                title: "Incident",
+                desc: "Postmortem of a hack, exploit, or scam.",
+              },
+            ] as const
+          ).map((k) => (
+            <button
+              key={k.slug}
+              type="button"
+              onClick={() => setIntelKind(k.slug)}
+              className={`text-left rounded-sm border px-3 py-2 transition-colors ${
+                intelKind === k.slug
+                  ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.05)]"
+                  : "border-[var(--rex-border-subtle)] hover:border-[var(--rex-border)]"
+              }`}
+            >
+              <div className="text-sm font-medium text-white">{k.title}</div>
+              <div
+                className="text-[11px] mt-0.5"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                {k.desc}
+              </div>
+            </button>
+          ))}
+        </div>
+        <Hint>
+          Eligible for the community-funded monthly prize pool — winners
+          paid out at month end. See{" "}
+          <a
+            href="/intel/leaderboard"
+            className="underline decoration-dotted underline-offset-2"
+          >
+            leaderboard
+          </a>
+          .
+        </Hint>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Severity (opt.)</Label>
           <select
@@ -345,6 +495,42 @@ function IntelForm() {
           className="rex-input w-full font-mono text-xs"
           placeholder="On-chain tx hashes, primary docs, etc. (one per line)"
         />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label>Source grade (opt.)</Label>
+          <select
+            value={sourceGrade}
+            onChange={(e) =>
+              setSourceGrade(e.target.value as typeof sourceGrade)
+            }
+            className="rex-input w-full"
+          >
+            <option value="">— ungraded</option>
+            <option value="primary">Primary — first-hand evidence</option>
+            <option value="secondary">Secondary — reputable reporting</option>
+            <option value="hearsay">Hearsay — rumor / unverified</option>
+          </select>
+          <Hint>
+            Hearsay rows are barred from anchoring the weekly digest. Primary
+            and secondary always eligible.
+          </Hint>
+        </div>
+        <div>
+          <Label>Archive URL (opt.)</Label>
+          <input
+            type="url"
+            value={archiveUrl}
+            onChange={(e) => setArchiveUrl(e.target.value)}
+            className="rex-input w-full font-mono text-xs"
+            placeholder="https://web.archive.org/web/…"
+          />
+          <Hint>
+            Snapshot of the primary source. Survives link-rot. Bookmarklet:
+            archive.today.
+          </Hint>
+        </div>
       </div>
 
       <div className="border-t border-[var(--rex-border-subtle)] pt-4">
@@ -452,7 +638,7 @@ function IntelForm() {
         </label>
 
         {!anonymous && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Email (opt.)</Label>
               <input
@@ -493,7 +679,17 @@ function IntelForm() {
         </button>
       </div>
 
-      {status === "error" && (
+      <DuplicateBanner
+        duplicate={duplicate}
+        onProceed={() => handleSubmit(undefined, true)}
+        onDismiss={() => {
+          setDuplicate(null);
+          setStatus("idle");
+          setMessage("");
+        }}
+      />
+
+      {status === "error" && !duplicate && (
         <p className="text-xs font-mono text-[var(--rex-danger)]">✕ {message}</p>
       )}
     </form>
@@ -532,6 +728,7 @@ function EventForm() {
   const [priceTier, setPriceTier] = useState<"" | "free" | "paid" | "invite">(
     "",
   );
+  const [prizeUsd, setPrizeUsd] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
@@ -542,6 +739,7 @@ function EventForm() {
   // Surfaced by the API for non-anonymous submissions so the success panel
   // can show the bookmarkable edit link alongside the receipt email.
   const [editUrl, setEditUrl] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
 
   // ── URL-paste prefill state ───────────────────────────────────────
   const [pasteUrl, setPasteUrl] = useState("");
@@ -602,9 +800,10 @@ function EventForm() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent, force = false) {
+    e?.preventDefault();
     setStatus("loading");
+    if (!force) setDuplicate(null);
 
     const payload = {
       name,
@@ -617,6 +816,10 @@ function EventForm() {
       description: description || undefined,
       eventType: eventType || undefined,
       priceTier: priceTier || undefined,
+      prizeUsd:
+        eventType === "hackathon" && prizeUsd.trim()
+          ? Number(prizeUsd.replace(/[,_$\s]/g, ""))
+          : undefined,
       imageUrl: imageUrl || undefined,
     };
 
@@ -631,9 +834,16 @@ function EventForm() {
           submitterHandle: submitterHandle || undefined,
           website,
           turnstileToken,
+          confirmedNonDuplicate: force,
         }),
       });
       const data = await res.json();
+      if (res.status === 409 && data?.duplicate) {
+        setDuplicate(data.duplicate as DuplicateInfo);
+        setStatus("error");
+        setMessage(data.error ?? "Possible duplicate.");
+        return;
+      }
       if (res.ok) {
         trackSubmitSuccess(data);
         setStatus("success");
@@ -717,7 +927,7 @@ function EventForm() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Starts</Label>
           <input
@@ -795,7 +1005,7 @@ function EventForm() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Type</Label>
           <select
@@ -826,7 +1036,27 @@ function EventForm() {
         </div>
       </div>
 
-      <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-2 gap-3">
+      {eventType === "hackathon" && (
+        <div>
+          <Label>Prize Pool — USD (opt.)</Label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1000}
+            value={prizeUsd}
+            onChange={(e) => setPrizeUsd(e.target.value)}
+            className="rex-input w-full"
+            placeholder="e.g. 50000"
+          />
+          <Hint>
+            Total prize pool, in USD. Used by the hackathons filter
+            (Any / $1K+ / $10K+ / $50K+ / $100K+).
+          </Hint>
+        </div>
+      )}
+
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Your Email (opt.)</Label>
           <input
@@ -865,7 +1095,17 @@ function EventForm() {
         </button>
       </div>
 
-      {status === "error" && (
+      <DuplicateBanner
+        duplicate={duplicate}
+        onProceed={() => handleSubmit(undefined, true)}
+        onDismiss={() => {
+          setDuplicate(null);
+          setStatus("idle");
+          setMessage("");
+        }}
+      />
+
+      {status === "error" && !duplicate && (
         <p className="text-xs font-mono text-[var(--rex-danger)]">✕ {message}</p>
       )}
     </form>
@@ -997,7 +1237,7 @@ function PopupCityForm() {
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Starts">
           <input
             type="datetime-local"
@@ -1043,7 +1283,7 @@ function PopupCityForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Event URL">
           <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
         </Field>
@@ -1052,7 +1292,7 @@ function PopupCityForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Application Deadline (opt.)">
           <input
             type="datetime-local"
@@ -1073,7 +1313,7 @@ function PopupCityForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Host Org (opt.)">
           <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={120} className="rex-input w-full" />
         </Field>
@@ -1176,7 +1416,7 @@ function GrantForm() {
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Ecosystem Support Program" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Organization">
           <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Ethereum Foundation" />
         </Field>
@@ -1189,7 +1429,7 @@ function GrantForm() {
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What gets funded, what doesn't, who should apply." />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Amount (opt.)">
           <input type="text" value={amount} onChange={(e) => setAmount(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Up to $250k" />
         </Field>
@@ -1198,7 +1438,7 @@ function GrantForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Apply URL">
           <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
         </Field>
@@ -1307,7 +1547,7 @@ function AcceleratorForm() {
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Alliance DAO Cohort 12" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Organization">
           <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Alliance" />
         </Field>
@@ -1320,7 +1560,7 @@ function AcceleratorForm() {
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="Stage, thesis, what founders get, what's required." />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Duration (opt.)">
           <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="3 months" />
         </Field>
@@ -1329,7 +1569,7 @@ function AcceleratorForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Location (opt.)">
           <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="San Francisco / Remote" />
         </Field>
@@ -1338,7 +1578,7 @@ function AcceleratorForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Apply URL">
           <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
         </Field>
@@ -1475,7 +1715,7 @@ function JobForm() {
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Senior Smart Contract Engineer" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Company">
           <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" />
         </Field>
@@ -1519,7 +1759,7 @@ function JobForm() {
         <span className="text-sm text-[var(--rex-text-muted)]">Remote OK</span>
       </label>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Compensation (opt.)">
           <input type="text" value={compensation} onChange={(e) => setCompensation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="$160k–$220k + equity" />
         </Field>
@@ -1658,7 +1898,7 @@ function SubmitterFields({
   setHandle: (v: string) => void;
 }) {
   return (
-    <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-2 gap-3">
+    <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
       <Field label="Your Email (opt.)">
         <input
           type="email"
@@ -1800,7 +2040,7 @@ function CapitalForm() {
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={200} className="rex-input w-full" placeholder="Long Journey Ventures" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Organization">
           <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Long Journey" />
         </Field>
@@ -1813,7 +2053,7 @@ function CapitalForm() {
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="Thesis, what you fund, cold pitch policy, recent investments." />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Stage (opt.)">
           <input type="text" value={stage} onChange={(e) => setStage(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Pre-seed → Series A" />
         </Field>
@@ -1822,7 +2062,7 @@ function CapitalForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Location (opt.)">
           <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="San Francisco" />
         </Field>
@@ -1831,7 +2071,7 @@ function CapitalForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Cold Pitch URL">
           <input type="url" value={pitchUrl} onChange={(e) => setPitchUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
         </Field>
@@ -1941,7 +2181,7 @@ function ResidencyForm() {
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="The Bridge Cohort 2026.2" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Organization">
           <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="The Bridge" />
         </Field>
@@ -1954,7 +2194,7 @@ function ResidencyForm() {
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What the cohort builds, who attends, daily structure." />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Starts">
           <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required className="rex-input w-full" />
         </Field>
@@ -1975,7 +2215,7 @@ function ResidencyForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Cohort Size (opt.)">
           <input type="text" value={cohortSize} onChange={(e) => setCohortSize(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="20 founders" />
         </Field>
@@ -1984,7 +2224,7 @@ function ResidencyForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Program URL (opt.)">
           <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
         </Field>
@@ -1993,7 +2233,7 @@ function ResidencyForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Application Deadline (opt.)">
           <input type="datetime-local" value={applicationDeadline} onChange={(e) => setApplicationDeadline(e.target.value)} className="rex-input w-full" />
         </Field>
@@ -2093,7 +2333,7 @@ function PerksForm() {
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={200} className="rex-input w-full" placeholder="Alchemy Solana Fund Credits" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Organization">
           <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Alchemy" />
         </Field>
@@ -2106,7 +2346,7 @@ function PerksForm() {
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What the perk includes, evaluation period, anything builders should know before applying." />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Value (opt.)">
           <input type="text" value={value} onChange={(e) => setValue(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Up to $25k in credits" />
         </Field>
@@ -2115,7 +2355,7 @@ function PerksForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Ecosystem (opt.)">
           <input type="text" value={ecosystem} onChange={(e) => setEcosystem(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="Solana / Ethereum / Multi-chain" />
         </Field>
@@ -2128,7 +2368,7 @@ function PerksForm() {
         <textarea value={eligibility} onChange={(e) => setEligibility(e.target.value)} maxLength={500} rows={2} className="rex-input w-full resize-y" placeholder="Solana builders, any stage. No prior infrastructure provider required." />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
         <Field label="Deadline (opt.)">
           <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="rex-input w-full font-mono text-xs" disabled={rolling} />
         </Field>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
@@ -8,6 +8,7 @@ import type { PerksPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { absoluteUrl } from "@/lib/site-url";
+import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export async function generateMetadata({
 }: {
   params: { publicId: string };
 }): Promise<Metadata> {
-  const row = await loadPerk(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) return { title: "Perk not found — Rex Intel Services" };
+  const row = await loadPerk(realId);
   if (!row) return { title: "Perk not found — Rex Intel Services" };
   const p = row.payload;
   const desc = p.description.replace(/\s+/g, " ").trim().slice(0, 200);
@@ -63,9 +66,15 @@ export default async function PerksDetailPage({
 }: {
   params: { publicId: string };
 }) {
-  const row = await loadPerk(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) notFound();
+  const row = await loadPerk(realId);
   if (!row) notFound();
   const p = row.payload;
+  const canonical = detailSegment(realId, p.name);
+  if (params.publicId !== canonical) {
+    redirect(detailHref("/perks", realId, p.name));
+  }
 
   const deadlineLabel = p.deadline
     ? new Date(p.deadline).toLocaleDateString(undefined, {
@@ -82,7 +91,7 @@ export default async function PerksDetailPage({
     "@type": "Offer",
     name: p.name,
     description: p.description,
-    url: absoluteUrl(`/perks/${params.publicId}`),
+    url: absoluteUrl(detailHref("/perks", realId, p.name)),
     seller: {
       "@type": "Organization",
       name: p.organization,

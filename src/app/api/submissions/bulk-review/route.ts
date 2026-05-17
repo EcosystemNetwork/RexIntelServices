@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
  * Admin-only: review N submissions with the same action in a single call.
@@ -66,6 +68,10 @@ export async function POST(req: NextRequest) {
       ),
     )
     .returning({ id: submissions.id });
+
+  if (updated.length > 0) {
+    revalidateTag(SUBMISSIONS_TAG);
+  }
 
   return NextResponse.json({
     ok: true,

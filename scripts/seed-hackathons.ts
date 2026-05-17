@@ -25,6 +25,7 @@ type SeedInput = {
   country?: string;
   url: string;
   description: string;
+  prizeUsd?: number;
 };
 
 const inputs: SeedInput[] = [
@@ -97,6 +98,7 @@ const inputs: SeedInput[] = [
     url: "https://dorahacks.io/hackathon/2045/report",
     description:
       "HashKey Chain global online hackathon with a 40,000 USDT prize pool. Tracks across DeFi, PayFi, AI and more.",
+    prizeUsd: 40000,
   },
   {
     name: "StableHacks 2026",
@@ -130,6 +132,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/cannes2026",
     description:
       "ETHGlobal in-person Ethereum hackathon at the Palais des Festivals in Cannes, co-located with EthCC week.",
+    prizeUsd: 375000,
   },
 
   // === lablab.ai ===
@@ -164,6 +167,7 @@ const inputs: SeedInput[] = [
     url: "https://www.easya.io/events/easya-consensus-miami-hackathon",
     description:
       "72-hour hackathon co-located with Consensus Miami, $58,000 USD in prizes. ~1,000 developers building AI-native crypto startups across Base, Solana and more.",
+    prizeUsd: 58000,
   },
 
   // === Blockworks / Permissionless ===
@@ -176,6 +180,7 @@ const inputs: SeedInput[] = [
     url: "https://blockworks.com/event/permissionless-iv-hackathon",
     description:
       "36-hour onsite hackathon by Cracked Labs and Blockworks at Industry City, Brooklyn — kicks off Permissionless IV. $100,000+ in bounties; free to attend with conference access.",
+    prizeUsd: 100000,
   },
 
   // === ETHGlobal virtual hackathons (DeFi) ===
@@ -187,6 +192,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/hackmoney2026",
     description:
       "ETHGlobal's largest DeFi hackathon of 2026 — virtual, 12 days. Builders shipped stablecoin flows, on/off-ramps and agentic payments.",
+    prizeUsd: 300000,
   },
 
   // === Starknet / ZK ===
@@ -198,6 +204,7 @@ const inputs: SeedInput[] = [
     url: "https://hackathon.starknet.org/",
     description:
       "Starknet Foundation's flagship 2026 hackathon, run on DoraHacks. $27,000 in prizes across Bitcoin, Privacy and Open tracks; submissions deployed to Starknet.",
+    prizeUsd: 27000,
   },
 
   // === Regional EthCC-week hackathons ===
@@ -287,6 +294,7 @@ const inputs: SeedInput[] = [
     url: "https://bags.fm/hackathon",
     description:
       "Solana creator-finance hackathon hosted by Bags (also listed on DoraHacks). $1M in direct prizes — top 100 projects each receive a $10k–$100k grant — plus $3M in ongoing funding and support and hardware prizes for winners. Every submission must launch on Bags and link a token to the project. Submissions that integrate via API, SDK, token-launching, trading, or creator tools rank higher. Open-source strongly encouraged; private repos must give judges access.",
+    prizeUsd: 1000000,
   },
 
   // === tokens& (AI / agentic engineering hackathons) ===
@@ -320,6 +328,7 @@ const inputs: SeedInput[] = [
     url: "https://hacks.elevenlabs.io/hackathons/8",
     description:
       "Week 9 of ElevenHacks — ElevenLabs' 11-week online series (Mar 19 – May 28, 2026, $240K+ total prizes). This week's Stripe challenge: build something people will pay for using Stripe + ElevenLabs voice APIs. $18,980 prize pool split across Stripe credits and ElevenLabs Scale plans (1st $10,990, 2nd $5,660, 3rd $2,330). Opens Thu 14 May 17:00 UK; submissions close Thu 21 May 17:00 UK; winners Tue 26 May. Judges: Rajan Patel (Stripe), Joe Reeve (ElevenLabs).",
+    prizeUsd: 18980,
   },
   {
     name: "Hack #10: Blackbox x ElevenLabs",
@@ -338,6 +347,7 @@ const inputs: SeedInput[] = [
     url: "https://hacks.elevenlabs.io/hackathons/10",
     description:
       "Final week of ElevenHacks — ElevenLabs' 11-week online series. D-ID's digital-human / avatar APIs paired with ElevenLabs voice APIs. $11,980 prize pool. Opens Thu 28 May 17:00 UK.",
+    prizeUsd: 11980,
   },
 
   // === Canteen / Circle / Arc (Agora) ===
@@ -349,6 +359,7 @@ const inputs: SeedInput[] = [
     url: "https://agora.thecanteenapp.com/",
     description:
       "Two-week online hackathon run by Canteen with Circle and Arc, focused on AI agents that trade, invest, create, and interface with markets — settling on Arc (Circle's L1) using USDC. $50K total prizes: $40K grand prizes (1st $10K; 2×$7.5K second; 3×$5K third), ~10–12 standout-team awards ($7.5K), feedback incentives ($500) and easter-egg bounties ($2K). Six Requests for Builders: perps trading, prediction-market trading, prediction-market verticals, portfolio management, cross-platform arbitrage, social trading intelligence. Submissions require a live working product demo and public GitHub repo.",
+    prizeUsd: 50000,
   },
 
   // === Sui Foundation ===
@@ -360,6 +371,7 @@ const inputs: SeedInput[] = [
     url: "https://overflow.sui.io/",
     description:
       "Sui Foundation's global online hackathon. $1M+ total prize pool — $500K+ in core track prizes plus specialized track pools. Tracks: Agentic Web, DeFi & Payments, Walrus, DeepBook, Infra & DevX, EVE, ONE Championship, Degen, Payments & Wallets, Entertainment & Culture, and Explorations (multi-chain/RWA). Project submissions due May 23. Demo days June 13–14. Winners announced end of June. $2,500 university awards available. OceanDAO Summit follows in Athens July 21–31.",
+    prizeUsd: 1000000,
   },
 
   // === Arbitrum Open House ===
@@ -372,6 +384,7 @@ const inputs: SeedInput[] = [
     url: "https://openhouse.arbitrum.io/",
     description:
       "3-week online Buildathon (May 25 – Jun 14) on Arbitrum followed by a 3-day in-person Founder House in London (Jul 10–12). $115K in Buildathon prizes plus $300K at the Founder House — $415K total. AI Agentic Category reserved $15K for the top three. Top 3 Buildathon winners share $70K; the Arbitrum Foundation also reserves $30K USDC in case-by-case grants. Same format that ran in NYC earlier in the year.",
+    prizeUsd: 415000,
   },
 ];
 
@@ -390,6 +403,7 @@ function toPayload(input: SeedInput): EventPayload {
     url: input.url,
     description: input.description,
     eventType: "hackathon",
+    prizeUsd: input.prizeUsd,
   };
 }
 

@@ -27,6 +27,7 @@ type SeedInput = {
   url: string;
   description: string;
   eventType: EventPayload["eventType"];
+  prizeUsd?: number;
 };
 
 const inputs: SeedInput[] = [
@@ -39,6 +40,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/newyork2026",
     description: "ETHGlobal in-person hackathon in New York.",
     eventType: "hackathon",
+    prizeUsd: 375000,
   },
   {
     name: "ETHGlobal Lisbon 2026",
@@ -49,6 +51,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/lisbon2026",
     description: "ETHGlobal in-person hackathon in Lisbon.",
     eventType: "hackathon",
+    prizeUsd: 375000,
   },
   {
     name: "ETHGlobal Café Vancouver at And-Co",
@@ -228,6 +231,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/ethonline2026",
     description: "ETHGlobal online async hackathon.",
     eventType: "hackathon",
+    prizeUsd: 300000,
   },
   {
     name: "ETHGlobal Tokyo 2026",
@@ -238,6 +242,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/tokyo2026",
     description: "ETHGlobal in-person hackathon in Tokyo.",
     eventType: "hackathon",
+    prizeUsd: 375000,
   },
   {
     name: "Pragma Tokyo 2026",
@@ -268,6 +273,7 @@ const inputs: SeedInput[] = [
     url: "https://ethglobal.com/events/mumbai",
     description: "ETHGlobal in-person hackathon in Mumbai.",
     eventType: "hackathon",
+    prizeUsd: 375000,
   },
 ];
 
@@ -288,6 +294,7 @@ function toPayload(input: SeedInput): EventPayload {
     url: input.url,
     description: input.description,
     eventType: input.eventType,
+    prizeUsd: input.prizeUsd,
   };
 }
 

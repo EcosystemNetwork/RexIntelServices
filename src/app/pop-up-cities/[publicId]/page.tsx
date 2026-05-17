@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
@@ -9,6 +9,7 @@ import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { ProxiedImage } from "@/components/proxied-image";
 import { absoluteUrl } from "@/lib/site-url";
+import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,9 @@ export async function generateMetadata({
 }: {
   params: { publicId: string };
 }): Promise<Metadata> {
-  const row = await loadCity(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) return { title: "Pop-up city not found — Rex Intel Services" };
+  const row = await loadCity(realId);
   if (!row) return { title: "Pop-up city not found — Rex Intel Services" };
   const p = row.payload;
   const desc = p.description.replace(/\s+/g, " ").trim().slice(0, 200);
@@ -59,9 +62,15 @@ export default async function PopUpCityDetailPage({
 }: {
   params: { publicId: string };
 }) {
-  const row = await loadCity(params.publicId);
+  const realId = parsePublicId(params.publicId);
+  if (!realId) notFound();
+  const row = await loadCity(realId);
   if (!row) notFound();
   const p = row.payload;
+  const canonical = detailSegment(realId, p.name);
+  if (params.publicId !== canonical) {
+    redirect(detailHref("/pop-up-cities", realId, p.name));
+  }
 
   const start = new Date(p.startsAt);
   const end = new Date(p.endsAt);
@@ -83,7 +92,7 @@ export default async function PopUpCityDetailPage({
     startDate: p.startsAt,
     endDate: p.endsAt,
     description: p.description,
-    url: absoluteUrl(`/pop-up-cities/${params.publicId}`),
+    url: absoluteUrl(detailHref("/pop-up-cities", realId, p.name)),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
     image: p.imageUrl ? [p.imageUrl] : undefined,

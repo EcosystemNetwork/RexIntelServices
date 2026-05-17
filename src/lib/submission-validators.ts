@@ -99,6 +99,20 @@ export function validateIntelPayload(
       ? p.category.trim().slice(0, 60)
       : undefined;
 
+  const kind = (["tip", "original", "incident"] as const).includes(
+    p.kind as never,
+  )
+    ? (p.kind as IntelPayload["kind"])
+    : undefined;
+
+  const sourceGrade = (["primary", "secondary", "hearsay"] as const).includes(
+    p.sourceGrade as never,
+  )
+    ? (p.sourceGrade as IntelPayload["sourceGrade"])
+    : undefined;
+
+  const archiveUrl = sanitizeSingleUrl(p.archiveUrl);
+
   return {
     ok: true,
     payload: {
@@ -109,6 +123,9 @@ export function validateIntelPayload(
       severity,
       category,
       anonymous: p.anonymous === true,
+      kind,
+      sourceGrade,
+      archiveUrl,
     },
   };
 }
@@ -142,6 +159,17 @@ export function validateEventPayload(
   ] as const;
   const validPriceTiers = ["free", "paid", "invite"] as const;
 
+  const prizeUsdRaw =
+    typeof p.prizeUsd === "number"
+      ? p.prizeUsd
+      : typeof p.prizeUsd === "string" && p.prizeUsd.trim()
+        ? Number(p.prizeUsd.replace(/[,_$\s]/g, ""))
+        : NaN;
+  const prizeUsd =
+    Number.isFinite(prizeUsdRaw) && prizeUsdRaw >= 0
+      ? Math.min(Math.round(prizeUsdRaw), 1_000_000_000)
+      : undefined;
+
   return {
     ok: true,
     payload: {
@@ -159,6 +187,7 @@ export function validateEventPayload(
       priceTier: validPriceTiers.includes(p.priceTier as never)
         ? (p.priceTier as EventPayload["priceTier"])
         : undefined,
+      prizeUsd,
       imageUrl: sanitizeSingleUrl(p.imageUrl),
     },
   };
