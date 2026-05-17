@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
-import { db, submissions, addresses, intelAddresses, intelVotes } from "@/lib/db";
+import { db, submissions, addresses, intelAddresses, intelVotes, submitters } from "@/lib/db";
 import type { IntelPayload, AddressRole } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
@@ -27,6 +27,7 @@ type LoadedIntel = {
   id: string;
   payload: IntelPayload;
   submitterHandle: string | null;
+  submitterSlug: string | null;
   publishedAt: Date | null;
   addresses: LinkedAddress[];
   voteCount: number;
@@ -39,9 +40,11 @@ const loadIntel = cache(
         id: submissions.id,
         payload: submissions.payload,
         submitterHandle: submissions.submitterHandle,
+        submitterSlug: submitters.slug,
         publishedAt: submissions.publishedAt,
       })
       .from(submissions)
+      .leftJoin(submitters, eq(submitters.id, submissions.submitterId))
       .where(
         and(
           eq(submissions.publicId, publicId),
@@ -73,6 +76,7 @@ const loadIntel = cache(
       id: row.id,
       payload: row.payload as IntelPayload,
       submitterHandle: row.submitterHandle,
+      submitterSlug: row.submitterSlug,
       publishedAt: row.publishedAt,
       addresses: addrRows,
       voteCount: voteRow?.count ?? 0,
@@ -446,9 +450,18 @@ export default async function IntelDetailPage({
               style={{ color: "var(--rex-text-dim)" }}
             >
               Source:{" "}
-              <span className="text-[var(--rex-text-muted)]">
-                {sourceLabel}
-              </span>
+              {row.submitterSlug && !payload.anonymous ? (
+                <Link
+                  href={`/contributors/${row.submitterSlug}`}
+                  className="text-[var(--rex-accent)] hover:underline"
+                >
+                  {sourceLabel}
+                </Link>
+              ) : (
+                <span className="text-[var(--rex-text-muted)]">
+                  {sourceLabel}
+                </span>
+              )}
             </span>
             <Link
               href="/submit"

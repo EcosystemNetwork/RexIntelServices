@@ -260,6 +260,7 @@ export async function POST(req: NextRequest) {
       payload: validation.payload,
       submitterEmail,
       submitterHandle,
+      submitterId,
       ipAddress: ip === "unknown" ? null : ip,
       userAgent: req.headers.get("user-agent")?.slice(0, 500) || null,
       honeypotTripped,

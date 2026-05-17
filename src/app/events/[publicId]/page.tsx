@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
-import { db, submissions } from "@/lib/db";
+import { db, submissions, submitters } from "@/lib/db";
 import type { EventPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
@@ -18,9 +18,11 @@ const loadEvent = cache(async (publicId: string) => {
     .select({
       payload: submissions.payload,
       submitterHandle: submissions.submitterHandle,
+      submitterSlug: submitters.slug,
       publishedAt: submissions.publishedAt,
     })
     .from(submissions)
+    .leftJoin(submitters, eq(submitters.id, submissions.submitterId))
     .where(
       and(
         eq(submissions.publicId, publicId),
@@ -266,7 +268,17 @@ export default async function EventDetailPage({
             className="text-[11px] font-mono mt-4 text-center"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            Submitted by @{row.submitterHandle}
+            Submitted by{" "}
+            {row.submitterSlug ? (
+              <Link
+                href={`/contributors/${row.submitterSlug}`}
+                className="text-[var(--rex-accent)] hover:underline"
+              >
+                @{row.submitterHandle}
+              </Link>
+            ) : (
+              <>@{row.submitterHandle}</>
+            )}
           </p>
         )}
       </main>
