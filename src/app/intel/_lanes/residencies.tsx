@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { ResidencyPayload } from "@/lib/db/schema";
 import { detailHref } from "@/lib/slug";
@@ -15,10 +15,19 @@ import {
   PasteHint,
   formatRange,
   todayBucket,
+  parseSector,
+  sectorClause,
+  closingSoonClause,
+  type Sector,
 } from "./_shared";
 
 const getResidenciesRows = unstable_cache(
-  async (showPast: boolean, _bucket: string) => {
+  async (
+    showPast: boolean,
+    sector: Sector | null,
+    soon: boolean,
+    _bucket: string,
+  ) => {
     const now = new Date();
     const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const baseFilter = and(
@@ -30,6 +39,10 @@ const getResidenciesRows = unstable_cache(
     // accepting. Treat NULL effectiveEnd as upcoming, never past.
     const upcomingWindow = sql`(${effectiveEnd} IS NULL OR ${effectiveEnd} >= ${now})`;
     const pastWindow = sql`${effectiveEnd} IS NOT NULL AND ${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+    const narrowing = and(
+      sectorClause(sector, ["focus", "description", "name", "city", "country"]),
+      closingSoonClause(soon, "applicationDeadline"),
+    );
     return Promise.all([
       db
         .select({
@@ -41,10 +54,7 @@ const getResidenciesRows = unstable_cache(
         })
         .from(submissions)
         .where(
-          and(
-            baseFilter,
-            showPast ? pastWindow : upcomingWindow,
-          ),
+          and(baseFilter, showPast ? pastWindow : upcomingWindow, narrowing),
         )
         .orderBy(
           ...(showPast
@@ -55,6 +65,9 @@ const getResidenciesRows = unstable_cache(
               ]),
         )
         .limit(100),
+      // Tab counts: ignore sector/soon narrowing so the upcoming/past totals
+      // don't shrink as the user filters. Matches the convention used by the
+      // events + hackathons boards.
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
@@ -65,19 +78,44 @@ const getResidenciesRows = unstable_cache(
         .where(and(baseFilter, pastWindow)),
     ]);
   },
-  ["intel-lane-residencies-v1"],
+  ["intel-lane-residencies-v2"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function ResidenciesLane({ view }: { view?: string }) {
+export async function ResidenciesLane({
+  view,
+  sector: sectorParam,
+  soon,
+}: {
+  view?: string;
+  sector?: string;
+  soon?: string;
+}) {
   const showPast = view === "past";
+  const sector = parseSector(sectorParam);
+  const isSoon = soon === "1";
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] =
-    await getResidenciesRows(showPast, todayBucket());
+    await getResidenciesRows(showPast, sector, isSoon, todayBucket());
 
   const visible = visibleRows.map((r) => ({
     ...r,
     payload: r.payload as ResidencyPayload,
   }));
+
+  const href = (next: {
+    view?: "upcoming" | "past";
+    sector?: Sector | null;
+    soon?: boolean;
+  }) => {
+    const params = new URLSearchParams({ lane: "residencies" });
+    const nv = next.view ?? (showPast ? "past" : "upcoming");
+    const nsec = next.sector !== undefined ? next.sector : sector;
+    const ns = next.soon !== undefined ? next.soon : isSoon;
+    if (nv === "past") params.set("view", "past");
+    if (nsec) params.set("sector", nsec);
+    if (ns) params.set("soon", "1");
+    return `/intel?${params.toString()}`;
+  };
 
   return (
     <>
@@ -92,20 +130,43 @@ export async function ResidenciesLane({ view }: { view?: string }) {
         — programs from join-thebridge.com, lu.ma residencies, and similar trusted hosts publish instantly.
       </PasteHint>
 
-      <div className="flex gap-2 mb-6">
-        <Chip href="/intel?lane=residencies" active={!showPast}>
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          SECTOR ▸
+        </span>
+        <Chip href={href({ sector: null })} active={!sector}>
+          All
+        </Chip>
+        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+          Web3
+        </Chip>
+        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+          AI & Robotics
+        </Chip>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-6 text-xs font-mono">
+        <Chip href={href({ view: "upcoming" })} active={!showPast}>
           Upcoming · {upcomingCount}
         </Chip>
-        <Chip href="/intel?lane=residencies&view=past" active={showPast}>
+        <Chip href={href({ view: "past" })} active={showPast}>
           Past · {pastCount}
         </Chip>
+        {!showPast && (
+          <Chip href={href({ soon: !isSoon })} active={isSoon}>
+            Closing ≤14d
+          </Chip>
+        )}
       </div>
 
       {visible.length === 0 ? (
         <EmptyState>
           {showPast
             ? "No residencies wrapped in the last 30 days."
-            : "No upcoming residencies on file. Know one we should add?"}
+            : "No residencies match this filter. Know one we should add?"}
         </EmptyState>
       ) : (
         <div className="space-y-2">

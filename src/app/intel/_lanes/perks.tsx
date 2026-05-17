@@ -15,6 +15,7 @@ import {
   FeaturedTag,
   PasteHint,
   isDeadlinePassed,
+  closingSoonClause,
 } from "./_shared";
 
 type PerksFilter =
@@ -23,7 +24,7 @@ type PerksFilter =
   | { kind: "none" };
 
 const getPerksRows = unstable_cache(
-  async (f: PerksFilter) => {
+  async (f: PerksFilter, soon: boolean) => {
     const filterClause =
       f.kind === "ecosystem" && f.ecosystem === "solana"
         ? sql`LOWER(${submissions.payload}->>'ecosystem') LIKE '%solana%'`
@@ -48,6 +49,7 @@ const getPerksRows = unstable_cache(
           eq(submissions.type, "perks"),
           eq(submissions.status, "approved"),
           filterClause,
+          closingSoonClause(soon, "deadline"),
         ),
       )
       .orderBy(
@@ -57,25 +59,55 @@ const getPerksRows = unstable_cache(
       )
       .limit(200);
   },
-  ["intel-lane-perks-v3"],
+  ["intel-lane-perks-v4"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function PerksLane({ filter }: { filter?: string }) {
-  // Single-slot filter param. Ecosystem narrows for chain-specific builders;
-  // "free" narrows to zero-friction entries (free tiers, open APIs, free
-  // courses) that don't require an application. The two are mutually
-  // exclusive on purpose — almost all "free stuff" is chain-agnostic.
+export async function PerksLane({
+  filter,
+  soon,
+}: {
+  filter?: string;
+  soon?: string;
+}) {
+  // `filter` is the single-slot ecosystem/tier slot (mutually exclusive — most
+  // "free stuff" is chain-agnostic). `soon` is an independent flag that ANDs
+  // with whichever slot is active.
   const active: PerksFilter =
     filter === "solana" || filter === "ethereum" || filter === "any"
       ? { kind: "ecosystem", ecosystem: filter }
       : filter === "free"
         ? { kind: "tier", tier: "free" }
         : { kind: "none" };
+  const isSoon = soon === "1";
 
-  const rows = await getPerksRows(active);
+  const rows = await getPerksRows(active, isSoon);
 
   const visible = rows.map((r) => ({ ...r, payload: r.payload as PerksPayload }));
+
+  const href = (
+    next:
+      | { kind: "ecosystem"; eco: "solana" | "ethereum" | "any" | null }
+      | { kind: "tier"; tier: "free" | null }
+      | { kind: "soon"; soon: boolean }
+      | { kind: "reset" },
+  ) => {
+    const params = new URLSearchParams({ lane: "perks" });
+    let nextFilter: string | null = null;
+    if (active.kind === "ecosystem") nextFilter = active.ecosystem;
+    else if (active.kind === "tier") nextFilter = active.tier;
+    let nextSoon = isSoon;
+    if (next.kind === "ecosystem") nextFilter = next.eco;
+    if (next.kind === "tier") nextFilter = next.tier;
+    if (next.kind === "soon") nextSoon = next.soon;
+    if (next.kind === "reset") {
+      nextFilter = null;
+      nextSoon = false;
+    }
+    if (nextFilter) params.set("filter", nextFilter);
+    if (nextSoon) params.set("soon", "1");
+    return `/intel?${params.toString()}`;
+  };
 
   return (
     <>
@@ -97,17 +129,20 @@ export async function PerksLane({ filter }: { filter?: string }) {
         >
           ECOSYSTEM ▸
         </span>
-        <Chip href="/intel?lane=perks" active={active.kind === "none"}>
+        <Chip
+          href={href({ kind: "ecosystem", eco: null })}
+          active={active.kind !== "ecosystem"}
+        >
           All
         </Chip>
         <Chip
-          href="/intel?lane=perks&filter=solana"
+          href={href({ kind: "ecosystem", eco: "solana" })}
           active={active.kind === "ecosystem" && active.ecosystem === "solana"}
         >
           Solana
         </Chip>
         <Chip
-          href="/intel?lane=perks&filter=ethereum"
+          href={href({ kind: "ecosystem", eco: "ethereum" })}
           active={
             active.kind === "ecosystem" && active.ecosystem === "ethereum"
           }
@@ -115,7 +150,7 @@ export async function PerksLane({ filter }: { filter?: string }) {
           Ethereum / EVM
         </Chip>
         <Chip
-          href="/intel?lane=perks&filter=any"
+          href={href({ kind: "ecosystem", eco: "any" })}
           active={active.kind === "ecosystem" && active.ecosystem === "any"}
         >
           Any / Multi-chain
@@ -130,15 +165,21 @@ export async function PerksLane({ filter }: { filter?: string }) {
           TIER ▸
         </span>
         <Chip
-          href="/intel?lane=perks&filter=free"
+          href={href({ kind: "tier", tier: "free" })}
           active={active.kind === "tier" && active.tier === "free"}
         >
           Free stuff (no application)
         </Chip>
+        <Chip
+          href={href({ kind: "soon", soon: !isSoon })}
+          active={isSoon}
+        >
+          Closing ≤14d
+        </Chip>
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState>No perks on file for this filter yet.</EmptyState>
+        <EmptyState>No perks match this filter yet.</EmptyState>
       ) : (
         <div className="space-y-2">
           {visible.map((p) => (

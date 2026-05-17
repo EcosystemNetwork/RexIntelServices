@@ -197,6 +197,8 @@ export default async function IntelHubPage({
     category?: string;
     filter?: string;
     view?: string;
+    sector?: string;
+    soon?: string;
   };
 }) {
   const lane = laneFrom(searchParams.lane);
@@ -248,18 +250,49 @@ export default async function IntelHubPage({
           />
         )}
         {lane === "accelerators" && (
-          <AcceleratorsLane filter={searchParams.filter} />
+          <AcceleratorsLane
+            filter={searchParams.filter}
+            sector={searchParams.sector}
+            soon={searchParams.soon}
+          />
         )}
         {lane === "fellowships" && (
-          <FellowshipsLane filter={searchParams.filter} />
+          <FellowshipsLane
+            filter={searchParams.filter}
+            sector={searchParams.sector}
+            soon={searchParams.soon}
+          />
         )}
-        {lane === "grants" && <GrantsLane filter={searchParams.filter} />}
-        {lane === "capital" && <CapitalLane filter={searchParams.filter} />}
+        {lane === "grants" && (
+          <GrantsLane
+            filter={searchParams.filter}
+            sector={searchParams.sector}
+            soon={searchParams.soon}
+          />
+        )}
+        {lane === "capital" && (
+          <CapitalLane
+            filter={searchParams.filter}
+            sector={searchParams.sector}
+          />
+        )}
         {lane === "residencies" && (
-          <ResidenciesLane view={searchParams.view} />
+          <ResidenciesLane
+            view={searchParams.view}
+            sector={searchParams.sector}
+            soon={searchParams.soon}
+          />
         )}
-        {lane === "perks" && <PerksLane filter={searchParams.filter} />}
-        {lane === "cities" && <CitiesLane view={searchParams.view} />}
+        {lane === "perks" && (
+          <PerksLane filter={searchParams.filter} soon={searchParams.soon} />
+        )}
+        {lane === "cities" && (
+          <CitiesLane
+            view={searchParams.view}
+            sector={searchParams.sector}
+            soon={searchParams.soon}
+          />
+        )}
       </main>
     </PublicShell>
   );

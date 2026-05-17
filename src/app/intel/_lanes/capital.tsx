@@ -6,11 +6,22 @@ import type { CapitalPayload } from "@/lib/db/schema";
 import { detailHref } from "@/lib/slug";
 import { logoUrlFor } from "@/lib/logo";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
-import { Chip, EmptyState, OrgLogo, FeaturedTag, PasteHint } from "./_shared";
+import {
+  Chip,
+  EmptyState,
+  OrgLogo,
+  FeaturedTag,
+  PasteHint,
+  parseSector,
+  sectorClause,
+  type Sector,
+} from "./_shared";
+
+type Stage = "pre-seed" | "seed" | null;
 
 const getCapitalRows = unstable_cache(
-  async (stage: "pre-seed" | "seed" | null) => {
-    const filterClause =
+  async (stage: Stage, sector: Sector | null) => {
+    const stageClause =
       stage === "pre-seed"
         ? sql`LOWER(${submissions.payload}->>'stage') LIKE '%pre-seed%'`
         : stage === "seed"
@@ -29,30 +40,42 @@ const getCapitalRows = unstable_cache(
         and(
           eq(submissions.type, "capital"),
           eq(submissions.status, "approved"),
-          filterClause,
+          stageClause,
+          sectorClause(sector, ["focus", "description", "name"]),
         ),
       )
       .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
       .limit(200);
   },
-  ["intel-lane-capital-v1"],
+  ["intel-lane-capital-v2"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function CapitalLane({ filter }: { filter?: string }) {
-  // Stage filter narrows the list — most readers shopping for first-check
-  // capital are at one specific stage at a time, so this is the highest-value
-  // pivot.
-  const stage =
-    filter === "pre-seed"
-      ? "pre-seed"
-      : filter === "seed"
-        ? "seed"
-        : null;
+export async function CapitalLane({
+  filter,
+  sector: sectorParam,
+}: {
+  filter?: string;
+  sector?: string;
+}) {
+  // Stage narrows by check round; sector narrows by thesis. Most founders are
+  // shopping one stage AND one sector at a time, so both are first-class.
+  const stage: Stage =
+    filter === "pre-seed" ? "pre-seed" : filter === "seed" ? "seed" : null;
+  const sector = parseSector(sectorParam);
 
-  const rows = await getCapitalRows(stage);
+  const rows = await getCapitalRows(stage, sector);
 
   const visible = rows.map((r) => ({ ...r, payload: r.payload as CapitalPayload }));
+
+  const href = (next: { stage?: Stage; sector?: Sector | null }) => {
+    const params = new URLSearchParams({ lane: "capital" });
+    const ns = next.stage !== undefined ? next.stage : stage;
+    const nsec = next.sector !== undefined ? next.sector : sector;
+    if (ns) params.set("filter", ns);
+    if (nsec) params.set("sector", nsec);
+    return `/intel?${params.toString()}`;
+  };
 
   return (
     <>
@@ -67,6 +90,24 @@ export async function CapitalLane({ filter }: { filter?: string }) {
         — we curate this lane manually so the bar stays high. No application form, no fees.
       </PasteHint>
 
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          SECTOR ▸
+        </span>
+        <Chip href={href({ sector: null })} active={!sector}>
+          All
+        </Chip>
+        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+          Web3
+        </Chip>
+        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+          AI & Robotics
+        </Chip>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
         <span
           className="uppercase tracking-widest"
@@ -74,22 +115,19 @@ export async function CapitalLane({ filter }: { filter?: string }) {
         >
           STAGE ▸
         </span>
-        <Chip href="/intel?lane=capital" active={!stage}>
+        <Chip href={href({ stage: null })} active={!stage}>
           All
         </Chip>
-        <Chip
-          href="/intel?lane=capital&filter=pre-seed"
-          active={stage === "pre-seed"}
-        >
+        <Chip href={href({ stage: "pre-seed" })} active={stage === "pre-seed"}>
           Pre-seed
         </Chip>
-        <Chip href="/intel?lane=capital&filter=seed" active={stage === "seed"}>
+        <Chip href={href({ stage: "seed" })} active={stage === "seed"}>
           Seed
         </Chip>
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState>No funds on file for this filter yet.</EmptyState>
+        <EmptyState>No funds match this filter yet.</EmptyState>
       ) : (
         <div className="space-y-2">
           {visible.map((c) => (

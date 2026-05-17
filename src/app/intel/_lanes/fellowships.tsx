@@ -15,16 +15,24 @@ import {
   FeaturedTag,
   PasteHint,
   isDeadlinePassed,
+  parseSector,
+  sectorClause,
+  closingSoonClause,
+  type Sector,
 } from "./_shared";
 
+type Intake = "rolling" | "scheduled" | "soon" | null;
+
 const getFellowshipsRows = unstable_cache(
-  async (intake: "rolling" | "scheduled" | null) => {
-    const filterClause =
+  async (intake: Intake, sector: Sector | null) => {
+    const intakeClause =
       intake === "rolling"
         ? sql`(${submissions.payload}->>'rolling')::boolean = true`
         : intake === "scheduled"
           ? sql`${submissions.payload}->>'nextDeadline' IS NOT NULL`
-          : sql`true`;
+          : intake === "soon"
+            ? closingSoonClause(true, "nextDeadline")
+            : sql`true`;
     return db
       .select({
         id: submissions.id,
@@ -38,7 +46,8 @@ const getFellowshipsRows = unstable_cache(
         and(
           eq(submissions.type, "fellowship"),
           eq(submissions.status, "approved"),
-          filterClause,
+          intakeClause,
+          sectorClause(sector, ["focus", "description", "name", "eligibility"]),
         ),
       )
       .orderBy(
@@ -48,20 +57,45 @@ const getFellowshipsRows = unstable_cache(
       )
       .limit(200);
   },
-  ["intel-lane-fellowships-v1"],
+  ["intel-lane-fellowships-v2"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function FellowshipsLane({ filter }: { filter?: string }) {
-  const intake =
-    filter === "rolling" ? "rolling" : filter === "scheduled" ? "scheduled" : null;
+export async function FellowshipsLane({
+  filter,
+  sector: sectorParam,
+  soon,
+}: {
+  filter?: string;
+  sector?: string;
+  soon?: string;
+}) {
+  const intake: Intake =
+    soon === "1"
+      ? "soon"
+      : filter === "rolling"
+        ? "rolling"
+        : filter === "scheduled"
+          ? "scheduled"
+          : null;
+  const sector = parseSector(sectorParam);
 
-  const rows = await getFellowshipsRows(intake);
+  const rows = await getFellowshipsRows(intake, sector);
 
   const visible = rows.map((r) => ({
     ...r,
     payload: r.payload as FellowshipPayload,
   }));
+
+  const href = (next: { intake?: Intake; sector?: Sector | null }) => {
+    const params = new URLSearchParams({ lane: "fellowships" });
+    const ni = next.intake !== undefined ? next.intake : intake;
+    const ns = next.sector !== undefined ? next.sector : sector;
+    if (ni === "soon") params.set("soon", "1");
+    else if (ni) params.set("filter", ni);
+    if (ns) params.set("sector", ns);
+    return `/intel?${params.toString()}`;
+  };
 
   return (
     <>
@@ -76,6 +110,24 @@ export async function FellowshipsLane({ filter }: { filter?: string }) {
         — programs from Thiel, Schmidt Sciences, Ethereum Foundation and similar trusted hosts publish instantly.
       </PasteHint>
 
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          SECTOR ▸
+        </span>
+        <Chip href={href({ sector: null })} active={!sector}>
+          All
+        </Chip>
+        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+          Web3
+        </Chip>
+        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+          AI & Robotics
+        </Chip>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
         <span
           className="uppercase tracking-widest"
@@ -83,25 +135,25 @@ export async function FellowshipsLane({ filter }: { filter?: string }) {
         >
           INTAKE ▸
         </span>
-        <Chip href="/intel?lane=fellowships" active={!intake}>
+        <Chip href={href({ intake: null })} active={!intake}>
           All
         </Chip>
-        <Chip
-          href="/intel?lane=fellowships&filter=rolling"
-          active={intake === "rolling"}
-        >
+        <Chip href={href({ intake: "rolling" })} active={intake === "rolling"}>
           Rolling
         </Chip>
         <Chip
-          href="/intel?lane=fellowships&filter=scheduled"
+          href={href({ intake: "scheduled" })}
           active={intake === "scheduled"}
         >
           Scheduled cohort
         </Chip>
+        <Chip href={href({ intake: "soon" })} active={intake === "soon"}>
+          Closing ≤14d
+        </Chip>
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState>No fellowship programs on file yet.</EmptyState>
+        <EmptyState>No fellowship programs match this filter yet.</EmptyState>
       ) : (
         <div className="space-y-2">
           {visible.map((f) => (

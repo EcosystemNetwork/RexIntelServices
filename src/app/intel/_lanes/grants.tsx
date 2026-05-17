@@ -15,16 +15,24 @@ import {
   FeaturedTag,
   PasteHint,
   isDeadlinePassed,
+  parseSector,
+  sectorClause,
+  closingSoonClause,
+  type Sector,
 } from "./_shared";
 
+type Intake = "rolling" | "deadline" | "soon" | null;
+
 const getGrantsRows = unstable_cache(
-  async (intake: "rolling" | "deadline" | null) => {
-    const filterClause =
+  async (intake: Intake, sector: Sector | null) => {
+    const intakeClause =
       intake === "rolling"
         ? sql`(${submissions.payload}->>'rolling')::boolean = true`
         : intake === "deadline"
           ? sql`${submissions.payload}->>'deadline' IS NOT NULL`
-          : sql`true`;
+          : intake === "soon"
+            ? closingSoonClause(true, "deadline")
+            : sql`true`;
     return db
       .select({
         id: submissions.id,
@@ -38,7 +46,8 @@ const getGrantsRows = unstable_cache(
         and(
           eq(submissions.type, "grant"),
           eq(submissions.status, "approved"),
-          filterClause,
+          intakeClause,
+          sectorClause(sector, ["focus", "description", "name"]),
         ),
       )
       // Push expired-deadline rows to the bottom so the lane stays useful even
@@ -51,17 +60,42 @@ const getGrantsRows = unstable_cache(
       )
       .limit(200);
   },
-  ["intel-lane-grants-v2"],
+  ["intel-lane-grants-v3"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function GrantsLane({ filter }: { filter?: string }) {
-  const intake =
-    filter === "rolling" ? "rolling" : filter === "deadline" ? "deadline" : null;
+export async function GrantsLane({
+  filter,
+  sector: sectorParam,
+  soon,
+}: {
+  filter?: string;
+  sector?: string;
+  soon?: string;
+}) {
+  const intake: Intake =
+    soon === "1"
+      ? "soon"
+      : filter === "rolling"
+        ? "rolling"
+        : filter === "deadline"
+          ? "deadline"
+          : null;
+  const sector = parseSector(sectorParam);
 
-  const rows = await getGrantsRows(intake);
+  const rows = await getGrantsRows(intake, sector);
 
   const visible = rows.map((r) => ({ ...r, payload: r.payload as GrantPayload }));
+
+  const href = (next: { intake?: Intake; sector?: Sector | null }) => {
+    const params = new URLSearchParams({ lane: "grants" });
+    const ni = next.intake !== undefined ? next.intake : intake;
+    const ns = next.sector !== undefined ? next.sector : sector;
+    if (ni === "soon") params.set("soon", "1");
+    else if (ni) params.set("filter", ni);
+    if (ns) params.set("sector", ns);
+    return `/intel?${params.toString()}`;
+  };
 
   return (
     <>
@@ -76,6 +110,24 @@ export async function GrantsLane({ filter }: { filter?: string }) {
         — programs from ethereum.org, optimism.io, gitcoin.co and similar trusted hosts publish instantly.
       </PasteHint>
 
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          SECTOR ▸
+        </span>
+        <Chip href={href({ sector: null })} active={!sector}>
+          All
+        </Chip>
+        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+          Web3
+        </Chip>
+        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+          AI & Robotics
+        </Chip>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
         <span
           className="uppercase tracking-widest"
@@ -83,25 +135,25 @@ export async function GrantsLane({ filter }: { filter?: string }) {
         >
           INTAKE ▸
         </span>
-        <Chip href="/intel?lane=grants" active={!intake}>
+        <Chip href={href({ intake: null })} active={!intake}>
           All
         </Chip>
-        <Chip
-          href="/intel?lane=grants&filter=rolling"
-          active={intake === "rolling"}
-        >
+        <Chip href={href({ intake: "rolling" })} active={intake === "rolling"}>
           Rolling
         </Chip>
         <Chip
-          href="/intel?lane=grants&filter=deadline"
+          href={href({ intake: "deadline" })}
           active={intake === "deadline"}
         >
           With deadline
         </Chip>
+        <Chip href={href({ intake: "soon" })} active={intake === "soon"}>
+          Closing ≤14d
+        </Chip>
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState>No grant programs on file yet.</EmptyState>
+        <EmptyState>No grant programs match this filter yet.</EmptyState>
       ) : (
         <div className="space-y-2">
           {visible.map((g) => (

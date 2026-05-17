@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { sql, type SQL } from "drizzle-orm";
+import { submissions } from "@/lib/db";
 
 /**
  * Shared lane-UI primitives: chips, empty states, the org logo box, the
@@ -6,6 +8,57 @@ import Link from "next/link";
  * Lives under _lanes so each lane component can import a small surface
  * instead of reaching into page.tsx.
  */
+
+export type Sector = "web3" | "ai";
+
+export function parseSector(v: string | undefined): Sector | null {
+  return v === "web3" || v === "ai" ? v : null;
+}
+
+// Token-bounded sector regexes — Postgres POSIX `\y` is a word boundary, so
+// "ai" matches in "AI / agents" but not in "obtained". Keep these lists in
+// sync with the lane subtitle copy and the seeded examples; widening these
+// re-buckets historical rows on the next read, so prefer additive edits.
+const SECTOR_RE: Record<Sector, string> = {
+  ai: String.raw`\y(ai|a\.i\.|llm|llms|ml|robot|robots|robotics|robotic|agentic|agents?|machine learning|generative|alignment|foundation model|embodied|deep learning|computer vision|nlp|gpu|frontier model|frontier models)\y`,
+  web3: String.raw`\y(web3|crypto|blockchain|ethereum|solana|defi|nft|nfts|dao|daos|zk|zero[- ]knowledge|evm|bitcoin|onchain|rollup|rollups|l1|l2|stablecoin|stablecoins|mev|wallet|wallets|smart contracts?|tokeni[sz]ed?|tokeni[sz]ation)\y`,
+};
+
+/**
+ * Build a sector-filter SQL clause that matches the regex against any of
+ * the named payload fields plus the tags array. Tags are stored as a JSONB
+ * array — casting `payload->>'tags'` returns the JSON-encoded string
+ * (e.g. `["AI","robotics"]`), which works fine for keyword regex matching
+ * because the values are still in the text. Returns `true` when sector is
+ * null so callers can chain it unconditionally.
+ */
+export function sectorClause(sector: Sector | null, fields: string[]): SQL {
+  if (!sector) return sql`true`;
+  const re = SECTOR_RE[sector];
+  const parts = [...fields, "tags"].map(
+    (f) => sql`COALESCE(${submissions.payload}->>${f}, '') ~* ${re}`,
+  );
+  return sql`(${sql.join(parts, sql` OR `)})`;
+}
+
+/**
+ * "Closing soon" — deadline field is within the next `days` window AND not
+ * already past. `field` is the JSONB key holding the ISO deadline (e.g.
+ * "deadline", "nextDeadline", "applicationDeadline"). Returns `true` when
+ * not active so it composes cleanly with other clauses.
+ */
+export function closingSoonClause(
+  active: boolean,
+  field: string,
+  days = 14,
+): SQL {
+  if (!active) return sql`true`;
+  // `days` is internally controlled (never user input), so raw interpolation
+  // into the interval literal is safe and avoids the `numeric || text`
+  // coercion dance.
+  const interval = sql.raw(`interval '${Math.max(1, Math.floor(days))} days'`);
+  return sql`(${submissions.payload}->>${field}) IS NOT NULL AND (${submissions.payload}->>${field})::timestamptz BETWEEN now() AND now() + ${interval}`;
+}
 
 export function Chip({
   href,

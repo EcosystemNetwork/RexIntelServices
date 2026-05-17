@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { PopupCityPayload } from "@/lib/db/schema";
 import { detailHref } from "@/lib/slug";
@@ -15,10 +15,19 @@ import {
   PasteHint,
   formatRange,
   todayBucket,
+  parseSector,
+  sectorClause,
+  closingSoonClause,
+  type Sector,
 } from "./_shared";
 
 const getCitiesRows = unstable_cache(
-  async (showPast: boolean, _bucket: string) => {
+  async (
+    showPast: boolean,
+    sector: Sector | null,
+    soon: boolean,
+    _bucket: string,
+  ) => {
     const now = new Date();
     const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const baseFilter = and(
@@ -31,6 +40,10 @@ const getCitiesRows = unstable_cache(
     // upcoming, never past.
     const upcomingWindow = sql`(${effectiveEnd} IS NULL OR ${effectiveEnd} >= ${now})`;
     const pastWindow = sql`${effectiveEnd} IS NOT NULL AND ${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+    const narrowing = and(
+      sectorClause(sector, ["focus", "description", "name", "city", "country"]),
+      closingSoonClause(soon, "applicationDeadline"),
+    );
     return Promise.all([
       db
         .select({
@@ -42,10 +55,7 @@ const getCitiesRows = unstable_cache(
         })
         .from(submissions)
         .where(
-          and(
-            baseFilter,
-            showPast ? pastWindow : upcomingWindow,
-          ),
+          and(baseFilter, showPast ? pastWindow : upcomingWindow, narrowing),
         )
         .orderBy(
           ...(showPast
@@ -56,6 +66,8 @@ const getCitiesRows = unstable_cache(
               ]),
         )
         .limit(100),
+      // Tab counts ignore sector/soon — total upcoming/past stays stable as
+      // the user narrows.
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
@@ -66,22 +78,47 @@ const getCitiesRows = unstable_cache(
         .where(and(baseFilter, pastWindow)),
     ]);
   },
-  ["intel-lane-cities-v1"],
+  ["intel-lane-cities-v2"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function CitiesLane({ view }: { view?: string }) {
+export async function CitiesLane({
+  view,
+  sector: sectorParam,
+  soon,
+}: {
+  view?: string;
+  sector?: string;
+  soon?: string;
+}) {
   const showPast = view === "past";
+  const sector = parseSector(sectorParam);
+  const isSoon = soon === "1";
   // Past is recent-past only — keeps the tab from turning into a graveyard.
   // Bucket on effective end (COALESCE of endsAt + startsAt) so a residency
   // that opened weeks ago but runs through next month is still current.
   const [visibleRows, [{ upcomingCount }], [{ pastCount }]] =
-    await getCitiesRows(showPast, todayBucket());
+    await getCitiesRows(showPast, sector, isSoon, todayBucket());
 
   const visible = visibleRows.map((r) => ({
     ...r,
     payload: r.payload as PopupCityPayload,
   }));
+
+  const href = (next: {
+    view?: "upcoming" | "past";
+    sector?: Sector | null;
+    soon?: boolean;
+  }) => {
+    const params = new URLSearchParams({ lane: "cities" });
+    const nv = next.view ?? (showPast ? "past" : "upcoming");
+    const nsec = next.sector !== undefined ? next.sector : sector;
+    const ns = next.soon !== undefined ? next.soon : isSoon;
+    if (nv === "past") params.set("view", "past");
+    if (nsec) params.set("sector", nsec);
+    if (ns) params.set("soon", "1");
+    return `/intel?${params.toString()}`;
+  };
 
   return (
     <>
@@ -96,20 +133,43 @@ export async function CitiesLane({ view }: { view?: string }) {
         — events on lu.ma, edgecity.live, zuzalu.city publish instantly.
       </PasteHint>
 
-      <div className="flex gap-2 mb-6">
-        <Chip href="/intel?lane=cities" active={!showPast}>
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          SECTOR ▸
+        </span>
+        <Chip href={href({ sector: null })} active={!sector}>
+          All
+        </Chip>
+        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+          Web3
+        </Chip>
+        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+          AI & Robotics
+        </Chip>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-6 text-xs font-mono">
+        <Chip href={href({ view: "upcoming" })} active={!showPast}>
           Upcoming · {upcomingCount}
         </Chip>
-        <Chip href="/intel?lane=cities&view=past" active={showPast}>
+        <Chip href={href({ view: "past" })} active={showPast}>
           Past · {pastCount}
         </Chip>
+        {!showPast && (
+          <Chip href={href({ soon: !isSoon })} active={isSoon}>
+            Closing ≤14d
+          </Chip>
+        )}
       </div>
 
       {visible.length === 0 ? (
         <EmptyState>
           {showPast
             ? "No pop-up cities wrapped in the last 30 days."
-            : "No upcoming pop-up cities on file. Know one we should add?"}
+            : "No pop-up cities match this filter. Know one we should add?"}
         </EmptyState>
       ) : (
         <div className="space-y-2">
