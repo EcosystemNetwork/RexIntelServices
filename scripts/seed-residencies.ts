@@ -206,11 +206,102 @@ const residencies: ResidencyPayload[] = [
     focus: "Deep tech, AI, biotech, hardware — Berkeley + global",
     tags: ["skydeck", "berkeley", "deep-tech", "ai", "biotech"],
   },
+
+  // === AI / robotics rolling residencies (added 2026-05-17; no fixed dates) ===
+  {
+    name: "AGI House Fellowship",
+    organization: "AGI House",
+    organizationUrl: "https://agihouse.org/",
+    description:
+      "Merit-based AI founder + researcher residency at AGI House Hillsborough, CA. Founded by Jeremy Nixon and Andrej Karpathy. Hosts founder events, invests in early-stage AI builders, connects residents to frontier-AI problem owners. Access is merit-based; community events are free.",
+    city: "Hillsborough",
+    country: "United States",
+    url: "https://agihouse.org/",
+    applyUrl: "https://agihouse.org/",
+    rolling: true,
+    cost: "Free / no equity (merit-based)",
+    focus: "Frontier AI founders + researchers",
+    tags: ["agi-house", "ai", "founders", "residency", "sf"],
+  },
+  {
+    name: "Founders, Inc. Residency",
+    organization: "Founders, Inc.",
+    organizationUrl: "https://f.inc/",
+    description:
+      "F.inc residency in San Francisco's Fort Mason district. Provides workspace, community, and capital (via the Founders Inc fund) for technical founders shipping early-stage products. Heavy bias toward consumer + applied-AI startups. Rolling intake — pitch via the F.inc website.",
+    city: "San Francisco",
+    country: "United States",
+    venue: "Fort Mason",
+    url: "https://f.inc/",
+    applyUrl: "https://f.inc/",
+    rolling: true,
+    cost: "No equity / no fee (selective intake)",
+    focus: "Technical founders — consumer + applied AI",
+    tags: ["founders-inc", "ai", "consumer", "sf", "fort-mason"],
+  },
+  {
+    name: "AI Safety Camp",
+    organization: "AI Safety Camp",
+    organizationUrl: "https://www.aisafety.camp/",
+    description:
+      "Volunteer-led cohort program for new and aspiring AI safety researchers. Multi-month research apprenticeship paired with experienced research leads across technical alignment, governance, and field-building tracks. Free, no equity. In-person retreats + remote collaboration.",
+    url: "https://www.aisafety.camp/",
+    applyUrl: "https://www.aisafety.camp/",
+    rolling: true,
+    cost: "Free; travel grants available",
+    focus: "AI safety, alignment, governance, field-building",
+    tags: ["aisc", "ai-safety", "alignment", "field-building", "remote"],
+  },
+  {
+    name: "0xPARC Residency",
+    organization: "0xPARC",
+    organizationUrl: "https://0xparc.org/",
+    description:
+      "Programmable Cryptography Research Center residency. Hosts ZK / applied-cryptography researchers and engineers shipping at the frontier — from circuit-level engineering to novel cryptographic protocols. Rolling cohort, project-based. Pairs residents with senior researchers from PSE, Aztec, RISC Zero alumni.",
+    url: "https://0xparc.org/",
+    applyUrl: "https://0xparc.org/",
+    rolling: true,
+    cost: "Stipend negotiated per project",
+    focus: "ZK, applied cryptography, programmable cryptography",
+    tags: ["0xparc", "zk", "cryptography", "research"],
+  },
+  {
+    name: "Recurse Center",
+    organization: "Recurse Center",
+    organizationUrl: "https://www.recurse.com/",
+    description:
+      "Self-directed educational retreat for programmers in NYC + remote. 6 or 12-week batches running year-round. No teachers, no grades — just builders shipping personal projects in a community of peers. Long-standing reputation for sending alumni into Anthropic, Stripe, ex-Google research, Khan Academy, and dozens of YC companies. Need-based grants available.",
+    city: "New York",
+    country: "United States",
+    url: "https://www.recurse.com/",
+    applyUrl: "https://www.recurse.com/apply",
+    rolling: true,
+    cohortSize: "~50 per batch (continuous overlapping batches)",
+    cost: "Free; need-based grants for living expenses",
+    focus: "Programmers self-directed — ML, systems, languages, frontend, infra",
+    tags: ["recurse", "education", "nyc", "remote", "self-directed"],
+  },
+  {
+    name: "AI Grant Residency",
+    organization: "AI Grant",
+    organizationUrl: "https://aigrant.com/",
+    description:
+      "AI Grant's in-person residency alongside the accelerator program — SF-based workspace for funded AI Grant batches and select alumni. Founders work alongside Daniel Gross, Nat Friedman, and peer AI-native founders during the program's intensive weeks. Eligibility is gated by AI Grant batch acceptance.",
+    city: "San Francisco",
+    country: "United States",
+    url: "https://aigrant.com/",
+    applyUrl: "https://aigrant.com/",
+    rolling: true,
+    cohortSize: "Funded AI Grant batch + select alumni",
+    cost: "No equity beyond AI Grant program terms",
+    focus: "Seed-stage AI founders (AI Grant batch only)",
+    tags: ["ai-grant", "ai", "sf", "frontier"],
+  },
 ];
 
 async function upsert(payload: ResidencyPayload) {
-  const eventStartsAt = new Date(payload.startsAt);
-  const eventEndsAt = new Date(payload.endsAt);
+  const eventStartsAt = payload.startsAt ? new Date(payload.startsAt) : null;
+  const eventEndsAt = payload.endsAt ? new Date(payload.endsAt) : null;
   const existing = await db
     .select({ id: submissions.id, publicId: submissions.publicId })
     .from(submissions)

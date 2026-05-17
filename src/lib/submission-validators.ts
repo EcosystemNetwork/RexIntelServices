@@ -337,12 +337,14 @@ export function validatePopupCityPayload(
   if (description.length < 20 || description.length > 5000)
     return { ok: false, error: "Description must be 20–5000 characters." };
 
-  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
-  if (!startsAt || isNaN(Date.parse(startsAt)))
-    return { ok: false, error: "Start date is required (ISO format)." };
-  const endsAt = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
-  if (!endsAt || isNaN(Date.parse(endsAt)))
-    return { ok: false, error: "End date is required (ISO format)." };
+  // Dates are optional — entries without dates render as "rolling/TBC".
+  // When present they must be valid ISO; when absent, they're undefined.
+  const startsAtRaw = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
+  const startsAt =
+    startsAtRaw && !isNaN(Date.parse(startsAtRaw)) ? startsAtRaw : undefined;
+  const endsAtRaw = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
+  const endsAt =
+    endsAtRaw && !isNaN(Date.parse(endsAtRaw)) ? endsAtRaw : undefined;
 
   const applicationDeadline =
     typeof p.applicationDeadline === "string" &&
@@ -511,12 +513,14 @@ export function validateResidencyPayload(
   if (description.length < 20 || description.length > 5000)
     return { ok: false, error: "Description must be 20–5000 characters." };
 
-  const startsAt = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
-  if (!startsAt || isNaN(Date.parse(startsAt)))
-    return { ok: false, error: "Start date is required (ISO format)." };
-  const endsAt = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
-  if (!endsAt || isNaN(Date.parse(endsAt)))
-    return { ok: false, error: "End date is required (ISO format)." };
+  // Dates are optional — entries without dates render as "rolling/TBC".
+  // When present they must be valid ISO; when absent, they're undefined.
+  const startsAtRaw = typeof p.startsAt === "string" ? p.startsAt.trim() : "";
+  const startsAt =
+    startsAtRaw && !isNaN(Date.parse(startsAtRaw)) ? startsAtRaw : undefined;
+  const endsAtRaw = typeof p.endsAt === "string" ? p.endsAt.trim() : "";
+  const endsAt =
+    endsAtRaw && !isNaN(Date.parse(endsAtRaw)) ? endsAtRaw : undefined;
 
   const applicationDeadline =
     typeof p.applicationDeadline === "string" &&

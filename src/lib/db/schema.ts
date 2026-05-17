@@ -388,9 +388,11 @@ export type PopupCityPayload = {
   organization?: string; // host org if separate from the city name
   organizationUrl?: string;
   description: string;
-  // Multi-week run — both required to make the cards/sort meaningful.
-  startsAt: string; // ISO timestamp
-  endsAt: string;   // ISO timestamp
+  // Multi-week run — optional. When omitted, the entry is treated as a
+  // "rolling" or "TBC" listing and rendered as such on the cards. Keep
+  // both set when the cohort dates are public.
+  startsAt?: string; // ISO timestamp
+  endsAt?: string;   // ISO timestamp
   city?: string;
   country?: string;
   venue?: string;
@@ -471,9 +473,12 @@ export type ResidencyPayload = {
   organization: string;
   organizationUrl?: string;
   description: string;
-  // Dates are required so the listing can bucket past vs upcoming. ISO.
-  startsAt: string;
-  endsAt: string;
+  // Optional. When set, the listing buckets the entry as past/upcoming;
+  // when omitted, the entry is rendered as rolling/TBC (typically used
+  // for programs that take applications continuously — AGI House,
+  // Founders Inc, AI Safety Camp — where no fixed cohort date applies).
+  startsAt?: string;
+  endsAt?: string;
   city?: string;
   country?: string;
   venue?: string;

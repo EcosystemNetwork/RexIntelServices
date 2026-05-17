@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { UniversalSearch } from "@/components/universal-search";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function PublicHeader({
   // When the hero animation is present it already paints the wordmark, so we
@@ -12,7 +13,10 @@ export function PublicHeader({
   return (
     <nav className="relative z-10 flex items-center justify-between gap-3 px-4 sm:px-6 md:px-12 py-5 max-w-7xl mx-auto">
       <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div className="w-9 h-9 shrink-0 rounded-sm overflow-hidden bg-white/95 ring-1 ring-[var(--rex-accent)]/40 flex items-center justify-center">
+        <div
+          className="w-9 h-9 shrink-0 rounded-sm overflow-hidden ring-1 ring-[var(--rex-accent)]/40 flex items-center justify-center"
+          style={{ background: "var(--rex-logo-chip)" }}
+        >
           <Image
             src="/rex-mascot.jpg"
             alt={brandInScene ? "Rex Intel Services" : ""}
@@ -42,6 +46,7 @@ export function PublicHeader({
         <PublicNavLink href="/submit" accent>
           Submit ▸
         </PublicNavLink>
+        <ThemeToggle />
       </div>
     </nav>
   );

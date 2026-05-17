@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PERSONA_SLUGS, PERSONA_LABELS, type PersonaSlug } from "@/lib/personas";
 
 interface Subscriber {
   id: string;
@@ -10,6 +11,7 @@ interface Subscriber {
   status: string;
   source: string | null;
   createdAt: string;
+  persona: string | null;
 }
 
 interface Tag {
@@ -32,6 +34,7 @@ export default function SubscribersPage() {
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "">("");
+  const [personaFilter, setPersonaFilter] = useState<PersonaSlug | "">("");
   const [showImport, setShowImport] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -45,8 +48,9 @@ export default function SubscribersPage() {
     sp.set("limit", "100");
     if (q) sp.set("q", q);
     if (statusFilter) sp.set("status", statusFilter);
+    if (personaFilter) sp.set("persona", personaFilter);
     return sp.toString();
-  }, [q, statusFilter]);
+  }, [q, statusFilter, personaFilter]);
 
   async function load() {
     setLoading(true);
@@ -113,7 +117,9 @@ export default function SubscribersPage() {
             className="text-sm mt-1"
             style={{ color: "var(--rex-text-muted)" }}
           >
-            {total.toLocaleString()} total{statusFilter && ` matching "${statusFilter}"`}
+            {total.toLocaleString()} total
+            {statusFilter && ` · ${statusFilter}`}
+            {personaFilter && ` · ${PERSONA_LABELS[personaFilter]}`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -160,6 +166,21 @@ export default function SubscribersPage() {
             </option>
           ))}
         </select>
+        <select
+          value={personaFilter}
+          onChange={(e) =>
+            setPersonaFilter(e.target.value as PersonaSlug | "")
+          }
+          className="rex-input max-w-[220px]"
+          aria-label="Filter by operator class"
+        >
+          <option value="">All classes</option>
+          {PERSONA_SLUGS.map((slug) => (
+            <option key={slug} value={slug}>
+              {PERSONA_LABELS[slug]}
+            </option>
+          ))}
+        </select>
       </div>
 
       {selected.size > 0 && (
@@ -189,6 +210,7 @@ export default function SubscribersPage() {
               </th>
               <th>Email</th>
               <th>Name</th>
+              <th>Class</th>
               <th>Status</th>
               <th>Source</th>
               <th>Added</th>
@@ -198,7 +220,7 @@ export default function SubscribersPage() {
             {loading && subs.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-12"
                   style={{ color: "var(--rex-text-dim)" }}
                 >
@@ -229,7 +251,7 @@ export default function SubscribersPage() {
             ) : subs.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-12"
                   style={{ color: "var(--rex-text-dim)" }}
                 >
@@ -257,6 +279,22 @@ export default function SubscribersPage() {
                   </td>
                   <td style={{ color: "var(--rex-text-muted)" }}>
                     {[s.firstName, s.lastName].filter(Boolean).join(" ") || (
+                      <span style={{ color: "var(--rex-text-dim)" }}>—</span>
+                    )}
+                  </td>
+                  <td>
+                    {s.persona ? (
+                      <span
+                        className="text-[11px] font-mono px-2 py-0.5 rounded-full border whitespace-nowrap"
+                        style={{
+                          borderColor: "var(--rex-border)",
+                          color: "var(--rex-accent)",
+                          background: "rgba(95,185,31,0.06)",
+                        }}
+                      >
+                        {PERSONA_LABELS[s.persona as PersonaSlug] ?? s.persona}
+                      </span>
+                    ) : (
                       <span style={{ color: "var(--rex-text-dim)" }}>—</span>
                     )}
                   </td>

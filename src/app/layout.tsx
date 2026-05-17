@@ -71,13 +71,25 @@ export const metadata: Metadata = {
   },
 };
 
+// Runs synchronously in <head> before paint, so `data-theme` is on <html>
+// before any CSS or React hydrates. Avoids the white-flash you'd otherwise
+// get when the theme is "light" and CSS vars don't switch until after JS
+// runs. localStorage read is wrapped in try/catch because some embedded
+// browsers (and SSR re-hydration during prefetch) can throw on access.
+const themeInitScript = `
+(function(){try{var t=localStorage.getItem('rex-theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="antialiased noise-bg">
         {children}
         <Analytics />

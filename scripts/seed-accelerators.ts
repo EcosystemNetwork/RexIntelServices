@@ -237,6 +237,74 @@ const accelerators: AcceleratorPayload[] = [
     rolling: true,
     tags: ["encode", "bootcamp", "education", "community", "crypto", "ai"],
   },
+
+  // === AI-native accelerators (added 2026-05-17) ===
+  {
+    name: "AI Grant (Batch 4)",
+    organization: "AI Grant",
+    organizationUrl: "https://aigrant.com/",
+    description:
+      "Daniel Gross + Nat Friedman's AI accelerator. $250k uncapped SAFE plus $350k in Microsoft Azure credits and $250k in partner credits (Anthropic, OpenAI, Modal, Replicate, PostHog). Past batches funded Perplexity, Cursor, ElevenLabs. Globally open, single founders accepted, no credentials required.",
+    investment: "$250k SAFE + ~$600k in cloud/API credits",
+    location: "Remote (global)",
+    focus: "Seed-stage AI startups",
+    applyUrl: "https://aigrant.com/",
+    rolling: true,
+    tags: ["ai", "seed", "credits", "global", "frontier"],
+  },
+  {
+    name: "a16z Speedrun SR007",
+    organization: "Andreessen Horowitz",
+    organizationUrl: "https://speedrun.a16z.com/",
+    description:
+      "a16z's intensive 12-week SF startup accelerator. SR007 runs Jul 27 – Oct 11, 2026 in-person. Up to $1M investment per company + ~$5M in credits across AWS, GCP, OpenAI, Azure, NVIDIA, Stripe, Deel. 87% of recent SR006 cohort was AI-focused. Acceptance rate <0.4%; 60–70 teams per batch.",
+    duration: "12 weeks (Jul 27 – Oct 11, 2026)",
+    investment: "Up to $1M + ~$5M in partner credits",
+    location: "San Francisco (in-person required)",
+    focus: "AI, games, consumer, ambitious early-stage",
+    applyUrl: "https://speedrun.a16z.com/apply",
+    nextDeadline: "2026-05-17T23:59:00Z",
+    rolling: false,
+    tags: ["a16z", "ai", "games", "sf", "speedrun"],
+  },
+  {
+    name: "Sequoia Arc",
+    organization: "Sequoia Capital",
+    organizationUrl: "https://sequoiacap.com/arc/",
+    description:
+      "Sequoia's bi-annual 7-week company-building immersion for pre-seed / seed founders. ~10 companies per cohort in Menlo Park or London. Spring + Fall windows; Spring 2026 deadline already passed — sign up via the Sequoia site for Fall 2026 notifications.",
+    duration: "7 weeks (twice yearly)",
+    investment: "Up to $1M check, terms per company",
+    location: "Menlo Park or London",
+    focus: "Outlier pre-seed / seed founders — AI, crypto, generalist",
+    applyUrl: "https://sequoiacap.com/arc/apply/",
+    rolling: false,
+    tags: ["sequoia", "outlier", "early-stage", "arc"],
+  },
+  {
+    name: "AGI House Fellowship",
+    organization: "AGI House",
+    organizationUrl: "https://agihouse.org/",
+    description:
+      "Merit-based AI founder + researcher residency at AGI House Hillsborough, CA. Founded by Jeremy Nixon and Andrej Karpathy. Hosts founder events, invests in early-stage AI builders, connects residents to frontier-AI problem owners. Access is merit-based; community events are free.",
+    location: "Hillsborough, CA (Bay Area)",
+    focus: "Frontier AI founders and researchers",
+    applyUrl: "https://agihouse.org/",
+    rolling: true,
+    tags: ["agi-house", "ai", "founders", "residency", "sf"],
+  },
+  {
+    name: "Coinbase Ventures Builder Program",
+    organization: "Coinbase",
+    organizationUrl: "https://www.coinbase.com/developer-platform",
+    description:
+      "Coinbase's developer + founder program for builders shipping on Base and the broader Coinbase Developer Platform stack (CDP, Smart Wallet, OnchainKit, AgentKit, x402 payments). Combines protocol-level credits, GTM access via Coinbase's distribution, and warm intros into Coinbase Ventures' check pipeline.",
+    location: "Remote (global)",
+    focus: "Builders on Base / Coinbase Developer Platform",
+    applyUrl: "https://www.coinbase.com/developer-platform",
+    rolling: true,
+    tags: ["coinbase", "base", "ventures", "cdp", "agentkit"],
+  },
 ];
 // Ambassador / champion / fellow programs live in scripts/seed-ambassadors.ts.
 

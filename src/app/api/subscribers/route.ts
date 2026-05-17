@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq, ilike, or, sql } from "drizzle-orm";
-import { db, subscribers } from "@/lib/db";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { db, subscribers, subscriberTags, tags } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim();
   const status = sp.get("status");
+  const persona = sp.get("persona")?.trim();
   const limit = Math.min(parseInt(sp.get("limit") ?? "50"), 200);
   const offset = parseInt(sp.get("offset") ?? "0");
 
@@ -21,6 +22,18 @@ export async function GET(req: NextRequest) {
   }
   if (status) {
     conditions.push(eq(subscribers.status, status as never));
+  }
+  if (persona) {
+    // Filter by persona-kind tag slug. Subselect keeps the join out of the
+    // main query so pagination counts stay accurate.
+    conditions.push(
+      sql`${subscribers.id} IN (
+        SELECT ${subscriberTags.subscriberId}
+        FROM ${subscriberTags}
+        INNER JOIN ${tags} ON ${tags.id} = ${subscriberTags.tagId}
+        WHERE ${tags.kind} = 'persona' AND ${tags.name} = ${persona}
+      )`,
+    );
   }
 
   const where = conditions.length
@@ -41,7 +54,33 @@ export async function GET(req: NextRequest) {
       .where(where),
   ]);
 
-  return NextResponse.json({ subscribers: rows, total: count });
+  // Bulk-load persona slugs for the visible page so the admin list can show
+  // a "Class" column without N+1 queries.
+  const ids = rows.map((r) => r.id);
+  const personaRows = ids.length
+    ? await db
+        .select({
+          subscriberId: subscriberTags.subscriberId,
+          slug: tags.name,
+        })
+        .from(subscriberTags)
+        .innerJoin(tags, eq(tags.id, subscriberTags.tagId))
+        .where(
+          and(
+            eq(tags.kind, "persona"),
+            inArray(subscriberTags.subscriberId, ids),
+          ),
+        )
+    : [];
+  const personaBySub = new Map<string, string>();
+  for (const r of personaRows) personaBySub.set(r.subscriberId, r.slug);
+
+  const enriched = rows.map((r) => ({
+    ...r,
+    persona: personaBySub.get(r.id) ?? null,
+  }));
+
+  return NextResponse.json({ subscribers: enriched, total: count });
 }
 
 export async function POST(req: NextRequest) {

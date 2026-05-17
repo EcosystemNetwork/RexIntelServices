@@ -61,7 +61,10 @@ export function OrgLogo({
   return (
     <div
       className={`flex-shrink-0 ${box} rounded-sm flex items-center justify-center border overflow-hidden`}
-      style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
+      style={{
+        background: "var(--rex-logo-chip)",
+        borderColor: "var(--rex-logo-chip-border)",
+      }}
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -74,7 +77,11 @@ export function OrgLogo({
           className={`${img} object-contain`}
         />
       ) : (
-        <span className={`font-display ${text} text-white`} aria-hidden="true">
+        <span
+          className={`font-display ${text}`}
+          style={{ color: "var(--rex-bg)" }}
+          aria-hidden="true"
+        >
           {initial}
         </span>
       )}

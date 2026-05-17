@@ -26,7 +26,10 @@ const getResidenciesRows = unstable_cache(
       eq(submissions.status, "approved"),
     );
     const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
-    const pastWindow = sql`${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
+    // Rolling residencies (no dates) belong in Upcoming — they're always
+    // accepting. Treat NULL effectiveEnd as upcoming, never past.
+    const upcomingWindow = sql`(${effectiveEnd} IS NULL OR ${effectiveEnd} >= ${now})`;
+    const pastWindow = sql`${effectiveEnd} IS NOT NULL AND ${effectiveEnd} < ${now} AND ${effectiveEnd} >= ${pastFloor}`;
     return Promise.all([
       db
         .select({
@@ -40,19 +43,22 @@ const getResidenciesRows = unstable_cache(
         .where(
           and(
             baseFilter,
-            showPast ? pastWindow : sql`${effectiveEnd} >= ${now}`,
+            showPast ? pastWindow : upcomingWindow,
           ),
         )
         .orderBy(
           ...(showPast
             ? [sql`${effectiveEnd} DESC`]
-            : [desc(submissions.featured), asc(submissions.eventStartsAt)]),
+            : [
+                desc(submissions.featured),
+                sql`${submissions.eventStartsAt} ASC NULLS LAST`,
+              ]),
         )
         .limit(100),
       db
         .select({ upcomingCount: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(and(baseFilter, sql`${effectiveEnd} >= ${now}`)),
+        .where(and(baseFilter, upcomingWindow)),
       db
         .select({ pastCount: sql<number>`count(*)::int` })
         .from(submissions)
@@ -126,9 +132,13 @@ function ResidencyCard({
   payload: ResidencyPayload;
   featured?: boolean;
 }) {
-  const start = new Date(payload.startsAt);
-  const end = new Date(payload.endsAt);
-  const range = formatRange(start, end);
+  // Dates are optional — rolling programs (AGI House, Founders Inc, AI
+  // Safety Camp) have no fixed cohort window. When absent, the date tile
+  // renders as ROLLING and the range line is suppressed.
+  const hasDates = Boolean(payload.startsAt && payload.endsAt);
+  const start = hasDates ? new Date(payload.startsAt as string) : null;
+  const end = hasDates ? new Date(payload.endsAt as string) : null;
+  const range = start && end ? formatRange(start, end) : "";
   const location = [payload.city, payload.country].filter(Boolean).join(", ");
 
   // Residency detail page reuses the pop-up-city detail route — they share
@@ -151,21 +161,32 @@ function ResidencyCard({
         className="flex-shrink-0 w-16 h-16 rounded-sm flex flex-col items-center justify-center border text-center px-1"
         style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
       >
-        <div
-          className="text-[9px] font-mono uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          {start.toLocaleDateString(undefined, { month: "short" })}
-        </div>
-        <div className="text-xl font-display text-white leading-none">
-          {start.getDate()}
-        </div>
-        <div
-          className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          → {end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-        </div>
+        {start && end ? (
+          <>
+            <div
+              className="text-[9px] font-mono uppercase tracking-widest"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              {start.toLocaleDateString(undefined, { month: "short" })}
+            </div>
+            <div className="text-xl font-display text-white leading-none">
+              {start.getDate()}
+            </div>
+            <div
+              className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              → {end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </div>
+          </>
+        ) : (
+          <div
+            className="text-[10px] font-mono uppercase tracking-widest"
+            style={{ color: "var(--rex-accent)" }}
+          >
+            Rolling
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -195,8 +216,8 @@ function ResidencyCard({
           className="text-xs mt-0.5 font-mono"
           style={{ color: "var(--rex-text-dim)" }}
         >
-          {range}
-          {location && ` · ${location}`}
+          {range || (hasDates ? null : "Rolling cohort")}
+          {location && `${range || !hasDates ? " · " : ""}${location}`}
         </div>
       </div>
 

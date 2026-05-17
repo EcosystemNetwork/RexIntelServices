@@ -4,16 +4,26 @@ import { useState } from "react";
 import { track } from "@vercel/analytics";
 import { Turnstile } from "@/components/turnstile";
 
-// The 5 wedge personas the brief promises segment-targeted briefings to.
-// Kept here (not imported from /lib/personas) so we surface only the
-// strategic five on the public form — the broader 9-slug set in
-// /lib/personas is what the server accepts for back-compat / power users.
-const SIGNUP_PERSONAS: Array<{ slug: string; label: string }> = [
-  { slug: "compliance", label: "Compliance / AML" },
-  { slug: "exchange-risk", label: "Exchange / Trust & Safety" },
-  { slug: "investigator", label: "Investigator / Researcher" },
-  { slug: "gov-le", label: "Government / Law Enforcement" },
-  { slug: "fund-risk", label: "Fund / Treasury Risk" },
+// Operator classes surfaced on the public signup form. Grouped so the buyer
+// wedge (compliance → fund risk) stays at the top, with builder / capital /
+// press classes below for broader audience signal. Kept here — not imported
+// from /lib/personas — so the public ordering / labels can evolve independently
+// of the canonical slug list the server validates against.
+const SIGNUP_PERSONAS: Array<{ slug: string; label: string; group: string }> = [
+  // Wedge buyers — the day-90 paid-feed targets.
+  { slug: "compliance", label: "Compliance / AML", group: "Wedge buyers" },
+  { slug: "exchange-risk", label: "Exchange / Trust & Safety", group: "Wedge buyers" },
+  { slug: "investigator", label: "Investigator / Researcher", group: "Wedge buyers" },
+  { slug: "gov-le", label: "Government / Law Enforcement", group: "Wedge buyers" },
+  { slug: "fund-risk", label: "Fund / Treasury Risk", group: "Wedge buyers" },
+  // Builders + capital — audience-building lanes.
+  { slug: "developer", label: "Developer / Builder", group: "Builders & capital" },
+  { slug: "founder", label: "Founder / Startup operator", group: "Builders & capital" },
+  { slug: "hacker", label: "Hacker / Security researcher", group: "Builders & capital" },
+  { slug: "investor", label: "Investor / Allocator", group: "Builders & capital" },
+  // Market + press.
+  { slug: "degen", label: "Degen / Trader", group: "Market & press" },
+  { slug: "journalist", label: "Journalist / Reporter", group: "Market & press" },
 ];
 
 /**
@@ -196,10 +206,21 @@ export function SubscribeWidget({ transmissionId }: { transmissionId: string }) 
           aria-label="Your role (optional — helps us target briefings)"
         >
           <option value="">Unaffiliated / Other (optional)</option>
-          {SIGNUP_PERSONAS.map((p) => (
-            <option key={p.slug} value={p.slug}>
-              {p.label}
-            </option>
+          {Array.from(
+            SIGNUP_PERSONAS.reduce((acc, p) => {
+              const arr = acc.get(p.group) ?? [];
+              arr.push(p);
+              acc.set(p.group, arr);
+              return acc;
+            }, new Map<string, typeof SIGNUP_PERSONAS>()),
+          ).map(([group, items]) => (
+            <optgroup key={group} label={group}>
+              {items.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>

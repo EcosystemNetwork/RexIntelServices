@@ -15,6 +15,8 @@ export const PERSONA_SLUGS = [
   "degen",
   "investor",
   "developer",
+  "founder",
+  "journalist",
 ] as const;
 
 export type PersonaSlug = (typeof PERSONA_SLUGS)[number];
@@ -29,4 +31,6 @@ export const PERSONA_LABELS: Record<PersonaSlug, string> = {
   degen: "Degen / Trader",
   investor: "Investor / Allocator",
   developer: "Developer / Builder",
+  founder: "Founder / Startup operator",
+  journalist: "Journalist / Reporter",
 };

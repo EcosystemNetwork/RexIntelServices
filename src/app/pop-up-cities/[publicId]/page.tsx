@@ -72,9 +72,11 @@ export default async function PopUpCityDetailPage({
     redirect(detailHref("/pop-up-cities", realId, p.name));
   }
 
-  const start = new Date(p.startsAt);
-  const end = new Date(p.endsAt);
-  const range = formatRange(start, end);
+  // Dates are optional for rolling programs — render as "Rolling cohort"
+  // when missing instead of formatting Invalid Date.
+  const start = p.startsAt ? new Date(p.startsAt) : null;
+  const end = p.endsAt ? new Date(p.endsAt) : null;
+  const range = start && end ? formatRange(start, end) : "Rolling cohort";
   const location = [p.city, p.country].filter(Boolean).join(", ");
   const applyDeadline = p.applicationDeadline
     ? new Date(p.applicationDeadline).toLocaleDateString(undefined, {

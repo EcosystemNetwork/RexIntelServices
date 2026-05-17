@@ -212,16 +212,19 @@ export async function POST(req: NextRequest) {
     submitterHandle = null;
   }
 
-  // Both events and pop-up cities have a `startsAt` field — denormalize so
-  // the existing eventStartsAt index serves both listing queries.
+  // Time-anchored lanes have a `startsAt` field — denormalize so the
+  // existing eventStartsAt index serves listing queries. Residency and
+  // popup_city dates are *optional* (rolling programs have none), so guard
+  // against undefined and persist null in that case.
   const isTimeAnchored =
     submissionType === "event" ||
     submissionType === "popup_city" ||
     submissionType === "hackathon" ||
     submissionType === "residency";
-  const eventStartsAt = isTimeAnchored
-    ? new Date((validation.payload as { startsAt: string }).startsAt)
-    : null;
+  const startsAtRaw = isTimeAnchored
+    ? (validation.payload as { startsAt?: string }).startsAt
+    : undefined;
+  const eventStartsAt = startsAtRaw ? new Date(startsAtRaw) : null;
   // endsAt denormalized so the lane queries can classify "past" as
   // ended-in-the-past, not just started-in-the-past — multi-week hackathons
   // shouldn't fall into Past the day after kickoff.

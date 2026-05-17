@@ -432,6 +432,104 @@ const grants: GrantPayload[] = [
     rolling: true,
     tags: ["linea", "consensys", "zk", "zkevm", "l2"],
   },
+
+  // === AI / robotics / safety grants (added 2026-05-17) ===
+  {
+    name: "Anthropic Researcher Access Program",
+    organization: "Anthropic",
+    organizationUrl: "https://www.anthropic.com/research/researcher-access",
+    description:
+      "API credits for academic and independent AI safety / interpretability researchers studying Claude. Non-dilutive — output is open research, not equity. Tracks include interpretability, evaluations, red-teaming, alignment science.",
+    amount: "API credits (varies by project scope)",
+    focus: "AI safety, interpretability, evaluations, alignment research",
+    applyUrl: "https://www.anthropic.com/research/researcher-access",
+    rolling: true,
+    tags: ["anthropic", "ai-safety", "interpretability", "research", "compute-credits"],
+  },
+  {
+    name: "OpenAI Researcher Access Program",
+    organization: "OpenAI",
+    organizationUrl: "https://openai.com/index/researcher-access-program/",
+    description:
+      "API + fine-tuning credits for academic, nonprofit, and policy researchers studying frontier models, evaluations, safety, and applied AI for public good. Application-based, no equity, output expected to be public.",
+    amount: "API credits (typically tens of thousands of dollars)",
+    focus: "AI research — evaluations, safety, applied policy",
+    applyUrl: "https://openai.com/index/researcher-access-program/",
+    rolling: true,
+    tags: ["openai", "research", "evaluations", "compute-credits"],
+  },
+  {
+    name: "Open Philanthropy — AI Safety Research Funding",
+    organization: "Open Philanthropy",
+    organizationUrl: "https://www.openphilanthropy.org/focus/potential-risks-advanced-ai/",
+    description:
+      "Open Phil's grantmaking for technical AI safety and AI governance research — career-development grants for individuals, project funding for orgs, and field-building support. One of the largest sources of non-dilutive AI safety funding globally.",
+    amount: "Varies — $10k career-development to multi-$M institutional",
+    focus: "AI safety, AI governance, field-building",
+    applyUrl: "https://www.openphilanthropy.org/focus/potential-risks-advanced-ai/",
+    rolling: true,
+    tags: ["openphil", "ai-safety", "governance", "field-building"],
+  },
+  {
+    name: "Future of Life Institute — AI Existential Safety Grants",
+    organization: "Future of Life Institute",
+    organizationUrl: "https://futureoflife.org/grant-program/",
+    description:
+      "FLI's grantmaking arm beyond the Vitalik Buterin fellowship. Annual + special grants for technical AI safety, governance, and existential-risk research. Includes named programs (Vitalik Buterin Fellowship, AI Governance Grants) and open calls.",
+    amount: "Varies — $25k–$500k+",
+    focus: "AI existential safety, governance, technical alignment",
+    applyUrl: "https://futureoflife.org/grant-program/",
+    rolling: false,
+    tags: ["fli", "ai-safety", "x-risk", "governance"],
+  },
+  {
+    name: "NSF National AI Research Institutes",
+    organization: "U.S. National Science Foundation",
+    organizationUrl: "https://www.nsf.gov/funding/initiatives/artificial-intelligence",
+    description:
+      "NSF's flagship AI research funding line. Establishes multi-year AI research institutes ($20M+ each) at U.S. universities + partner orgs covering trustworthy AI, AI-augmented learning, robotics, biology, climate. Also smaller program grants for individual PIs.",
+    amount: "$20M+ per institute; smaller PI grants available",
+    focus: "AI research — trustworthy AI, robotics, applied science",
+    applyUrl: "https://www.nsf.gov/funding/initiatives/artificial-intelligence",
+    rolling: false,
+    tags: ["nsf", "ai", "robotics", "academic", "usa"],
+  },
+  {
+    name: "ARIA — Advanced Research + Invention Agency (UK)",
+    organization: "ARIA",
+    organizationUrl: "https://www.aria.org.uk/",
+    description:
+      "UK government's high-risk / high-reward research agency. Active programmes include Safeguarded AI (provably safe AI for high-stakes deployment) and Robotics for a Climate-Resilient Future. Funds individuals, startups, and academic teams.",
+    amount: "£100k–£10M+ per project",
+    focus: "Frontier AI safety, robotics, deep tech",
+    applyUrl: "https://www.aria.org.uk/opportunity-spaces/",
+    rolling: false,
+    tags: ["aria", "uk", "ai-safety", "robotics", "deep-tech"],
+  },
+  {
+    name: "Schmidt Sciences — AI Safety Science",
+    organization: "Schmidt Sciences",
+    organizationUrl: "https://www.schmidtsciences.org/safety-science/",
+    description:
+      "Schmidt Sciences' AI Safety Science programme — funds technical research into model evaluations, interpretability, robustness, and risk assessment of frontier AI systems. Separate funding line from the AI2050 Fellows track for senior researchers.",
+    amount: "$100k–$5M+ per project",
+    focus: "AI safety science, evaluations, interpretability",
+    applyUrl: "https://www.schmidtsciences.org/safety-science/",
+    rolling: false,
+    tags: ["schmidt", "ai-safety", "evaluations", "interpretability"],
+  },
+  {
+    name: "Cohere for AI Research Grants",
+    organization: "Cohere Labs",
+    organizationUrl: "https://cohere.com/research",
+    description:
+      "Cohere Labs' open research program — compute credits + collaboration for academic and independent researchers studying multilingual NLP, retrieval, evaluations, low-resource languages. Powers research published at ACL / NeurIPS / ICLR.",
+    amount: "Compute credits + research access",
+    focus: "Multilingual NLP, retrieval, evaluations",
+    applyUrl: "https://cohere.com/research",
+    rolling: true,
+    tags: ["cohere", "research", "multilingual", "nlp"],
+  },
 ];
 
 async function upsertGrant(payload: GrantPayload) {

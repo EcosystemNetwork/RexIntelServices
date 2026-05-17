@@ -9,7 +9,9 @@
   --font-body: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
-  /* Rex Intel Services brand palette — derived from the Rex mascot */
+  /* Rex Intel Services brand palette — derived from the Rex mascot. Dark
+   * theme is the default; the light overrides live under [data-theme="light"]
+   * below so the layout's no-flash inline script can flip them before paint. */
   --rex-bg: #0a0a0f;
   --rex-surface: #111118;
   --rex-surface-2: #18181f;
@@ -38,6 +40,49 @@
   --rex-warning: #fbbf24;
   --rex-danger: #f87171;
   --rex-info: #60a5fa;
+
+  /* Theme-adaptive helpers consumed by decorative SVG backgrounds.
+   * Components reference these instead of hard-coded rgba(255,255,255,…)
+   * so the grid + tactical patterns invert with the theme. */
+  --rex-grid-line: rgba(255, 255, 255, 0.025);
+  --rex-grid-line-soft: rgba(255, 255, 255, 0.02);
+  --rex-vignette: rgba(0, 0, 0, 0.55);
+  --rex-noise-opacity: 0.045;
+  /* Backplate behind brand-color logo SVGs. Light, near-white in dark mode so
+   * dark-on-transparent SVGs still read; dark in light mode so light-on-
+   * transparent SVGs still read. */
+  --rex-logo-chip: #f5f5fa;
+  --rex-logo-chip-border: rgba(95, 185, 31, 0.4);
+}
+
+[data-theme="light"] {
+  --rex-bg: #f7f7fb;
+  --rex-surface: #ffffff;
+  --rex-surface-2: #f0f0f5;
+  --rex-border: #d8d8e0;
+  --rex-border-subtle: #e6e6ee;
+  --rex-text: #14141c;
+  --rex-text-muted: #55556a;
+  --rex-text-dim: #8888a0;
+
+  --rex-accent: #4a9610;
+  --rex-accent-hover: #5fb91f;
+  --rex-accent-deep: #2f6a08;
+  --rex-accent-glow: rgba(74, 150, 16, 0.18);
+
+  --rex-accent-2: #0f7aa8;
+  --rex-accent-2-hover: #1fa8e0;
+  --rex-accent-2-deep: #0a557a;
+  --rex-accent-2-glow: rgba(15, 122, 168, 0.18);
+
+  --rex-steel: #4a4a55;
+
+  --rex-grid-line: rgba(10, 10, 15, 0.06);
+  --rex-grid-line-soft: rgba(10, 10, 15, 0.04);
+  --rex-vignette: rgba(255, 255, 255, 0.7);
+  --rex-noise-opacity: 0.025;
+  --rex-logo-chip: #14141c;
+  --rex-logo-chip-border: rgba(74, 150, 16, 0.45);
 }
 
 html,
@@ -62,8 +107,8 @@ body {
 /* Subtle grid background for empty states */
 .bg-grid {
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    linear-gradient(to right, var(--rex-grid-line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rex-grid-line-soft) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
@@ -72,8 +117,8 @@ body {
   position: relative;
   background-color: var(--rex-bg);
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to right, var(--rex-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rex-grid-line) 1px, transparent 1px),
     radial-gradient(ellipse 80% 60% at 50% -10%, rgba(95, 185, 31, 0.08) 0%, transparent 55%),
     radial-gradient(ellipse 60% 50% at 90% 0%, rgba(31, 168, 224, 0.05) 0%, transparent 55%);
   background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%;
@@ -84,7 +129,7 @@ body {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+    radial-gradient(ellipse at center, transparent 40%, var(--rex-vignette) 100%);
   z-index: 0;
 }
 
@@ -94,7 +139,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: -1;
-  opacity: 0.045;
+  opacity: var(--rex-noise-opacity);
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -402,7 +447,7 @@ body {
 
 /* Card variant for division panels */
 .rex-card-flat {
-  background: rgba(17, 17, 24, 0.55);
+  background: color-mix(in srgb, var(--rex-surface) 55%, transparent);
   border: 1px solid var(--rex-border-subtle);
   border-radius: 4px;
   position: relative;
@@ -419,7 +464,7 @@ body {
 }
 .rex-card-flat:hover {
   border-color: var(--rex-border);
-  background: rgba(17, 17, 24, 0.75);
+  background: color-mix(in srgb, var(--rex-surface) 80%, transparent);
 }
 
 /* Section divider with code label */

@@ -330,6 +330,178 @@ const jobs: JobPayload[] = [
     applyUrl: "https://jobs.lever.co/mistral",
     tags: ["ai", "research", "open-weight", "europe"],
   },
+
+  // === Humanoid / embodied AI labs (added 2026-05-17) ===
+  {
+    title: "Open Roles — Robotics, ML, Hardware",
+    company: "Figure",
+    companyUrl: "https://www.figure.ai/",
+    description:
+      "Humanoid robotics company building autonomous general-purpose robots. Hiring across ML research (manipulation, control policies), robotics engineering, hardware, mechatronics, and applied AI. Production deployments with BMW and other industrial partners.",
+    location: "Sunnyvale, CA (primarily in-person)",
+    remote: false,
+    employmentType: "full-time",
+    applyUrl: "https://www.figure.ai/careers",
+    tags: ["robotics", "humanoid", "ml", "hardware", "bay-area"],
+  },
+  {
+    title: "Open Roles — AI Research, Robotics, Engineering",
+    company: "1X Technologies",
+    companyUrl: "https://www.1x.tech/",
+    description:
+      "Norwegian / US humanoid robotics company building Neo for the home and Eve for industrial settings. Backed by OpenAI Startup Fund. Hiring across embodied AI, robotic learning, mechatronics, and applied research.",
+    location: "Palo Alto + Moss, Norway (primarily in-person)",
+    remote: false,
+    employmentType: "full-time",
+    applyUrl: "https://www.1x.tech/careers",
+    tags: ["robotics", "humanoid", "embodied-ai", "1x"],
+  },
+  {
+    title: "Open Roles — ML, Robotics, Applied Research",
+    company: "Physical Intelligence (Pi)",
+    companyUrl: "https://www.physicalintelligence.company/",
+    description:
+      "Foundation models for robotics. Founders include Karol Hausman (ex-Google Brain Robotics), Sergey Levine (UC Berkeley). Building general-purpose policies that transfer across robot embodiments. Hiring research scientists, engineers, hardware integration.",
+    location: "San Francisco (primarily in-person)",
+    remote: false,
+    employmentType: "full-time",
+    applyUrl: "https://www.physicalintelligence.company/careers",
+    tags: ["robotics", "foundation-models", "research", "sf"],
+  },
+  {
+    title: "Open Roles — Robot Learning, Engineering",
+    company: "Skild AI",
+    companyUrl: "https://www.skild.ai/",
+    description:
+      "Skild Brain — a general-purpose robotic foundation model. Spun out of CMU robotics. Backed by Lightspeed, Coatue, Bezos. Hiring research scientists in RL, manipulation, and learned control + applied robotics engineers.",
+    location: "Pittsburgh + Bay Area",
+    remote: false,
+    employmentType: "full-time",
+    applyUrl: "https://www.skild.ai/careers",
+    tags: ["robotics", "rl", "manipulation", "foundation-models"],
+  },
+  {
+    title: "Open Roles — Engineering, Research, Operations",
+    company: "xAI",
+    companyUrl: "https://x.ai/",
+    description:
+      "Elon Musk's AI lab building Grok and the Colossus compute cluster. Hiring across pretraining, post-training, infrastructure, and applied research. Massive GPU footprint; tight integration with X (Twitter) data and product.",
+    location: "Bay Area + Memphis (Colossus) + Remote (select roles)",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://x.ai/careers",
+    tags: ["ai", "frontier-models", "grok", "infrastructure"],
+  },
+  {
+    title: "Open Roles — Engineering, Research, GTM",
+    company: "Perplexity",
+    companyUrl: "https://www.perplexity.ai/",
+    description:
+      "Answer engine challenging Google Search. Comet browser, Pro Search, Spaces. Hiring across model research, retrieval / search infra, agents, product engineering, and growth.",
+    location: "San Francisco + Remote",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://www.perplexity.ai/hub/careers",
+    tags: ["ai", "search", "agents", "consumer", "sf"],
+  },
+  {
+    title: "Open Roles — Engineering, Research, GTM",
+    company: "Replicate",
+    companyUrl: "https://replicate.com/",
+    description:
+      "Hosted GPU inference platform for ML models. The default deployment surface for many image / video / audio / fine-tuned model startups. Hiring across infra (Kubernetes / GPU scheduling), ML, and product engineering.",
+    location: "San Francisco + Remote",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://replicate.com/jobs",
+    tags: ["ai", "gpu", "inference", "infra"],
+  },
+  {
+    title: "Open Roles — Research, Engineering, Sales",
+    company: "Cohere",
+    companyUrl: "https://cohere.com/",
+    description:
+      "Enterprise-focused LLM lab. Command, Embed, and Rerank model families. North API for Canadian government deployments. Hiring across pretraining, retrieval, sales engineering, and applied research.",
+    location: "Toronto + San Francisco + London + Remote",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://cohere.com/careers",
+    tags: ["ai", "enterprise", "rag", "toronto"],
+  },
+  {
+    title: "Open Roles — Engineering, Research, Voice",
+    company: "ElevenLabs",
+    companyUrl: "https://elevenlabs.io/",
+    description:
+      "Voice AI lab — TTS, dubbing, real-time conversational voice agents. Powering voice in major consumer + enterprise products. Hiring across speech research, model serving, infrastructure, and product engineering.",
+    location: "London + NYC + Remote",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://elevenlabs.io/careers",
+    tags: ["ai", "voice", "tts", "agents", "london"],
+  },
+
+  // === Major web3 ecosystem teams missing from initial seed ===
+  {
+    title: "Open Roles — Move, ML, Infra",
+    company: "Mysten Labs (Sui)",
+    companyUrl: "https://mystenlabs.com/",
+    description:
+      "Mysten Labs is the core contributor to the Sui L1 + Walrus decentralized storage. Hiring across Move runtime engineering, consensus research, ML infra, and developer-experience tooling.",
+    location: "Palo Alto + Remote (Global)",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://jobs.ashbyhq.com/mystenlabs",
+    tags: ["sui", "move", "l1", "walrus"],
+  },
+  {
+    title: "Open Roles — Engineering, Protocol, Operations",
+    company: "Ava Labs (Avalanche)",
+    companyUrl: "https://www.avalabs.org/",
+    description:
+      "Ava Labs is the core team behind Avalanche — the C-Chain, P-Chain, X-Chain trio plus the Subnets framework. Hiring across protocol engineering (Go), VM development, infra, and ecosystem teams.",
+    location: "Brooklyn + Remote (Global)",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://jobs.lever.co/avalabs",
+    tags: ["avalanche", "go", "l1", "subnets"],
+  },
+  {
+    title: "Open Roles — Trading Systems, Infra, Research",
+    company: "Hyperliquid Labs",
+    companyUrl: "https://hyperliquid.xyz/",
+    description:
+      "Hyperliquid is the on-chain perps DEX dominating crypto-derivatives volume. Builds HyperEVM, HyperCore matching engine, and HIP-3 modular markets. Hiring across systems engineering, matching-engine performance, security, and protocol research.",
+    location: "Singapore + NYC + Remote (small team, very selective)",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://hyperliquid.xyz/careers",
+    tags: ["hyperliquid", "defi", "perps", "trading-systems"],
+  },
+  {
+    title: "Open Roles — Engineering, Product, GTM",
+    company: "Magic Eden",
+    companyUrl: "https://magiceden.io/",
+    description:
+      "Multi-chain NFT marketplace (Solana, Bitcoin Ordinals/Runes, Ethereum, Base, Polygon). Hiring across full-stack engineering, infra, security, and product. The dominant cross-chain NFT venue.",
+    location: "San Francisco + Remote (US + Canada)",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://jobs.ashbyhq.com/magiceden",
+    tags: ["nft", "marketplace", "solana", "bitcoin", "multi-chain"],
+  },
+  {
+    title: "Open Roles — Engineering, Research, Integrations",
+    company: "Chainlink Labs",
+    companyUrl: "https://chainlinklabs.com/",
+    description:
+      "Chainlink Labs builds the Chainlink oracle network, CCIP cross-chain interoperability protocol, and Chainlink Data Streams. Hiring across protocol research, cryptography, integrations engineering, and infrastructure.",
+    location: "Remote (Global)",
+    remote: true,
+    employmentType: "full-time",
+    applyUrl: "https://chainlinklabs.com/careers",
+    tags: ["chainlink", "oracles", "ccip", "interoperability"],
+  },
 ];
 
 async function upsert(payload: JobPayload) {

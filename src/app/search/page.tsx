@@ -399,7 +399,10 @@ function ResultCard({
     >
       <div
         className="flex-shrink-0 w-10 h-10 rounded-sm flex items-center justify-center border overflow-hidden"
-        style={{ background: "var(--rex-bg)", borderColor: "var(--rex-border)" }}
+        style={{
+          background: "var(--rex-logo-chip)",
+          borderColor: "var(--rex-logo-chip-border)",
+        }}
       >
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -412,7 +415,11 @@ function ResultCard({
             className="w-7 h-7 object-contain"
           />
         ) : (
-          <span className="font-display text-base text-white" aria-hidden="true">
+          <span
+            className="font-display text-base"
+            style={{ color: "var(--rex-bg)" }}
+            aria-hidden="true"
+          >
             {initial}
           </span>
         )}

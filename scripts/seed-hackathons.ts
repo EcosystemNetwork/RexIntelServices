@@ -9,6 +9,11 @@
  * Luma, and the official organizer announcements — every entry below has a
  * confirmed source URL. Idempotent: matched by payload->>'name'.
  *
+ * Curation bar: each entry must have ≥$1,000 cash prize OR a non-cash hook
+ * worth a builder's weekend (demo day to real fund, hardware, marquee judges,
+ * invite-only access, guaranteed grant). Entries that fell short are listed
+ * in `removedNames` below and purged from the DB on every run so cuts stick.
+ *
  * Date handling: 12:00 UTC start / 23:00 UTC end so the displayed calendar
  * date stays stable across timezones.
  */
@@ -51,7 +56,7 @@ const inputs: SeedInput[] = [
     city: "Online",
     url: "https://colosseum.com/",
     description:
-      "Solana's autumn 2026 global online hackathon, run on Colosseum. Five-week build window for new founders launching on Solana.",
+      "Solana's autumn 2026 global online hackathon, run on Colosseum. Five-week build window for new founders launching on Solana — top teams pitch Colosseum's accelerator (backed by Multicoin, Anagram, and Solana Ventures) for follow-on investment.",
   },
 
   // === Encode Club programmes ===
@@ -87,15 +92,6 @@ const inputs: SeedInput[] = [
 
   // === DoraHacks ===
   {
-    name: "Polkadot Solidity Hackathon 2026",
-    startDate: "2026-02-15",
-    endDate: "2026-03-24",
-    city: "Online",
-    url: "https://dorahacks.io/hackathon/polkadot-solidity-hackathon/detail",
-    description:
-      "Polkadot APAC hackathon for shipping production-ready dApps on Polkadot Hub via EVM and PVM smart contracts.",
-  },
-  {
     name: "HashKey Chain Horizon Hackathon",
     startDate: "2026-03-10",
     endDate: "2026-04-23",
@@ -105,16 +101,6 @@ const inputs: SeedInput[] = [
       "HashKey Chain global online hackathon with a 40,000 USDT prize pool. Tracks across DeFi, PayFi, AI and more.",
     prizeUsd: 40000,
   },
-  {
-    name: "StableHacks 2026",
-    startDate: "2026-03-14",
-    endDate: "2026-03-23",
-    city: "Online",
-    url: "https://dorahacks.io/hackathon/stablehacks/detail",
-    description:
-      "Global online hackathon by Tenity and DoraHacks for builders shipping institutional-grade stablecoin infrastructure on Solana. Closing demo day for top 10 teams in Zurich on May 28.",
-  },
-
   // === Aleph (Crecimiento — LATAM pop-up city hackathon) ===
   {
     name: "Aleph Hackathon 2026",
@@ -153,17 +139,6 @@ const inputs: SeedInput[] = [
     description:
       "Hybrid hackathon run on lablab.ai for agentic economic apps using Circle's Nanopayments infrastructure with USDC settlement on Arc. Online build phase plus on-site demos in SF.",
   },
-  {
-    name: "AI & Big Data Expo Hackathon",
-    startDate: "2026-05-11",
-    endDate: "2026-05-19",
-    city: "San Jose",
-    country: "United States",
-    url: "https://lablab.ai/",
-    description:
-      "Hybrid AI hackathon run on lablab.ai alongside the AI & Big Data Expo. Online build phase culminating in an on-site hybrid build day and demos at the San Jose McEnery Convention Center.",
-  },
-
   // === EasyA (Consensus side hackathons) ===
   {
     name: "EasyA Consensus Miami Hackathon 2026",
@@ -226,72 +201,6 @@ const inputs: SeedInput[] = [
       "Rayls' 2nd developer hackathon, held during EthCC[9] week in Cannes. Part of Rayls' $1M Developer Program in the run-up to its public chain mainnet.",
   },
 
-  // === Regional Ethereum community hackathons ===
-  {
-    name: "ETHMumbai 2026",
-    startDate: "2026-03-12",
-    endDate: "2026-03-15",
-    city: "Mumbai",
-    country: "India",
-    url: "https://www.ethmumbai.in/",
-    description:
-      "Community Ethereum conference + hackathon in Mumbai — builder workshops, talks, and a multi-day in-person hackathon.",
-  },
-  {
-    name: "ETHPrague 2026",
-    startDate: "2026-05-08",
-    endDate: "2026-05-10",
-    city: "Prague",
-    country: "Czech Republic",
-    url: "https://ethprague.com/",
-    description:
-      "ETHPrague Conference and Hackathon — 3 days of in-person building plus talks from the Czech Ethereum community.",
-  },
-  {
-    name: "ETHRome 2026",
-    startDate: "2026-09-11",
-    endDate: "2026-09-13",
-    city: "Rome",
-    country: "Italy",
-    url: "https://www.ethrome.org/",
-    description:
-      "ETHRome — 3-day in-person Ethereum hackathon in Rome focused on shipping production-ready dApps in a single weekend.",
-  },
-
-  // === TAIKAI ===
-  {
-    name: "Hackanation 2026",
-    startDate: "2026-04-24",
-    endDate: "2026-06-02",
-    city: "Hybrid",
-    url: "https://taikai.network/en/TokenNation/hackathons/Hackanation2026/overview",
-    description:
-      "TokenNation's flagship 2026 hybrid hackathon on TAIKAI uniting blockchain, entrepreneurship and social impact. Tracks include Solana, Chainlink Labs, Web3 and AI.",
-  },
-
-  // === Devfolio ===
-  {
-    name: "HackPrix Season 3",
-    startDate: "2026-06-13",
-    endDate: "2026-06-14",
-    city: "Kismatpur",
-    country: "India",
-    url: "https://hackprix-2026.devfolio.co/",
-    description:
-      "HackPrix returns as a 2-day in-person hackathon designed for rapid prototyping and collaboration across Indian builder communities.",
-  },
-
-  // === Cosmoverse ===
-  {
-    name: "Hackmos 2026",
-    startDate: "2026-10-23",
-    endDate: "2026-11-01",
-    city: "Hong Kong",
-    url: "https://cosmoverse.org/hackmos",
-    description:
-      "Hackmos — the official Cosmoverse 2026 hackathon, now open to global builders across the Cosmos / IBC ecosystem.",
-  },
-
   // === Bags (creator-finance on Solana) ===
   {
     name: "The Bags Hackathon",
@@ -336,15 +245,6 @@ const inputs: SeedInput[] = [
     description:
       "Week 9 of ElevenHacks — ElevenLabs' 11-week online series (Mar 19 – May 28, 2026, $240K+ total prizes). This week's Stripe challenge: build something people will pay for using Stripe + ElevenLabs voice APIs. $18,980 prize pool split across Stripe credits and ElevenLabs Scale plans (1st $10,990, 2nd $5,660, 3rd $2,330). Opens Thu 14 May 17:00 UK; submissions close Thu 21 May 17:00 UK; winners Tue 26 May. Judges: Rajan Patel (Stripe), Joe Reeve (ElevenLabs).",
     prizeUsd: 18980,
-  },
-  {
-    name: "Hack #10: Blackbox x ElevenLabs",
-    startDate: "2026-05-21",
-    endDate: "2026-05-28",
-    city: "Online",
-    url: "https://hacks.elevenlabs.io/hackathons/9",
-    description:
-      "Week 10 of ElevenHacks — ElevenLabs' 11-week online series. This week's Blackbox AI challenge combines Blackbox's coding agents with ElevenLabs voice APIs. Opens Thu 21 May 17:00 UK; submissions close Thu 28 May 17:00 UK. Prize pool TBA.",
   },
   {
     name: "Hack #11: D-ID x ElevenLabs",
@@ -395,6 +295,65 @@ const inputs: SeedInput[] = [
       "3-week online Buildathon (May 25 – Jun 14) on Arbitrum followed by a 3-day in-person Founder House in London (Jul 10–12). $115K in Buildathon prizes plus $300K at the Founder House — $415K total. AI Agentic Category reserved $15K for the top three. Top 3 Buildathon winners share $70K; the Arbitrum Foundation also reserves $30K USDC in case-by-case grants. Same format that ran in NYC earlier in the year.",
     prizeUsd: 415000,
   },
+
+  // === EigenLayer / Restaking (Hacker Dojo) ===
+  {
+    name: "HackAVS 2026 — EigenLayer AVS Global Hackathon",
+    startDate: "2026-04-23",
+    endDate: "2026-06-06",
+    city: "Online",
+    url: "https://dorahacks.io/hackathon/hack-avs/tracks",
+    description:
+      "Global online hackathon by Hacker Dojo for builders shipping AVSes on EigenLayer. $49,500+ in sponsor bounties from Drosera, Movement Labs, OpenLayer, Brevis, WitnessChain, Polymer and Inco Network. Tracks across AVS tooling, decentralized oracles, ZK, watchtowers and shared-security primitives. Submissions open through Jun 6.",
+    prizeUsd: 49500,
+  },
+
+  // === Polygon Labs ===
+  {
+    name: "Polygon BUIDL IT 2026",
+    startDate: "2026-06-15",
+    endDate: "2026-08-01",
+    city: "Online",
+    url: "https://buidlit.devfolio.co/",
+    description:
+      "Polygon's flagship global online hackathon. $500,000 prize pool across DeFi, gaming, infra and consumer crypto tracks. Partners: Alchemy, AWS, Chainlink, Filecoin, Sequence, QuickSwap, Spheron. Open to solo builders and teams up to 4 — submit by Aug 1, winners announced Aug 25.",
+    prizeUsd: 500000,
+    registrationDeadline: "2026-08-01",
+  },
+
+  // === Hyperliquid community (Hype Global) ===
+  {
+    name: "HYPE Singapore 2026 — Hyperliquid Hackathon @ TOKEN2049",
+    startDate: "2026-10-05",
+    endDate: "2026-10-07",
+    city: "Singapore",
+    url: "https://hype.global/events/singapore-2026",
+    description:
+      "Hyperliquid community in-person hackathon during TOKEN2049 Singapore week. Multi-day format expecting 200–300+ builders, with hands-on hacking sessions, access to top mentors and protocol teams, tracks spanning DeFi, infrastructure, HyperEVM apps and trading tools. Prize pool TBA — verify final dates at hype.global/events/singapore-2026 closer to date.",
+  },
+
+  // === TOKEN2049 (Singapore) ===
+  {
+    name: "TOKEN2049 Origins Hackathon Singapore 2026",
+    startDate: "2026-10-07",
+    endDate: "2026-10-08",
+    city: "Singapore",
+    url: "https://www.token2049.com/singapore/2049-origins",
+    description:
+      "Crypto's premier hackathon co-located with TOKEN2049 Singapore (Oct 7–8). 36-hour in-person format for 160+ developers building Web3 products. $50,000 prize pool, top judges from the broader TOKEN2049 stage. Application required.",
+    prizeUsd: 50000,
+  },
+
+  // === ZK Hack ===
+  {
+    name: "ZK Hack V 2026",
+    startDate: "2026-11-26",
+    endDate: "2026-12-17",
+    city: "Online",
+    url: "https://zkhack.dev/zkhackV/",
+    description:
+      "Flagship 4-week virtual ZK hackathon. Weekly workshops with leading ZK protocols, advanced puzzle-solving competition (find bugs and win prizes), and an online ZK Job Fair on Gather Town to meet sponsors and explore open roles. Multi-track prize pool funded by the ZK ecosystem.",
+  },
 ];
 
 function toPayload(input: SeedInput): EventPayload {
@@ -430,6 +389,37 @@ function toPayload(input: SeedInput): EventPayload {
     prizeUsd: input.prizeUsd,
     registrationDeadline,
   };
+}
+
+// Names cut from the seed because they fell short of the curation bar
+// (sub-$1K cash with no compelling non-cash hook). Purged from the DB on
+// every run so re-running the seed actually removes them from the live index
+// rather than orphaning past inserts.
+const removedNames: string[] = [
+  "Polkadot Solidity Hackathon 2026",
+  "StableHacks 2026",
+  "AI & Big Data Expo Hackathon",
+  "ETHMumbai 2026",
+  "ETHPrague 2026",
+  "ETHRome 2026",
+  "Hackanation 2026",
+  "HackPrix Season 3",
+  "Hackmos 2026",
+  "Hack #10: Blackbox x ElevenLabs",
+];
+
+async function purgeRemoved(): Promise<number> {
+  if (removedNames.length === 0) return 0;
+  const deleted = await db
+    .delete(submissions)
+    .where(
+      and(
+        eq(submissions.type, "event"),
+        sql`${submissions.payload}->>'name' = ANY(${removedNames})`,
+      ),
+    )
+    .returning({ publicId: submissions.publicId });
+  return deleted.length;
 }
 
 async function upsertHackathon(input: SeedInput) {
@@ -476,6 +466,11 @@ async function upsertHackathon(input: SeedInput) {
 }
 
 async function main() {
+  const purged = await purgeRemoved();
+  if (purged > 0) {
+    console.log(`  purged   ${purged} retired ${purged === 1 ? "entry" : "entries"}\n`);
+  }
+
   let inserted = 0;
   let updated = 0;
   for (const input of inputs) {
@@ -485,7 +480,7 @@ async function main() {
     console.log(`  ${r.action.padEnd(8)} /events/${r.publicId}  ${input.name}`);
   }
   console.log(
-    `\n✓ ${inputs.length} hackathons processed (${inserted} new, ${updated} updated).`,
+    `\n✓ ${inputs.length} hackathons processed (${inserted} new, ${updated} updated, ${purged} purged).`,
   );
   process.exit(0);
 }

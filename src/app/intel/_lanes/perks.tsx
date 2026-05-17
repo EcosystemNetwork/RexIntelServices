@@ -17,16 +17,23 @@ import {
   isDeadlinePassed,
 } from "./_shared";
 
+type PerksFilter =
+  | { kind: "ecosystem"; ecosystem: "solana" | "ethereum" | "any" }
+  | { kind: "tier"; tier: "free" }
+  | { kind: "none" };
+
 const getPerksRows = unstable_cache(
-  async (ecosystem: "solana" | "ethereum" | "any" | null) => {
+  async (f: PerksFilter) => {
     const filterClause =
-      ecosystem === "solana"
+      f.kind === "ecosystem" && f.ecosystem === "solana"
         ? sql`LOWER(${submissions.payload}->>'ecosystem') LIKE '%solana%'`
-        : ecosystem === "ethereum"
+        : f.kind === "ecosystem" && f.ecosystem === "ethereum"
           ? sql`LOWER(${submissions.payload}->>'ecosystem') LIKE '%ethereum%' OR LOWER(${submissions.payload}->>'ecosystem') LIKE '%evm%'`
-          : ecosystem === "any"
+          : f.kind === "ecosystem" && f.ecosystem === "any"
             ? sql`LOWER(${submissions.payload}->>'ecosystem') IN ('any', 'multi-chain', 'all') OR ${submissions.payload}->>'ecosystem' IS NULL`
-            : sql`true`;
+            : f.kind === "tier" && f.tier === "free"
+              ? sql`${submissions.payload}->>'category' LIKE 'Free ·%'`
+              : sql`true`;
     return db
       .select({
         id: submissions.id,
@@ -50,23 +57,23 @@ const getPerksRows = unstable_cache(
       )
       .limit(200);
   },
-  ["intel-lane-perks-v2"],
+  ["intel-lane-perks-v3"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
 export async function PerksLane({ filter }: { filter?: string }) {
-  // Filter narrows by ecosystem since a Solana builder doesn't care about
-  // Ethereum-only credits and vice versa. "any" is the common case.
-  const ecosystem =
-    filter === "solana"
-      ? "solana"
-      : filter === "ethereum"
-        ? "ethereum"
-        : filter === "any"
-          ? "any"
-          : null;
+  // Single-slot filter param. Ecosystem narrows for chain-specific builders;
+  // "free" narrows to zero-friction entries (free tiers, open APIs, free
+  // courses) that don't require an application. The two are mutually
+  // exclusive on purpose — almost all "free stuff" is chain-agnostic.
+  const active: PerksFilter =
+    filter === "solana" || filter === "ethereum" || filter === "any"
+      ? { kind: "ecosystem", ecosystem: filter }
+      : filter === "free"
+        ? { kind: "tier", tier: "free" }
+        : { kind: "none" };
 
-  const rows = await getPerksRows(ecosystem);
+  const rows = await getPerksRows(active);
 
   const visible = rows.map((r) => ({ ...r, payload: r.payload as PerksPayload }));
 
@@ -83,33 +90,50 @@ export async function PerksLane({ filter }: { filter?: string }) {
         — programs from alchemy.com, quicknode.com, helius.dev, stripe.com and similar trusted hosts publish instantly.
       </PasteHint>
 
-      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
         <span
           className="uppercase tracking-widest"
           style={{ color: "var(--rex-text-dim)" }}
         >
           ECOSYSTEM ▸
         </span>
-        <Chip href="/intel?lane=perks" active={!ecosystem}>
+        <Chip href="/intel?lane=perks" active={active.kind === "none"}>
           All
         </Chip>
         <Chip
           href="/intel?lane=perks&filter=solana"
-          active={ecosystem === "solana"}
+          active={active.kind === "ecosystem" && active.ecosystem === "solana"}
         >
           Solana
         </Chip>
         <Chip
           href="/intel?lane=perks&filter=ethereum"
-          active={ecosystem === "ethereum"}
+          active={
+            active.kind === "ecosystem" && active.ecosystem === "ethereum"
+          }
         >
           Ethereum / EVM
         </Chip>
         <Chip
           href="/intel?lane=perks&filter=any"
-          active={ecosystem === "any"}
+          active={active.kind === "ecosystem" && active.ecosystem === "any"}
         >
           Any / Multi-chain
+        </Chip>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          TIER ▸
+        </span>
+        <Chip
+          href="/intel?lane=perks&filter=free"
+          active={active.kind === "tier" && active.tier === "free"}
+        >
+          Free stuff (no application)
         </Chip>
       </div>
 
