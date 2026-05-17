@@ -53,47 +53,91 @@ export default function LandingForm() {
         </div>
 
         <div className="mt-16 animate-fade-in animate-fade-in-delay-4">
-          <div className="rex-divider mb-8">
-            <span>Intelligence Divisions</span>
+          <div className="rex-divider mb-6">
+            <span>Intelligence</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
             <DivisionCard
               code="DIV-01"
               href="/intel"
-              icon={<MarketIcon className="w-5 h-5" />}
+              icon={<SignalIcon className="w-5 h-5" />}
               title="Intel Wire"
-              desc="Tips, sightings, and analyst-flagged signals on the digital asset complex."
+              desc="Incident postmortems, original briefings, and analyst-flagged signals on the digital asset complex."
             />
             <DivisionCard
               code="DIV-02"
               href="/events"
               icon={<SignalIcon className="w-5 h-5" />}
               title="Field Calendar"
-              desc="Conferences, hackathons, happy hours and closed-door sessions worth tracking."
+              desc="Conferences, happy hours, and closed-door sessions worth tracking."
             />
             <DivisionCard
               code="DIV-03"
-              href="/intel?lane=cities"
-              icon={<ShieldIcon className="w-5 h-5" />}
-              title="Pop-Up Cities"
-              desc="Multi-week residencies — Zuzalu-style gatherings for builders and researchers."
+              href="/hackathons"
+              icon={<SignalIcon className="w-5 h-5" />}
+              title="Hackathons"
+              desc="In-person and online hackathons — ETHGlobal, Solana, Chainlink, Encode, plus AI/agentic tracks."
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left mt-3">
+          <div className="rex-divider mb-6 mt-10">
+            <span>Funding</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
             <DivisionCard
               code="DIV-04"
-              href="/intel?lane=grants"
+              href="/capital"
               icon={<MarketIcon className="w-5 h-5" />}
-              title="Grants"
-              desc="Active funding programs from protocols, foundations, and public-goods initiatives."
+              title="Capital"
+              desc="Pre-seed and early-stage VC funds with public pitch portals — rolling intake, real first-check leads."
             />
             <DivisionCard
               code="DIV-05"
-              href="/intel?lane=accelerators"
-              icon={<SignalIcon className="w-5 h-5" />}
+              href="/grants"
+              icon={<MarketIcon className="w-5 h-5" />}
+              title="Grants"
+              desc="Active foundation + DAO grant programs — Ethereum, Solana, Arbitrum, and every major chain ecosystem."
+            />
+            <DivisionCard
+              code="DIV-06"
+              href="/accelerators"
+              icon={<MarketIcon className="w-5 h-5" />}
               title="Accelerators"
-              desc="Accelerators and incubators currently accepting applications — crypto-native and broader founder programs."
+              desc="Cohort programs currently accepting applications — crypto-native and broader founder tracks."
+            />
+          </div>
+
+          <div className="rex-divider mb-6 mt-10">
+            <span>Builder Surfaces</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+            <DivisionCard
+              code="DIV-07"
+              href="/residencies"
+              icon={<ShieldIcon className="w-5 h-5" />}
+              title="Residencies"
+              desc="Cohort retreats — application-based, multi-week."
+            />
+            <DivisionCard
+              code="DIV-08"
+              href="/pop-up-cities"
+              icon={<ShieldIcon className="w-5 h-5" />}
+              title="Pop-Up Cities"
+              desc="Zuzalu-style multi-week gatherings."
+            />
+            <DivisionCard
+              code="DIV-09"
+              href="/jobs"
+              icon={<ShieldIcon className="w-5 h-5" />}
+              title="Jobs"
+              desc="Open roles at the field's top teams."
+            />
+            <DivisionCard
+              code="DIV-10"
+              href="/perks"
+              icon={<ShieldIcon className="w-5 h-5" />}
+              title="Perks"
+              desc="Infra credits + vendor discounts."
             />
           </div>
         </div>

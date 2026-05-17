@@ -3,16 +3,18 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, or, sql } from "drizzle-orm";
 import { db, submissions, addresses, intelAddresses, intelVotes, submitters } from "@/lib/db";
 import type { IntelPayload, AddressRole } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
+import { FooterSubscribe } from "@/components/footer-subscribe";
 import { explorerUrl } from "@/lib/chains";
 import { absoluteUrl } from "@/lib/site-url";
 import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 import { VoteButton } from "@/components/vote-button";
 import { VOTER_COOKIE_NAME, verifyVoterCookie } from "@/lib/voter-cookie";
+import { PrizePoolBanner } from "@/app/intel/_lanes/signals";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,66 @@ type LoadedIntel = {
   addresses: LinkedAddress[];
   voteCount: number;
 };
+
+type RelatedIntel = {
+  publicId: string;
+  payload: IntelPayload;
+  publishedAt: Date | null;
+  voteCount: number;
+};
+
+/**
+ * Find 3 published intel rows that share kind OR category with the current
+ * one. Prefers same-kind matches via ORDER BY, falls back to same-category.
+ * Excludes the current row. Used to convert SEO landers into multi-page
+ * sessions.
+ */
+async function loadRelatedIntel(
+  currentId: string,
+  payload: IntelPayload,
+): Promise<RelatedIntel[]> {
+  const kind = payload.kind ?? "tip";
+  const category = payload.category ?? "";
+
+  const rows = await db
+    .select({
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+      voteCount: sql<number>`(SELECT count(*)::int FROM ${intelVotes} WHERE ${intelVotes.submissionId} = ${submissions.id})`,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "intel"),
+        eq(submissions.status, "approved"),
+        ne(submissions.id, currentId),
+        or(
+          sql`${submissions.payload}->>'kind' = ${kind}`,
+          sql`${submissions.payload}->>'category' = ${category}`,
+        ),
+      ),
+    )
+    // Same-kind first, then same-category, then everything else, newest within
+    // each tier. Inlining the CASE expression in ORDER BY avoids the alias
+    // gymnastics that drizzle's select-as-string would need.
+    .orderBy(
+      sql`CASE
+        WHEN ${submissions.payload}->>'kind' = ${kind} THEN 0
+        WHEN ${submissions.payload}->>'category' = ${category} THEN 1
+        ELSE 2
+      END`,
+      desc(submissions.publishedAt),
+    )
+    .limit(3);
+
+  return rows.map((r) => ({
+    publicId: r.publicId,
+    payload: r.payload as IntelPayload,
+    publishedAt: r.publishedAt,
+    voteCount: r.voteCount,
+  }));
+}
 
 const loadIntel = cache(
   async (publicId: string): Promise<LoadedIntel | undefined> => {
@@ -175,6 +237,9 @@ export default async function IntelDetailPage({
       .limit(1);
     alreadyVoted = !!vote;
   }
+
+  const relatedIntel = await loadRelatedIntel(row.id, payload);
+
   const dateLabel = row.publishedAt
     ? new Date(row.publishedAt).toLocaleDateString(undefined, {
         weekday: "short",
@@ -472,15 +537,123 @@ export default async function IntelDetailPage({
           </div>
         </article>
 
-        <div className="mt-6">
+        {/* Conversion stack: prize-pool context → vote → share + subscribe →
+           related incidents. Built around the assumption that SEO landers
+           (someone googling "[protocol] hack timeline") finish reading the
+           article and would otherwise leave — every block below this comment
+           exists to convert that exit into a deeper session. */}
+        <div className="mt-8 space-y-6">
+          <PrizePoolBanner />
           <VoteButton
             publicId={realId}
             initialCount={row.voteCount}
             initialVoted={alreadyVoted}
           />
+          <ShareAndSubscribe
+            url={absoluteUrl(detailHref("/intel", realId, payload.headline))}
+            headline={payload.headline}
+          />
+          <RelatedIntel items={relatedIntel} />
         </div>
       </main>
     </PublicShell>
+  );
+}
+
+/**
+ * Lightweight share-to-X + inline subscribe row. Sits between the vote button
+ * and the related-incidents grid so anyone who isn't ready to vote still has
+ * a one-tap escape hatch to either share or subscribe.
+ */
+function ShareAndSubscribe({ url, headline }: { url: string; headline: string }) {
+  const shareText = `${headline} — Rex Intel Services`;
+  const xHref = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`;
+  return (
+    <div className="rex-card-flat p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <a
+          href={xHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rex-btn whitespace-nowrap"
+          aria-label="Share to X"
+        >
+          Share to X ↗
+        </a>
+        <span
+          className="text-[11px] font-mono uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          Or get the next one delivered ▾
+        </span>
+      </div>
+      <FooterSubscribe source="intel-detail" />
+    </div>
+  );
+}
+
+function RelatedIntel({ items }: { items: RelatedIntel[] }) {
+  if (items.length === 0) return null;
+  return (
+    <section>
+      <div
+        className="text-[10px] font-mono uppercase tracking-widest mb-3"
+        style={{ color: "var(--rex-text-dim)" }}
+      >
+        Related intel
+      </div>
+      <ul className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {items.map((item) => {
+          const href = detailHref("/intel", item.publicId, item.payload.headline);
+          const kind = item.payload.kind ?? "tip";
+          return (
+            <li key={item.publicId}>
+              <Link
+                href={href}
+                className="rex-card-flat p-4 block h-full hover:bg-[var(--rex-surface-2)] transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest">
+                  <span
+                    className="px-1.5 py-0.5 rounded-sm"
+                    style={{
+                      background:
+                        kind === "incident"
+                          ? "rgba(248,113,113,0.10)"
+                          : kind === "original"
+                            ? "rgba(95,185,31,0.10)"
+                            : "rgba(136,136,160,0.10)",
+                      color:
+                        kind === "incident"
+                          ? "#f87171"
+                          : kind === "original"
+                            ? "var(--rex-accent)"
+                            : "var(--rex-text-muted)",
+                      border: `1px solid ${
+                        kind === "incident"
+                          ? "rgba(248,113,113,0.30)"
+                          : kind === "original"
+                            ? "rgba(95,185,31,0.30)"
+                            : "rgba(136,136,160,0.25)"
+                      }`,
+                    }}
+                  >
+                    {kind}
+                  </span>
+                  {item.voteCount > 0 && (
+                    <span style={{ color: "var(--rex-text-dim)" }}>
+                      ▲ {item.voteCount}
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm text-white leading-snug line-clamp-3">
+                  {item.payload.headline}
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
