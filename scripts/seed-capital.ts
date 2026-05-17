@@ -195,6 +195,54 @@ const funds: CapitalPayload[] = [
     pitchUrl: "mailto:info@electriccapital.com",
     tags: ["crypto", "ai", "cryptography", "distributed-systems", "fintech"],
   },
+  {
+    name: "Pantera Capital",
+    organization: "Pantera Capital",
+    organizationUrl: "https://panteracapital.com/",
+    description:
+      "$3.8B-AUM full-spectrum crypto investment firm founded 2003 (pivoted to digital assets 2013). Single committee invests across venture equity, private tokens, liquid tokens, and special situations from one flagship vehicle. 266+ portfolio companies including 16 unicorns and 15 IPOs. Public pitch email is the canonical inbound path. Source verified 2026-05-16.",
+    stage: "Seed → growth, tokens included",
+    focus: "Full-spectrum crypto — venture, tokens, liquid, special situations",
+    location: "Menlo Park, CA",
+    pitchUrl: "mailto:pitch@panteracapital.com",
+    tags: ["crypto", "tokens", "growth", "defi"],
+  },
+  {
+    name: "Variant Fund",
+    organization: "Variant",
+    organizationUrl: "https://variant.fund/",
+    description:
+      "Crypto VC built around the 'user-ownership' thesis — backs decentralized networks that turn users into owners. Combines early-stage seed checks with active liquid token trading from the same firm. Portfolio includes Uniswap, Phantom, World, Morpho, Flashbots, Farcaster, Blockaid, Blackbird. Avg check $250k–$750k. Founded by Jesse Walden (ex-a16z crypto). Public contact form on the site is the cold-inbound path.",
+    stage: "Pre-seed → Seed",
+    checkSize: "$250k–$750k",
+    focus: "Crypto · user-ownership networks · tokens",
+    pitchUrl: "https://variant.fund/about/",
+    tags: ["crypto", "tokens", "user-ownership", "pre-seed"],
+  },
+  {
+    name: "1kx",
+    organization: "1kx",
+    organizationUrl: "https://1kx.network/",
+    description:
+      "Crypto-native fund specializing in token-network design, governance, and community bootstrapping. Deploys seed and Series A checks across infrastructure, middleware, consumer crypto, and digital asset projects. Founded by ex-technology founders Lasse Clausen and Christopher Heymann. Public pitch path is via the site contact channels; the firm responds within a few weeks; warm intros preferred but not required.",
+    stage: "Seed → Series A",
+    focus: "Token networks · infrastructure · middleware · consumer crypto",
+    location: "New York, NY",
+    pitchUrl: "https://1kx.network/",
+    tags: ["crypto", "tokens", "infrastructure", "consumer"],
+  },
+  {
+    name: "Conviction Embed",
+    organization: "Conviction",
+    organizationUrl: "https://www.conviction.com/",
+    description:
+      "AI-native VC by Sarah Guo (host of No Priors, ex-Greylock). Conviction Embed is the firm's structured pre-seed surface — $150k uncapped + $400k+ follow-on for early-stage AI builders. Thesis bias toward 'unsexy AI' infrastructure and Software 3.0. Public application path; check Conviction's site for the current Embed cohort window.",
+    stage: "Pre-seed",
+    checkSize: "$150k uncapped + $400k+ follow-on",
+    focus: "AI-native · Software 3.0 · AI infrastructure",
+    pitchUrl: "https://www.conviction.com/",
+    tags: ["ai", "pre-seed", "infrastructure", "software-3.0"],
+  },
 ];
 
 async function upsert(payload: CapitalPayload) {
