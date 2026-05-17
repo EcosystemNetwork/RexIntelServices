@@ -8,6 +8,7 @@ import { logoUrlFor } from "@/lib/logo";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   Chip,
+  DeadlineChip,
   EmptyState,
   OrgLogo,
   FeaturedTag,
@@ -132,12 +133,6 @@ function PopupCityCard({
   const end = new Date(payload.endsAt);
   const range = formatRange(start, end);
   const location = [payload.city, payload.country].filter(Boolean).join(", ");
-  const applyDeadline = payload.applicationDeadline
-    ? new Date(payload.applicationDeadline).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      })
-    : null;
 
   return (
     <Link
@@ -192,6 +187,10 @@ function PopupCityCard({
           {payload.focus && (
             <span style={{ color: "var(--rex-text-muted)" }}>· {payload.focus}</span>
           )}
+          <DeadlineChip
+            deadline={payload.applicationDeadline}
+            rolling={payload.rolling}
+          />
         </div>
         <div className="text-white text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
           {payload.name}
@@ -202,7 +201,6 @@ function PopupCityCard({
         >
           {range}
           {location && ` · ${location}`}
-          {applyDeadline && ` · Apply by ${applyDeadline}`}
         </div>
       </div>
     </Link>

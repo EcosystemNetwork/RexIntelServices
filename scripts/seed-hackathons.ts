@@ -26,6 +26,11 @@ type SeedInput = {
   url: string;
   description: string;
   prizeUsd?: number;
+  // Optional explicit registration deadline (YYYY-MM-DD). When omitted, the
+  // toPayload helper applies a default: online/hybrid hackathons can take late
+  // registration through the submission window (defaults to endDate), while
+  // in-person hackathons cut off at kickoff (defaults to startDate).
+  registrationDeadline?: string;
 };
 
 const inputs: SeedInput[] = [
@@ -133,6 +138,8 @@ const inputs: SeedInput[] = [
     description:
       "ETHGlobal in-person Ethereum hackathon at the Palais des Festivals in Cannes, co-located with EthCC week.",
     prizeUsd: 375000,
+    // Application closed 2 weeks before kickoff per ethglobal.com schedule.
+    registrationDeadline: "2026-03-20",
   },
 
   // === lablab.ai ===
@@ -372,6 +379,8 @@ const inputs: SeedInput[] = [
     description:
       "Sui Foundation's global online hackathon. $1M+ total prize pool — $500K+ in core track prizes plus specialized track pools. Tracks: Agentic Web, DeFi & Payments, Walrus, DeepBook, Infra & DevX, EVE, ONE Championship, Degen, Payments & Wallets, Entertainment & Culture, and Explorations (multi-chain/RWA). Project submissions due May 23. Demo days June 13–14. Winners announced end of June. $2,500 university awards available. OceanDAO Summit follows in Athens July 21–31.",
     prizeUsd: 1000000,
+    // Project submission cutoff per overflow.sui.io schedule.
+    registrationDeadline: "2026-05-23",
   },
 
   // === Arbitrum Open House ===
@@ -394,6 +403,21 @@ function toPayload(input: SeedInput): EventPayload {
     input.endDate === input.startDate
       ? undefined
       : `${input.endDate}T23:00:00Z`;
+  // Online/hybrid hackathons typically accept registration through the
+  // submission window — default the deadline to the last day. In-person
+  // hackathons cut off at kickoff. Explicit `registrationDeadline` always wins.
+  const cityLower = (input.city ?? "").toLowerCase();
+  const isOnline = ["online", "virtual", "remote", "global", "hybrid"].includes(
+    cityLower,
+  );
+  const defaultDeadlineDate = isOnline
+    ? endsAt
+      ? input.endDate
+      : input.startDate
+    : input.startDate;
+  const registrationDeadline = input.registrationDeadline
+    ? `${input.registrationDeadline}T23:59:00Z`
+    : `${defaultDeadlineDate}T23:59:00Z`;
   return {
     name: input.name,
     startsAt,
@@ -404,6 +428,7 @@ function toPayload(input: SeedInput): EventPayload {
     description: input.description,
     eventType: "hackathon",
     prizeUsd: input.prizeUsd,
+    registrationDeadline,
   };
 }
 

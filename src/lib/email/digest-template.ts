@@ -5,6 +5,7 @@ import type {
   GrantPayload,
   AcceleratorPayload,
 } from "@/lib/db/schema";
+import { PERSONA_LABELS, type PersonaSlug } from "@/lib/personas";
 import { detailHref } from "@/lib/slug";
 
 export type DigestIntel = {
@@ -59,6 +60,10 @@ export function renderDigest(args: {
   accelerators?: DigestAccelerator[];
   baseUrl: string;
   issueDate: Date;
+  // When set, the briefing is tagged for a single persona segment — drives
+  // subject prefix, header kicker, and the internal campaign name so the
+  // admin can tell variants apart in the campaigns list.
+  persona?: PersonaSlug;
 }): RenderedDigest {
   const {
     intel,
@@ -68,6 +73,7 @@ export function renderDigest(args: {
     accelerators = [],
     baseUrl,
     issueDate,
+    persona,
   } = args;
 
   const dateLabel = issueDate.toLocaleDateString("en-US", {
@@ -76,11 +82,15 @@ export function renderDigest(args: {
     year: "numeric",
   });
   const isoDate = issueDate.toISOString().slice(0, 10);
+  const personaLabel = persona ? PERSONA_LABELS[persona] : null;
+  const subjectPrefix = personaLabel
+    ? `RexIntel · ${personaLabel}`
+    : "RexIntel Briefing";
 
   const subject =
     intel.length > 0
-      ? `RexIntel Briefing — ${intel.length} field report${intel.length === 1 ? "" : "s"}, ${events.length} event${events.length === 1 ? "" : "s"} ahead`
-      : `RexIntel Briefing — ${events.length} event${events.length === 1 ? "" : "s"} on the horizon`;
+      ? `${subjectPrefix} — ${intel.length} field report${intel.length === 1 ? "" : "s"}, ${events.length} event${events.length === 1 ? "" : "s"} ahead`
+      : `${subjectPrefix} — ${events.length} event${events.length === 1 ? "" : "s"} on the horizon`;
 
   const previewText =
     intel[0]?.payload.headline ??
@@ -98,6 +108,7 @@ export function renderDigest(args: {
     accelerators,
     baseUrl,
     dateLabel,
+    personaLabel,
   });
   const textBody = renderText({
     intel,
@@ -107,8 +118,11 @@ export function renderDigest(args: {
     accelerators,
     baseUrl,
     dateLabel,
+    personaLabel,
   });
-  const internalName = `Weekly Briefing — ${isoDate}`;
+  const internalName = persona
+    ? `Weekly Briefing [${persona}] — ${isoDate}`
+    : `Weekly Briefing — ${isoDate}`;
 
   return { subject, previewText, htmlBody, textBody, internalName };
 }
@@ -121,8 +135,18 @@ function renderHtml(args: {
   accelerators: DigestAccelerator[];
   baseUrl: string;
   dateLabel: string;
+  personaLabel: string | null;
 }): string {
-  const { intel, events, popupCities, grants, accelerators, baseUrl, dateLabel } = args;
+  const {
+    intel,
+    events,
+    popupCities,
+    grants,
+    accelerators,
+    baseUrl,
+    dateLabel,
+    personaLabel,
+  } = args;
 
   const intelSection =
     intel.length === 0
@@ -179,7 +203,7 @@ function renderHtml(args: {
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:#111118;border:1px solid #1e1e28;border-radius:6px;">
     <tr>
       <td style="padding:28px 28px 20px;border-bottom:1px solid #1e1e28;">
-        <div style="font:600 10px/1 ui-monospace,monospace;letter-spacing:0.22em;text-transform:uppercase;color:#5fb91f;">● Classified // Eyes Only</div>
+        <div style="font:600 10px/1 ui-monospace,monospace;letter-spacing:0.22em;text-transform:uppercase;color:#5fb91f;">● Classified // Eyes Only${personaLabel ? ` // ${escape(personaLabel)}` : ""}</div>
         <div style="font:600 24px/1.2 ui-sans-serif,system-ui,sans-serif;color:#fff;margin:10px 0 4px;">RexIntel Briefing</div>
         <div style="font:400 12px/1 ui-monospace,monospace;color:#55556a;">${escape(dateLabel)}</div>
       </td>
@@ -316,10 +340,23 @@ function renderText(args: {
   accelerators: DigestAccelerator[];
   baseUrl: string;
   dateLabel: string;
+  personaLabel: string | null;
 }): string {
-  const { intel, events, popupCities, grants, accelerators, baseUrl, dateLabel } = args;
+  const {
+    intel,
+    events,
+    popupCities,
+    grants,
+    accelerators,
+    baseUrl,
+    dateLabel,
+    personaLabel,
+  } = args;
   const lines: string[] = [];
-  lines.push(`RexIntel Briefing — ${dateLabel}`);
+  const heading = personaLabel
+    ? `RexIntel Briefing · ${personaLabel} — ${dateLabel}`
+    : `RexIntel Briefing — ${dateLabel}`;
+  lines.push(heading);
   lines.push("=".repeat(48));
   lines.push("");
 

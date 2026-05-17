@@ -9,6 +9,7 @@ import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   Chip,
   ClosedTag,
+  DeadlineChip,
   EmptyState,
   OrgLogo,
   FeaturedTag,
@@ -139,15 +140,6 @@ function PerksCard({
   payload: PerksPayload;
   featured?: boolean;
 }) {
-  const deadlineLabel = payload.deadline
-    ? new Date(payload.deadline).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : payload.rolling
-      ? "Rolling"
-      : null;
   const expired = isDeadlinePassed(payload.deadline);
 
   const logo = logoUrlFor(payload.organizationUrl, payload.applyUrl);
@@ -181,6 +173,12 @@ function PerksCard({
           {payload.ecosystem && (
             <span style={{ color: "var(--rex-text-dim)" }}>· {payload.ecosystem}</span>
           )}
+          {!expired && (
+            <DeadlineChip
+              deadline={payload.deadline}
+              rolling={payload.rolling}
+            />
+          )}
           {payload.value && (
             <span className="ml-auto" style={{ color: "var(--rex-accent)" }}>
               {payload.value}
@@ -196,23 +194,12 @@ function PerksCard({
           {payload.description}
         </p>
 
-        {(payload.eligibility || deadlineLabel) && (
+        {payload.eligibility && (
           <div
             className="mt-3 text-[10px] font-mono"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            {payload.eligibility && (
-              <>
-                Eligible: <span className="text-[var(--rex-text-muted)]">{payload.eligibility}</span>
-              </>
-            )}
-            {payload.eligibility && deadlineLabel && " · "}
-            {deadlineLabel && (
-              <>
-                {payload.rolling && !payload.deadline ? "" : "Apply by: "}
-                <span className="text-[var(--rex-text-muted)]">{deadlineLabel}</span>
-              </>
-            )}
+            Eligible: <span className="text-[var(--rex-text-muted)]">{payload.eligibility}</span>
           </div>
         )}
       </div>

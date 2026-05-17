@@ -8,6 +8,7 @@ import { logoUrlFor } from "@/lib/logo";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   Chip,
+  DeadlineChip,
   EmptyState,
   OrgLogo,
   FeaturedTag,
@@ -129,12 +130,6 @@ function ResidencyCard({
   const end = new Date(payload.endsAt);
   const range = formatRange(start, end);
   const location = [payload.city, payload.country].filter(Boolean).join(", ");
-  const applyDeadline = payload.applicationDeadline
-    ? new Date(payload.applicationDeadline).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      })
-    : null;
 
   // Residency detail page reuses the pop-up-city detail route — they share
   // shape (multi-week dates + apply URL). If the two diverge, fork later.
@@ -188,6 +183,10 @@ function ResidencyCard({
           {payload.cost && (
             <span style={{ color: "var(--rex-text-muted)" }}>· {payload.cost}</span>
           )}
+          <DeadlineChip
+            deadline={payload.applicationDeadline}
+            rolling={payload.rolling}
+          />
         </div>
         <div className="text-white text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
           {payload.name}
@@ -198,7 +197,6 @@ function ResidencyCard({
         >
           {range}
           {location && ` · ${location}`}
-          {applyDeadline && ` · Apply by ${applyDeadline}`}
         </div>
       </div>
 

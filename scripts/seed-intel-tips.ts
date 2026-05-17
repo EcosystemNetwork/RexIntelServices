@@ -16,6 +16,16 @@ import "dotenv/config";
 import { and, eq, sql } from "drizzle-orm";
 import { db, submissions } from "../src/lib/db";
 import type { IntelPayload } from "../src/lib/db/schema";
+import type { PersonaSlug } from "../src/lib/personas";
+
+// Tip-class rows lean toward fraud / sanctions / phishing — primary readers
+// are compliance, exchange T&S, and LE. Investigators read everything.
+const TIP_DEFAULT_PERSONAS: PersonaSlug[] = [
+  "compliance",
+  "exchange-risk",
+  "investigator",
+  "gov-le",
+];
 
 const tips: IntelPayload[] = [
   {
@@ -383,11 +393,15 @@ async function main() {
   let inserted = 0;
   let updated = 0;
   for (const it of tips) {
-    const r = await upsert(it);
+    const withPersonas: IntelPayload = {
+      ...it,
+      personas: it.personas ?? TIP_DEFAULT_PERSONAS,
+    };
+    const r = await upsert(withPersonas);
     if (r.action === "inserted") inserted++;
     else updated++;
     console.log(
-      `  ${r.action.padEnd(8)} /intel/${r.publicId}  ${it.headline}`,
+      `  ${r.action.padEnd(8)} /intel/${r.publicId}  ${withPersonas.headline}`,
     );
   }
   console.log(

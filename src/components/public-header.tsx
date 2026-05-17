@@ -36,6 +36,7 @@ export function PublicHeader({
       <div className="flex items-center gap-2.5 sm:gap-4 text-[10px] sm:text-[11px] font-mono uppercase tracking-widest shrink-0">
         <UniversalSearch />
         <PublicNavLink href="/intel">Intel</PublicNavLink>
+        <PublicNavLink href="/graph">Graph</PublicNavLink>
         <PublicNavLink href="/events">Events</PublicNavLink>
         <PublicNavLink href="/hackathons">Hacks</PublicNavLink>
         <PublicNavLink href="/submit" accent>

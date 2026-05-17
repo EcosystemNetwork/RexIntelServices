@@ -2,7 +2,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
-import type { AcceleratorPayload } from "@/lib/db/schema";
+import type { FellowshipPayload } from "@/lib/db/schema";
 import { detailHref } from "@/lib/slug";
 import { logoUrlFor } from "@/lib/logo";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
@@ -17,7 +17,7 @@ import {
   isDeadlinePassed,
 } from "./_shared";
 
-const getAcceleratorsRows = unstable_cache(
+const getFellowshipsRows = unstable_cache(
   async (intake: "rolling" | "scheduled" | null) => {
     const filterClause =
       intake === "rolling"
@@ -36,7 +36,7 @@ const getAcceleratorsRows = unstable_cache(
       .from(submissions)
       .where(
         and(
-          eq(submissions.type, "accelerator"),
+          eq(submissions.type, "fellowship"),
           eq(submissions.status, "approved"),
           filterClause,
         ),
@@ -48,32 +48,32 @@ const getAcceleratorsRows = unstable_cache(
       )
       .limit(200);
   },
-  ["intel-lane-accelerators-v2"],
+  ["intel-lane-fellowships-v1"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-export async function AcceleratorsLane({ filter }: { filter?: string }) {
+export async function FellowshipsLane({ filter }: { filter?: string }) {
   const intake =
     filter === "rolling" ? "rolling" : filter === "scheduled" ? "scheduled" : null;
 
-  const rows = await getAcceleratorsRows(intake);
+  const rows = await getFellowshipsRows(intake);
 
   const visible = rows.map((r) => ({
     ...r,
-    payload: r.payload as AcceleratorPayload,
+    payload: r.payload as FellowshipPayload,
   }));
 
   return (
     <>
       <PasteHint>
-        Running a program?{" "}
+        Running a fellowship?{" "}
         <Link
-          href="/submit?type=accelerator"
+          href="/submit?type=fellowship"
           className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
         >
           Submit it
         </Link>{" "}
-        — programs from a16zcrypto, Alliance, Orange DAO and similar trusted hosts publish instantly.
+        — programs from Thiel, Schmidt Sciences, Ethereum Foundation and similar trusted hosts publish instantly.
       </PasteHint>
 
       <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
@@ -83,17 +83,17 @@ export async function AcceleratorsLane({ filter }: { filter?: string }) {
         >
           INTAKE ▸
         </span>
-        <Chip href="/intel?lane=accelerators" active={!intake}>
+        <Chip href="/intel?lane=fellowships" active={!intake}>
           All
         </Chip>
         <Chip
-          href="/intel?lane=accelerators&filter=rolling"
+          href="/intel?lane=fellowships&filter=rolling"
           active={intake === "rolling"}
         >
           Rolling
         </Chip>
         <Chip
-          href="/intel?lane=accelerators&filter=scheduled"
+          href="/intel?lane=fellowships&filter=scheduled"
           active={intake === "scheduled"}
         >
           Scheduled cohort
@@ -101,15 +101,15 @@ export async function AcceleratorsLane({ filter }: { filter?: string }) {
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState>No accelerator programs on file yet.</EmptyState>
+        <EmptyState>No fellowship programs on file yet.</EmptyState>
       ) : (
         <div className="space-y-2">
-          {visible.map((a) => (
-            <AcceleratorCard
-              key={a.id}
-              publicId={a.publicId}
-              payload={a.payload}
-              featured={a.featured}
+          {visible.map((f) => (
+            <FellowshipCard
+              key={f.id}
+              publicId={f.publicId}
+              payload={f.payload}
+              featured={f.featured}
             />
           ))}
         </div>
@@ -118,13 +118,13 @@ export async function AcceleratorsLane({ filter }: { filter?: string }) {
   );
 }
 
-function AcceleratorCard({
+function FellowshipCard({
   publicId,
   payload,
   featured = false,
 }: {
   publicId: string;
-  payload: AcceleratorPayload;
+  payload: FellowshipPayload;
   featured?: boolean;
 }) {
   const expired = isDeadlinePassed(payload.nextDeadline);
@@ -141,7 +141,7 @@ function AcceleratorCard({
 
   return (
     <Link
-      href={detailHref("/accelerators", publicId, payload.name)}
+      href={detailHref("/fellowships", publicId, payload.name)}
       className="rex-card flex gap-4 p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
       style={
         featured
@@ -162,8 +162,8 @@ function AcceleratorCard({
           {featured && <FeaturedTag />}
           {expired && <ClosedTag label="Cohort closed" />}
           <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
-          {payload.investment && (
-            <span style={{ color: "var(--rex-text-muted)" }}>· {payload.investment}</span>
+          {payload.stipend && (
+            <span style={{ color: "var(--rex-text-muted)" }}>· {payload.stipend}</span>
           )}
           {payload.location && (
             <span style={{ color: "var(--rex-text-dim)" }}>· {payload.location}</span>
@@ -189,20 +189,33 @@ function AcceleratorCard({
           {payload.description}
         </p>
 
-        {(payload.focus || payload.duration) && (
+        {(payload.eligibility || payload.duration || payload.focus) && (
           <div
             className="mt-3 text-[10px] font-mono"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            {payload.focus && (
+            {payload.eligibility && (
               <>
-                Focus: <span className="text-[var(--rex-text-muted)]">{payload.focus}</span>
+                Eligibility:{" "}
+                <span className="text-[var(--rex-text-muted)]">
+                  {payload.eligibility}
+                </span>
               </>
             )}
-            {payload.focus && payload.duration && " · "}
+            {payload.eligibility && (payload.duration || payload.focus) && " · "}
             {payload.duration && (
               <>
-                Duration: <span className="text-[var(--rex-text-muted)]">{payload.duration}</span>
+                Duration:{" "}
+                <span className="text-[var(--rex-text-muted)]">
+                  {payload.duration}
+                </span>
+              </>
+            )}
+            {payload.duration && payload.focus && " · "}
+            {payload.focus && (
+              <>
+                Focus:{" "}
+                <span className="text-[var(--rex-text-muted)]">{payload.focus}</span>
               </>
             )}
           </div>

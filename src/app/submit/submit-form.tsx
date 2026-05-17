@@ -12,6 +12,11 @@ import {
 } from "@/lib/chains";
 import { Turnstile } from "@/components/turnstile";
 import { track } from "@vercel/analytics";
+import {
+  PERSONA_SLUGS,
+  PERSONA_LABELS,
+  type PersonaSlug,
+} from "@/lib/personas";
 
 // Wrapped so each form can fire a single line without try/catching the
 // analytics call — best-effort, never blocks the submission flow.
@@ -104,6 +109,7 @@ type Tab =
   | "popup_city"
   | "grant"
   | "accelerator"
+  | "fellowship"
   | "capital"
   | "residency"
   | "perks"
@@ -116,6 +122,7 @@ const TAB_LABELS: Record<Tab, string> = {
   residency: "Residency",
   grant: "Grant",
   accelerator: "Accelerator",
+  fellowship: "Fellowship",
   capital: "Capital",
   perks: "Perks",
   job: "Job",
@@ -130,6 +137,7 @@ const TAB_ORDER: Tab[] = [
   "residency",
   "grant",
   "accelerator",
+  "fellowship",
   "capital",
   "perks",
   "job",
@@ -208,6 +216,7 @@ export default function SubmitForm() {
         {tab === "perks" && <PerksForm />}
         {tab === "grant" && <GrantForm />}
         {tab === "accelerator" && <AcceleratorForm />}
+        {tab === "fellowship" && <FellowshipForm />}
         {tab === "job" && <JobForm />}
       </main>
     </PublicShell>
@@ -263,6 +272,9 @@ function IntelForm() {
     "" | "primary" | "secondary" | "hearsay"
   >("");
   const [archiveUrl, setArchiveUrl] = useState("");
+  // Persona segments this intel speaks to. Empty array = "all personas" —
+  // grace rule mirrors ungraded sourceGrade. Drives weekly digest routing.
+  const [personas, setPersonas] = useState<PersonaSlug[]>([]);
   const [anonymous, setAnonymous] = useState(true);
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
@@ -303,6 +315,7 @@ function IntelForm() {
       kind: intelKind,
       sourceGrade: sourceGrade || undefined,
       archiveUrl: archiveUrl.trim() || undefined,
+      personas: personas.length ? personas : undefined,
       anonymous,
     };
 
@@ -533,6 +546,39 @@ function IntelForm() {
         </div>
       </div>
 
+      <div>
+        <Label>Personas (opt.)</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {PERSONA_SLUGS.map((slug) => {
+            const active = personas.includes(slug);
+            return (
+              <button
+                key={slug}
+                type="button"
+                onClick={() =>
+                  setPersonas((cur) =>
+                    cur.includes(slug)
+                      ? cur.filter((s) => s !== slug)
+                      : [...cur, slug],
+                  )
+                }
+                className={`text-[11px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
+                  active
+                    ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-white"
+                    : "border-[var(--rex-border-subtle)] text-[var(--rex-text-dim)] hover:border-[var(--rex-border)]"
+                }`}
+              >
+                {PERSONA_LABELS[slug]}
+              </button>
+            );
+          })}
+        </div>
+        <Hint>
+          Who this report is for. Routes the weekly digest. Leave empty to
+          reach all readers.
+        </Hint>
+      </div>
+
       <div className="border-t border-[var(--rex-border-subtle)] pt-4">
         <div className="flex items-center justify-between mb-2">
           <Label>Addresses (opt.)</Label>
@@ -729,6 +775,7 @@ function EventForm() {
     "",
   );
   const [prizeUsd, setPrizeUsd] = useState("");
+  const [registrationDeadline, setRegistrationDeadline] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterHandle, setSubmitterHandle] = useState("");
@@ -790,6 +837,8 @@ function EventForm() {
     if (typeof p.url === "string") setUrl(p.url);
     if (typeof p.description === "string") setDescription(p.description);
     if (typeof p.imageUrl === "string") setImageUrl(p.imageUrl);
+    if (typeof p.registrationDeadline === "string")
+      setRegistrationDeadline(isoToDatetimeLocal(p.registrationDeadline));
     if (
       typeof p.eventType === "string" &&
       ["conference", "workshop", "meetup", "hackathon", "other"].includes(
@@ -819,6 +868,10 @@ function EventForm() {
       prizeUsd:
         eventType === "hackathon" && prizeUsd.trim()
           ? Number(prizeUsd.replace(/[,_$\s]/g, ""))
+          : undefined,
+      registrationDeadline:
+        eventType === "hackathon" && registrationDeadline
+          ? new Date(registrationDeadline).toISOString()
           : undefined,
       imageUrl: imageUrl || undefined,
     };
@@ -1037,23 +1090,38 @@ function EventForm() {
       </div>
 
       {eventType === "hackathon" && (
-        <div>
-          <Label>Prize Pool — USD (opt.)</Label>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step={1000}
-            value={prizeUsd}
-            onChange={(e) => setPrizeUsd(e.target.value)}
-            className="rex-input w-full"
-            placeholder="e.g. 50000"
-          />
-          <Hint>
-            Total prize pool, in USD. Used by the hackathons filter
-            (Any / $1K+ / $10K+ / $50K+ / $100K+).
-          </Hint>
-        </div>
+        <>
+          <div>
+            <Label>Prize Pool — USD (opt.)</Label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1000}
+              value={prizeUsd}
+              onChange={(e) => setPrizeUsd(e.target.value)}
+              className="rex-input w-full"
+              placeholder="e.g. 50000"
+            />
+            <Hint>
+              Total prize pool, in USD. Used by the hackathons filter
+              (Any / $1K+ / $10K+ / $50K+ / $100K+).
+            </Hint>
+          </div>
+          <div>
+            <Label>Registration deadline (opt.)</Label>
+            <input
+              type="datetime-local"
+              value={registrationDeadline}
+              onChange={(e) => setRegistrationDeadline(e.target.value)}
+              className="rex-input w-full"
+            />
+            <Hint>
+              When registration closes. Surfaces a Register-by chip on cards;
+              leave blank if registration runs through the event start.
+            </Hint>
+          </div>
+        </>
       )}
 
       <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1129,6 +1197,7 @@ function PopupCityForm() {
   const [url, setUrl] = useState("");
   const [applyUrl, setApplyUrl] = useState("");
   const [applicationDeadline, setApplicationDeadline] = useState("");
+  const [rolling, setRolling] = useState(false);
   const [focus, setFocus] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
@@ -1173,9 +1242,11 @@ function PopupCityForm() {
       venue: venue || undefined,
       url: url || undefined,
       applyUrl: applyUrl || undefined,
-      applicationDeadline: applicationDeadline
-        ? new Date(applicationDeadline).toISOString()
-        : undefined,
+      applicationDeadline:
+        applicationDeadline && !rolling
+          ? new Date(applicationDeadline).toISOString()
+          : undefined,
+      rolling: rolling || undefined,
       focus: focus || undefined,
       imageUrl: imageUrl || undefined,
     };
@@ -1298,6 +1369,7 @@ function PopupCityForm() {
             type="datetime-local"
             value={applicationDeadline}
             onChange={(e) => setApplicationDeadline(e.target.value)}
+            disabled={rolling}
             className="rex-input w-full"
           />
         </Field>
@@ -1312,6 +1384,16 @@ function PopupCityForm() {
           />
         </Field>
       </div>
+
+      <label className="flex items-center gap-2 text-xs font-mono">
+        <input
+          type="checkbox"
+          checked={rolling}
+          onChange={(e) => setRolling(e.target.checked)}
+          className="accent-[var(--rex-accent)]"
+        />
+        Rolling intake (no fixed deadline)
+      </label>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Host Org (opt.)">
@@ -1599,6 +1681,160 @@ function AcceleratorForm() {
       <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
 
       <SubmitRow status={status} message={message} label="Submit Accelerator ▸" />
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Fellowship form — stipend-funded cohorts (Thiel, EPF, Anthropic Fellows)
+// ─────────────────────────────────────────────────────────────────────
+
+function FellowshipForm() {
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [organizationUrl, setOrganizationUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [stipend, setStipend] = useState("");
+  const [duration, setDuration] = useState("");
+  const [eligibility, setEligibility] = useState("");
+  const [location, setLocation] = useState("");
+  const [focus, setFocus] = useState("");
+  const [applyUrl, setApplyUrl] = useState("");
+  const [nextDeadline, setNextDeadline] = useState("");
+  const [rolling, setRolling] = useState(false);
+  const [cadence, setCadence] = useState("");
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+  const [editUrl, setEditUrl] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    const payload = {
+      name,
+      organization,
+      organizationUrl: organizationUrl || undefined,
+      description,
+      stipend: stipend || undefined,
+      duration: duration || undefined,
+      eligibility: eligibility || undefined,
+      location: location || undefined,
+      focus: focus || undefined,
+      applyUrl: applyUrl || undefined,
+      nextDeadline:
+        nextDeadline && !rolling
+          ? new Date(nextDeadline).toISOString()
+          : undefined,
+      rolling,
+      cadence: cadence || undefined,
+      tags: parseTagsInput(tagsRaw),
+    };
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "fellowship",
+          payload,
+          submitterEmail: submitterEmail || undefined,
+          submitterHandle: submitterHandle || undefined,
+          website,
+          turnstileToken,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        trackSubmitSuccess(data);
+        setStatus("success");
+        setMessage(data.message);
+        setEditUrl(typeof data.editUrl === "string" ? data.editUrl : null);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Submission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") return <SuccessPanel message={message} editUrl={editUrl} />;
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
+
+      <Field label="Fellowship Name">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={200} className="rex-input w-full" placeholder="Ethereum Protocol Fellowship — Cohort 5" />
+      </Field>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Organization">
+          <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} required minLength={2} maxLength={120} className="rex-input w-full" placeholder="Ethereum Foundation" />
+        </Field>
+        <Field label="Organization URL (opt.)">
+          <input type="url" value={organizationUrl} onChange={(e) => setOrganizationUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={5000} rows={4} className="rex-input w-full resize-y" placeholder="What fellows work on, who it's for, mentorship structure." />
+      </Field>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Stipend (opt.)">
+          <input type="text" value={stipend} onChange={(e) => setStipend(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="$200k over 2 years" />
+        </Field>
+        <Field label="Duration (opt.)">
+          <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="9 months" />
+        </Field>
+      </div>
+
+      <Field label="Eligibility (opt.)">
+        <textarea value={eligibility} onChange={(e) => setEligibility(e.target.value)} maxLength={500} rows={2} className="rex-input w-full resize-y" placeholder="PhD students in CS, economics, or related fields. Open globally." />
+      </Field>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Location (opt.)">
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Remote / Worldwide" />
+        </Field>
+        <Field label="Focus (opt.)">
+          <input type="text" value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="AI safety research" />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Apply URL">
+          <input type="url" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="https://…" />
+        </Field>
+        <Field label="Next Deadline (opt.)">
+          <input type="datetime-local" value={nextDeadline} onChange={(e) => setNextDeadline(e.target.value)} className="rex-input w-full" disabled={rolling} />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Cadence (opt.)">
+          <input type="text" value={cadence} onChange={(e) => setCadence(e.target.value)} maxLength={100} className="rex-input w-full" placeholder="Annual / Twice yearly / Rolling" />
+        </Field>
+        <label className="flex items-center gap-2 cursor-pointer mt-6">
+          <input type="checkbox" checked={rolling} onChange={(e) => setRolling(e.target.checked)} className="accent-[var(--rex-accent)]" />
+          <span className="text-sm text-[var(--rex-text-muted)]">Rolling intake</span>
+        </label>
+      </div>
+
+      <Field label="Tags (opt., comma-separated)">
+        <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="ethereum, research, phd" />
+      </Field>
+
+      <SubmitterFields email={submitterEmail} setEmail={setSubmitterEmail} handle={submitterHandle} setHandle={setSubmitterHandle} />
+
+      <SubmitRow status={status} message={message} label="Submit Fellowship ▸" />
     </form>
   );
 }
@@ -2108,6 +2344,7 @@ function ResidencyForm() {
   const [url, setUrl] = useState("");
   const [applyUrl, setApplyUrl] = useState("");
   const [applicationDeadline, setApplicationDeadline] = useState("");
+  const [rolling, setRolling] = useState(false);
   const [cohortSize, setCohortSize] = useState("");
   const [cost, setCost] = useState("");
   const [focus, setFocus] = useState("");
@@ -2134,9 +2371,11 @@ function ResidencyForm() {
       venue: venue || undefined,
       url: url || undefined,
       applyUrl: applyUrl || undefined,
-      applicationDeadline: applicationDeadline
-        ? new Date(applicationDeadline).toISOString()
-        : undefined,
+      applicationDeadline:
+        applicationDeadline && !rolling
+          ? new Date(applicationDeadline).toISOString()
+          : undefined,
+      rolling: rolling || undefined,
       cohortSize: cohortSize || undefined,
       cost: cost || undefined,
       focus: focus || undefined,
@@ -2235,12 +2474,22 @@ function ResidencyForm() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Application Deadline (opt.)">
-          <input type="datetime-local" value={applicationDeadline} onChange={(e) => setApplicationDeadline(e.target.value)} className="rex-input w-full" />
+          <input type="datetime-local" value={applicationDeadline} onChange={(e) => setApplicationDeadline(e.target.value)} disabled={rolling} className="rex-input w-full" />
         </Field>
         <Field label="Focus (opt.)">
           <input type="text" value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={200} className="rex-input w-full" placeholder="Early-stage founders / AI" />
         </Field>
       </div>
+
+      <label className="flex items-center gap-2 text-xs font-mono">
+        <input
+          type="checkbox"
+          checked={rolling}
+          onChange={(e) => setRolling(e.target.checked)}
+          className="accent-[var(--rex-accent)]"
+        />
+        Rolling intake (no fixed deadline)
+      </label>
 
       <Field label="Tags (opt., comma-separated)">
         <input type="text" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} className="rex-input w-full font-mono text-xs" placeholder="founders, ai, retreat" />

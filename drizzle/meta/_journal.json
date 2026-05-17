@@ -127,6 +127,27 @@
       "when": 1779660000000,
       "tag": "0017_edit_token_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1779700000000,
+      "tag": "0018_submitters",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1779800000000,
+      "tag": "0019_fellowship_submission_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779900000000,
+      "tag": "0020_baseline_after_drift",
+      "breakpoints": true
     }
   ]
 }

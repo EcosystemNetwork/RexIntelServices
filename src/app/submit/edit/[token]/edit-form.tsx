@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public-shell";
 import { Turnstile } from "@/components/turnstile";
+import {
+  PERSONA_SLUGS,
+  PERSONA_LABELS,
+  type PersonaSlug,
+} from "@/lib/personas";
 
 const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
@@ -52,6 +57,10 @@ export default function EditForm({ token }: { token: string }) {
   const [loaded, setLoaded] = useState<LoadedSubmission | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
+  // Intel-only side-state. FIELD_DEFS doesn't model multi-selects, so we
+  // keep personas out of the generic field map and patch them onto the
+  // merged payload at save time. Non-intel types ignore this state.
+  const [personas, setPersonas] = useState<PersonaSlug[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -71,6 +80,18 @@ export default function EditForm({ token }: { token: string }) {
         const sub = data.submission as LoadedSubmission;
         setLoaded(sub);
         setFields(initialFields(sub.type, sub.payload));
+        if (sub.type === "intel") {
+          const raw = sub.payload.personas;
+          if (Array.isArray(raw)) {
+            setPersonas(
+              raw.filter((p): p is PersonaSlug =>
+                (PERSONA_SLUGS as readonly string[]).includes(p as string),
+              ),
+            );
+          } else {
+            setPersonas([]);
+          }
+        }
       } catch {
         if (!cancelled) setLoadError("Couldn't reach the server.");
       }
@@ -94,6 +115,9 @@ export default function EditForm({ token }: { token: string }) {
       // Merge the edited fields back into the original payload so anything
       // we don't expose (tags, sponsors, etc.) survives untouched.
       const nextPayload = mergePayload(loaded.type, loaded.payload, fields);
+      if (loaded.type === "intel") {
+        nextPayload.personas = personas.length ? personas : undefined;
+      }
       const res = await fetch(`/api/submissions/edit/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,6 +177,11 @@ export default function EditForm({ token }: { token: string }) {
   const label = SURFACE_LABEL[loaded.type] ?? "submission";
   const publicHref = PUBLIC_PATH[loaded.type]?.(loaded.publicId);
   const fieldDefs = FIELD_DEFS[loaded.type] ?? [];
+  // Intel has no FIELD_DEFS row today (the full intel body lives behind the
+  // moderation UI), but we still want the form to be saveable for the
+  // personas widget alone.
+  const intelOnlyEditable = loaded.type === "intel";
+  const hasEditableSurface = fieldDefs.length > 0 || intelOnlyEditable;
 
   return (
     <PublicShell
@@ -190,27 +219,43 @@ export default function EditForm({ token }: { token: string }) {
         </div>
 
         <form onSubmit={handleSave} className="rex-card p-6 space-y-4">
-          {fieldDefs.length === 0 ? (
+          {!hasEditableSurface ? (
             <p className="text-sm text-[var(--rex-text-muted)]">
               This submission type isn&apos;t editable here. Email an analyst
               and they&apos;ll update it for you.
             </p>
           ) : (
-            fieldDefs.map((f) => (
-              <FieldRow
-                key={f.key}
-                def={f}
-                value={fields[f.key] ?? ""}
-                onChange={(v) => update(f.key, v)}
-              />
-            ))
+            <>
+              {fieldDefs.map((f) => (
+                <FieldRow
+                  key={f.key}
+                  def={f}
+                  value={fields[f.key] ?? ""}
+                  onChange={(v) => update(f.key, v)}
+                />
+              ))}
+
+              {intelOnlyEditable && (
+                <PersonaPicker
+                  selected={personas}
+                  onToggle={(slug) => {
+                    setPersonas((cur) =>
+                      cur.includes(slug)
+                        ? cur.filter((s) => s !== slug)
+                        : [...cur, slug],
+                    );
+                    setSavedAt(null);
+                  }}
+                />
+              )}
+            </>
           )}
 
-          {fieldDefs.length > 0 && TURNSTILE_ENABLED && (
+          {hasEditableSurface && TURNSTILE_ENABLED && (
             <Turnstile onToken={setTurnstileToken} className="pt-2" />
           )}
 
-          {fieldDefs.length > 0 && (
+          {hasEditableSurface && (
             <div className="flex items-center justify-between pt-2 border-t border-[var(--rex-border-subtle)]">
               <div className="text-[10px] font-mono" style={{ color: "var(--rex-text-dim)" }}>
                 {savedAt ? (
@@ -265,6 +310,7 @@ const FIELD_DEFS: Record<string, FieldDef[]> = {
     { key: "country", label: "Country", kind: "text", maxLength: 100 },
     { key: "url", label: "Event URL", kind: "url" },
     { key: "prizeUsd", label: "Prize Pool USD — hackathons only (opt.)", kind: "number" },
+    { key: "registrationDeadline", label: "Registration Deadline — hackathons only (opt.)", kind: "datetime" },
     { key: "description", label: "Description", kind: "textarea", maxLength: 1000, rows: 4 },
   ],
   popup_city: [
@@ -427,6 +473,50 @@ function FieldRow({
         maxLength={def.maxLength}
         className={`rex-input w-full ${def.kind === "url" ? "font-mono text-xs" : ""}`}
       />
+    </div>
+  );
+}
+
+function PersonaPicker({
+  selected,
+  onToggle,
+}: {
+  selected: PersonaSlug[];
+  onToggle: (slug: PersonaSlug) => void;
+}) {
+  return (
+    <div>
+      <label
+        className="block mb-1.5 text-[10px] font-mono uppercase tracking-widest"
+        style={{ color: "var(--rex-text-dim)" }}
+      >
+        Personas
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        {PERSONA_SLUGS.map((slug) => {
+          const active = selected.includes(slug);
+          return (
+            <button
+              key={slug}
+              type="button"
+              onClick={() => onToggle(slug)}
+              className={`text-[11px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
+                active
+                  ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-white"
+                  : "border-[var(--rex-border-subtle)] text-[var(--rex-text-dim)] hover:border-[var(--rex-border)]"
+              }`}
+            >
+              {PERSONA_LABELS[slug]}
+            </button>
+          );
+        })}
+      </div>
+      <p
+        className="mt-1.5 text-[10px] font-mono"
+        style={{ color: "var(--rex-text-dim)" }}
+      >
+        Routes the weekly digest. Empty = all readers.
+      </p>
     </div>
   );
 }

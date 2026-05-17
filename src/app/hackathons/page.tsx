@@ -449,6 +449,25 @@ function HackathonCard({
         ? "Ends tomorrow"
         : `Ends in ${daysToEnd}d`;
 
+  // Registration deadline — only meaningful for upcoming hackathons where the
+  // cutoff is still in the future. If unset, fall back to event start so
+  // late-registration events still surface a "Register by …" chip.
+  const regDeadline = payload.registrationDeadline
+    ? new Date(payload.registrationDeadline)
+    : null;
+  const regCutoff = regDeadline ?? start;
+  const daysToReg = Math.ceil((regCutoff.getTime() - Date.now()) / msPerDay);
+  const showRegChip =
+    showEndingSoon && regDeadline !== null && daysToReg >= 0;
+  const regUrgent = showRegChip && daysToReg <= 14;
+  const regLabel = showRegChip
+    ? daysToReg === 0
+      ? "Register today"
+      : daysToReg === 1
+        ? "Register by tomorrow"
+        : `Register by ${regCutoff.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+    : null;
+
   return (
     <Link
       href={detailHref("/events", publicId, payload.name)}
@@ -545,6 +564,26 @@ function HackathonCard({
               }}
             >
               ⏳ {endsSoonLabel}
+            </span>
+          )}
+          {regLabel && (
+            <span
+              className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+              style={
+                regUrgent
+                  ? {
+                      background: "rgba(255,168,0,0.08)",
+                      color: "#ffb84d",
+                      border: "1px solid rgba(255,168,0,0.35)",
+                    }
+                  : {
+                      background: "rgba(31,168,224,0.06)",
+                      color: "var(--rex-accent-2)",
+                      border: "1px solid rgba(31,168,224,0.25)",
+                    }
+              }
+            >
+              ✎ {regLabel}
             </span>
           )}
           {typeof payload.prizeUsd === "number" && payload.prizeUsd > 0 && (

@@ -129,6 +129,13 @@ export default async function EventDetailPage({
     organizer: payload.url
       ? { "@type": "Organization", name: payload.name, url: payload.url }
       : undefined,
+    offers: payload.registrationDeadline
+      ? {
+          "@type": "Offer",
+          url: payload.url,
+          availabilityEnds: payload.registrationDeadline,
+        }
+      : undefined,
   };
 
   return (
@@ -221,6 +228,21 @@ export default async function EventDetailPage({
                 {[payload.venue, payload.city, payload.country]
                   .filter(Boolean)
                   .join(", ")}
+              </DetailField>
+            )}
+            {payload.registrationDeadline && (
+              <DetailField label="Register by">
+                {new Date(payload.registrationDeadline).toLocaleString(
+                  undefined,
+                  {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  },
+                )}
               </DetailField>
             )}
             {payload.url && (

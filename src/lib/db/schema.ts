@@ -13,6 +13,7 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type { PersonaSlug } from "../personas";
 
 // =====================================================================
 // ENUMS
@@ -63,6 +64,7 @@ export const submissionTypeEnum = pgEnum("submission_type", [
   "capital",
   "residency",
   "perks",
+  "fellowship",
 ]);
 
 export const submissionStatusEnum = pgEnum("submission_status", [
@@ -312,6 +314,10 @@ export type IntelPayload = {
   // Renders as a "snapshot" link next to the source and as `isBasedOn` in
   // the article JSON-LD.
   archiveUrl?: string;
+  // Persona segments this intel speaks to. Drives the per-persona weekly
+  // digest routing (see /api/cron/draft-digest). Empty/undefined = goes to
+  // all personas, same grace rule as ungraded sourceGrade.
+  personas?: PersonaSlug[];
 };
 
 export type EventPayload = {
@@ -329,6 +335,11 @@ export type EventPayload = {
   // Hackathon prize pool in USD (numeric so the listing can filter by amount).
   // Free-form descriptions like "ETH from sponsors" go in `description`.
   prizeUsd?: number;
+  // ISO timestamp. Hackathons in particular have a registration cutoff that
+  // closes before kickoff; surfaced as a "Register by …" chip on cards and
+  // the detail page. For events without a separate registration step, leave
+  // this unset (the start date already implies the cutoff).
+  registrationDeadline?: string;
   // Path under /public (e.g. "/Rex-Intel-ETHConf-Social-Card.png") or absolute
   // URL. Rendered as a banner on the event detail page and the OG image.
   imageUrl?: string;
@@ -388,6 +399,10 @@ export type PopupCityPayload = {
   // Optional application deadline distinct from event start (most apps close
   // weeks before the residency begins).
   applicationDeadline?: string;
+  // Set true for pop-ups that take applications continuously (rare — most
+  // are cohort-gated with a hard cutoff). UI prefers `applicationDeadline`
+  // when both are set.
+  rolling?: boolean;
   focus?: string; // "Longevity + AI", "DeFi research", etc.
   tags?: string[];
   imageUrl?: string;
@@ -465,9 +480,46 @@ export type ResidencyPayload = {
   url?: string;
   applyUrl?: string;
   applicationDeadline?: string;
+  // Set true for residencies that review rolling applications (Antler,
+  // Pioneer, HF0, SPC). UI prefers `applicationDeadline` when both are set.
+  rolling?: boolean;
   cohortSize?: string; // "20 founders", "Up to 50"
   cost?: string; // "Free + travel covered", "$5k tuition"
   focus?: string;
+  tags?: string[];
+  imageUrl?: string;
+};
+
+// Fellowship programs — stipend-funded research / building cohorts. Distinct
+// from accelerators (no equity, typically no founder cohort + venture lane),
+// from grants (multi-month structured program + mentorship, not just money),
+// and from residencies (open to non-founders: PhDs, researchers, early-career
+// engineers). Examples: Thiel Fellowship, Anthropic Fellows, EPF, Schmidt
+// Sciences AI2050, MEV Research Fellowship.
+export type FellowshipPayload = {
+  name: string;
+  organization: string;
+  organizationUrl?: string;
+  description: string;
+  // Free-form stipend / award. "$200k over 2 years", "$24k stipend", "$100k
+  // + SF residency". Headline chip on the card.
+  stipend?: string;
+  // "6 months", "1 year", "9 months". Surfaced next to stipend.
+  duration?: string;
+  // Free-form eligibility: "PhD students", "Under 23", "Open to anyone",
+  // "Strong open-source Ethereum contribution history". Differentiates
+  // gated programs from open ones.
+  eligibility?: string;
+  // "SF", "Remote", "Worldwide", "Berlin / Remote".
+  location?: string;
+  focus?: string;
+  applyUrl?: string;
+  // ISO timestamp for next cohort application deadline.
+  nextDeadline?: string;
+  rolling?: boolean;
+  // "Annual", "Twice yearly", "Continuous" — cohort cadence so applicants
+  // can plan ahead even when a window is closed.
+  cadence?: string;
   tags?: string[];
   imageUrl?: string;
 };
@@ -512,7 +564,8 @@ export type SubmissionPayload =
   | AcceleratorPayload
   | CapitalPayload
   | ResidencyPayload
-  | PerksPayload;
+  | PerksPayload
+  | FellowshipPayload;
 
 export const submissions = pgTable(
   "submissions",

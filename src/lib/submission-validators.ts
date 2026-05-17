@@ -9,8 +9,10 @@ import type {
   CapitalPayload,
   ResidencyPayload,
   PerksPayload,
+  FellowshipPayload,
   SubmissionPayload,
 } from "@/lib/db/schema";
+import { PERSONA_SLUGS, type PersonaSlug } from "@/lib/personas";
 
 /**
  * Per-type payload validators + the small set of string/URL/tag sanitizers
@@ -36,7 +38,8 @@ export type SubmissionType =
   | "hackathon"
   | "capital"
   | "residency"
-  | "perks";
+  | "perks"
+  | "fellowship";
 
 /** Dispatch by submission type. Useful when the caller has a runtime string. */
 export function validateBySubmissionType(
@@ -64,6 +67,8 @@ export function validateBySubmissionType(
       return validateResidencyPayload(raw);
     case "perks":
       return validatePerksPayload(raw);
+    case "fellowship":
+      return validateFellowshipPayload(raw);
   }
 }
 
@@ -112,6 +117,7 @@ export function validateIntelPayload(
     : undefined;
 
   const archiveUrl = sanitizeSingleUrl(p.archiveUrl);
+  const personas = sanitizePersonaList(p.personas);
 
   return {
     ok: true,
@@ -126,8 +132,23 @@ export function validateIntelPayload(
       kind,
       sourceGrade,
       archiveUrl,
+      personas,
     },
   };
+}
+
+function sanitizePersonaList(v: unknown): PersonaSlug[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: PersonaSlug[] = [];
+  const seen = new Set<string>();
+  for (const x of v) {
+    if (typeof x !== "string") continue;
+    if (!(PERSONA_SLUGS as readonly string[]).includes(x)) continue;
+    if (seen.has(x)) continue;
+    seen.add(x);
+    out.push(x as PersonaSlug);
+  }
+  return out.length ? out : undefined;
 }
 
 export function validateEventPayload(
@@ -170,6 +191,13 @@ export function validateEventPayload(
       ? Math.min(Math.round(prizeUsdRaw), 1_000_000_000)
       : undefined;
 
+  const registrationDeadline =
+    typeof p.registrationDeadline === "string" &&
+    p.registrationDeadline.trim() &&
+    !isNaN(Date.parse(p.registrationDeadline))
+      ? p.registrationDeadline.trim()
+      : undefined;
+
   return {
     ok: true,
     payload: {
@@ -188,6 +216,7 @@ export function validateEventPayload(
         ? (p.priceTier as EventPayload["priceTier"])
         : undefined,
       prizeUsd,
+      registrationDeadline,
       imageUrl: sanitizeSingleUrl(p.imageUrl),
     },
   };
@@ -337,6 +366,7 @@ export function validatePopupCityPayload(
       url: sanitizeSingleUrl(p.url),
       applyUrl: sanitizeSingleUrl(p.applyUrl),
       applicationDeadline,
+      rolling: p.rolling === true,
       focus: trimToString(p.focus, 200),
       tags: sanitizeTagList(p.tags),
       imageUrl: sanitizeSingleUrl(p.imageUrl),
@@ -510,6 +540,7 @@ export function validateResidencyPayload(
       url: sanitizeSingleUrl(p.url),
       applyUrl: sanitizeSingleUrl(p.applyUrl),
       applicationDeadline,
+      rolling: p.rolling === true,
       cohortSize: trimToString(p.cohortSize, 100),
       cost: trimToString(p.cost, 200),
       focus: trimToString(p.focus, 200),
@@ -560,6 +591,54 @@ export function validatePerksPayload(
       applyUrl: sanitizeSingleUrl(p.applyUrl),
       deadline,
       rolling,
+      tags: sanitizeTagList(p.tags),
+      imageUrl: sanitizeSingleUrl(p.imageUrl),
+    },
+  };
+}
+
+export function validateFellowshipPayload(
+  raw: unknown,
+): ValidationResult<FellowshipPayload> {
+  if (!raw || typeof raw !== "object")
+    return { ok: false, error: "payload is required" };
+  const p = raw as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim() : "";
+  const organization =
+    typeof p.organization === "string" ? p.organization.trim() : "";
+  const description =
+    typeof p.description === "string" ? p.description.trim() : "";
+
+  if (name.length < 3 || name.length > 200)
+    return { ok: false, error: "Fellowship name must be 3–200 characters." };
+  if (organization.length < 2 || organization.length > 120)
+    return { ok: false, error: "Organization must be 2–120 characters." };
+  if (description.length < 20 || description.length > 5000)
+    return { ok: false, error: "Description must be 20–5000 characters." };
+
+  const nextDeadline =
+    typeof p.nextDeadline === "string" &&
+    p.nextDeadline.trim() &&
+    !isNaN(Date.parse(p.nextDeadline))
+      ? p.nextDeadline.trim()
+      : undefined;
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      organization,
+      organizationUrl: sanitizeSingleUrl(p.organizationUrl),
+      description,
+      stipend: trimToString(p.stipend, 200),
+      duration: trimToString(p.duration, 100),
+      eligibility: trimToString(p.eligibility, 500),
+      location: trimToString(p.location, 200),
+      focus: trimToString(p.focus, 200),
+      applyUrl: sanitizeSingleUrl(p.applyUrl),
+      nextDeadline,
+      rolling: p.rolling === true,
+      cadence: trimToString(p.cadence, 100),
       tags: sanitizeTagList(p.tags),
       imageUrl: sanitizeSingleUrl(p.imageUrl),
     },

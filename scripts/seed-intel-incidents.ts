@@ -19,6 +19,18 @@ import "dotenv/config";
 import { and, eq, sql } from "drizzle-orm";
 import { db, submissions } from "../src/lib/db";
 import type { IntelPayload } from "../src/lib/db/schema";
+import type { PersonaSlug } from "../src/lib/personas";
+
+// Default audience for postmortem rows — covers the three priority digest
+// variants (compliance, investigator, fund-risk) plus exchange T&S and
+// gov/LE who actively chase these incidents. Individual rows may override.
+const INCIDENT_DEFAULT_PERSONAS: PersonaSlug[] = [
+  "compliance",
+  "investigator",
+  "exchange-risk",
+  "gov-le",
+  "fund-risk",
+];
 
 const incidents: IntelPayload[] = [
   {
@@ -552,11 +564,15 @@ async function main() {
   let inserted = 0;
   let updated = 0;
   for (const it of incidents) {
-    const r = await upsert(it);
+    const withPersonas: IntelPayload = {
+      ...it,
+      personas: it.personas ?? INCIDENT_DEFAULT_PERSONAS,
+    };
+    const r = await upsert(withPersonas);
     if (r.action === "inserted") inserted++;
     else updated++;
     console.log(
-      `  ${r.action.padEnd(8)} /intel/${r.publicId}  ${it.headline}`,
+      `  ${r.action.padEnd(8)} /intel/${r.publicId}  ${withPersonas.headline}`,
     );
   }
   console.log(

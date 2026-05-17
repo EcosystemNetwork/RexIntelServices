@@ -4,6 +4,7 @@ import { PublicShell } from "@/components/public-shell";
 import { Chip } from "./_lanes/_shared";
 import { PrizePoolBanner, SignalsLane } from "./_lanes/signals";
 import { AcceleratorsLane } from "./_lanes/accelerators";
+import { FellowshipsLane } from "./_lanes/fellowships";
 import { GrantsLane } from "./_lanes/grants";
 import { CapitalLane } from "./_lanes/capital";
 import { PerksLane } from "./_lanes/perks";
@@ -15,6 +16,7 @@ export const dynamic = "force-dynamic";
 type Lane =
   | "signals"
   | "accelerators"
+  | "fellowships"
   | "grants"
   | "cities"
   | "capital"
@@ -24,6 +26,7 @@ type Lane =
 const LANES: { id: Lane; label: string }[] = [
   { id: "signals", label: "Signals" },
   { id: "accelerators", label: "Accel" },
+  { id: "fellowships", label: "Fellowships" },
   { id: "grants", label: "Grants" },
   { id: "capital", label: "Capital" },
   { id: "perks", label: "Perks" },
@@ -65,6 +68,18 @@ const LANE_COPY: Record<
     ],
     submitHref: "/submit?type=accelerator",
     submitLabel: "+ Add Program ▸",
+  },
+  fellowships: {
+    kicker: "▸ Intel · Fellowships",
+    title: "Stipends for builders + researchers.",
+    subtitle:
+      "Funded fellowships across crypto protocols, AI research, security, and frontier tech — Thiel, EPF, Schmidt, Anthropic Fellows and similar. Stipend, no equity.",
+    classification: [
+      { text: "● Open Channel // Intel · Fellowship Programs" },
+      { text: "Stipend Cohorts / Apply", show: "sm" },
+    ],
+    submitHref: "/submit?type=fellowship",
+    submitLabel: "+ Add Fellowship ▸",
   },
   grants: {
     kicker: "▸ Intel · Grants",
@@ -129,6 +144,7 @@ const LANE_COPY: Record<
 function laneFrom(value: string | undefined): Lane {
   if (
     value === "accelerators" ||
+    value === "fellowships" ||
     value === "grants" ||
     value === "cities" ||
     value === "capital" ||
@@ -150,6 +166,7 @@ export function generateMetadata({
   const titles: Record<Lane, string> = {
     signals: "Intel Wire — Rex Intel Services",
     accelerators: "Accelerators — Intel · Rex Intel Services",
+    fellowships: "Fellowships — Intel · Rex Intel Services",
     grants: "Grants — Intel · Rex Intel Services",
     cities: "Pop-Up Cities — Intel · Rex Intel Services",
     capital: "Capital — Funds taking pitches · Rex Intel Services",
@@ -232,6 +249,9 @@ export default async function IntelHubPage({
         )}
         {lane === "accelerators" && (
           <AcceleratorsLane filter={searchParams.filter} />
+        )}
+        {lane === "fellowships" && (
+          <FellowshipsLane filter={searchParams.filter} />
         )}
         {lane === "grants" && <GrantsLane filter={searchParams.filter} />}
         {lane === "capital" && <CapitalLane filter={searchParams.filter} />}

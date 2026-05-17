@@ -122,6 +122,75 @@ export function isDeadlinePassed(iso: string | undefined | null): boolean {
   return t < Date.now();
 }
 
+/** Deadline chip with three modes:
+ *  - Rolling (green) when `rolling=true` and no deadline beats it.
+ *  - Urgent (amber) when the deadline is within `urgentDays` (default 14).
+ *  - Neutral (blue) for deadlines further out.
+ *  Past deadlines render nothing — callers should pair this with `ClosedTag`
+ *  driven by `isDeadlinePassed`.
+ *  `verb` is the imperative prefix ("Apply", "Register", "Closes"). */
+export function DeadlineChip({
+  deadline,
+  rolling,
+  verb = "Apply",
+  urgentDays = 14,
+}: {
+  deadline?: string;
+  rolling?: boolean;
+  verb?: string;
+  urgentDays?: number;
+}) {
+  const parsedMs = deadline ? Date.parse(deadline) : NaN;
+  const hasDeadline = Number.isFinite(parsedMs) && parsedMs >= Date.now();
+  if (!hasDeadline && !rolling) return null;
+
+  if (hasDeadline) {
+    const daysLeft = Math.ceil(
+      (parsedMs - Date.now()) / (24 * 60 * 60 * 1000),
+    );
+    const urgent = daysLeft <= urgentDays;
+    const label =
+      daysLeft === 0
+        ? `${verb} today`
+        : daysLeft === 1
+          ? `${verb} by tomorrow`
+          : `${verb} by ${new Date(parsedMs).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+    return (
+      <span
+        className="px-1.5 py-0.5 rounded-sm"
+        style={
+          urgent
+            ? {
+                background: "rgba(255,168,0,0.08)",
+                color: "#ffb84d",
+                border: "1px solid rgba(255,168,0,0.35)",
+              }
+            : {
+                background: "rgba(31,168,224,0.06)",
+                color: "var(--rex-accent-2)",
+                border: "1px solid rgba(31,168,224,0.25)",
+              }
+        }
+      >
+        ✎ {label}
+      </span>
+    );
+  }
+  // rolling
+  return (
+    <span
+      className="px-1.5 py-0.5 rounded-sm"
+      style={{
+        background: "rgba(95,185,31,0.08)",
+        color: "var(--rex-accent)",
+        border: "1px solid rgba(95,185,31,0.35)",
+      }}
+    >
+      ↻ Rolling
+    </span>
+  );
+}
+
 export function PasteHint({ children }: { children: React.ReactNode }) {
   return (
     <div

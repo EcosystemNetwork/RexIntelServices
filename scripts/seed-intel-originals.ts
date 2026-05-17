@@ -18,6 +18,16 @@ import "dotenv/config";
 import { and, eq, sql } from "drizzle-orm";
 import { db, submissions } from "../src/lib/db";
 import type { IntelPayload } from "../src/lib/db/schema";
+import type { PersonaSlug } from "../src/lib/personas";
+
+// Original analytical pieces speak primarily to investigators (the readers
+// most likely to act on synthesis), compliance (AML signal), and fund-risk
+// (treasury / exchange exposure inference). Individual rows may override.
+const ORIGINAL_DEFAULT_PERSONAS: PersonaSlug[] = [
+  "investigator",
+  "compliance",
+  "fund-risk",
+];
 
 const originals: IntelPayload[] = [
   {
@@ -217,11 +227,15 @@ async function main() {
   let inserted = 0;
   let updated = 0;
   for (const it of originals) {
-    const r = await upsert(it);
+    const withPersonas: IntelPayload = {
+      ...it,
+      personas: it.personas ?? ORIGINAL_DEFAULT_PERSONAS,
+    };
+    const r = await upsert(withPersonas);
     if (r.action === "inserted") inserted++;
     else updated++;
     console.log(
-      `  ${r.action.padEnd(8)} /intel/${r.publicId}  ${it.headline}`,
+      `  ${r.action.padEnd(8)} /intel/${r.publicId}  ${withPersonas.headline}`,
     );
   }
   console.log(

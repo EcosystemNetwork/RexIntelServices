@@ -9,6 +9,7 @@ import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   Chip,
   ClosedTag,
+  DeadlineChip,
   EmptyState,
   OrgLogo,
   FeaturedTag,
@@ -126,16 +127,15 @@ function GrantCard({
   payload: GrantPayload;
   featured?: boolean;
 }) {
-  const deadlineLabel = payload.deadline
-    ? new Date(payload.deadline).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : payload.rolling
-      ? "Rolling"
-      : null;
   const expired = isDeadlinePassed(payload.deadline);
+  const longDeadline =
+    payload.deadline && !expired
+      ? new Date(payload.deadline).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      : null;
 
   const logo = logoUrlFor(payload.organizationUrl, payload.applyUrl);
 
@@ -165,9 +165,15 @@ function GrantCard({
           {payload.amount && (
             <span style={{ color: "var(--rex-text-muted)" }}>· {payload.amount}</span>
           )}
-          {deadlineLabel && (
-            <span className="ml-auto" style={{ color: "var(--rex-text-dim)" }}>
-              Deadline: {deadlineLabel}
+          {!expired && (
+            <span className="ml-auto inline-flex items-center gap-1">
+              <DeadlineChip
+                deadline={payload.deadline}
+                rolling={payload.rolling}
+              />
+              {longDeadline && (
+                <span style={{ color: "var(--rex-text-dim)" }}>· {longDeadline}</span>
+              )}
             </span>
           )}
         </div>

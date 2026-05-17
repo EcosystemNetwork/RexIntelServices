@@ -29,6 +29,8 @@ const cities: PopupCityPayload[] = [
     country: "United States",
     url: "https://www.edgeesmeralda.com/",
     applyUrl: "https://edgeesmeralda.simplefi.tech/auth",
+    // Pricing rises monthly; effective application cutoff is kickoff day.
+    applicationDeadline: "2026-05-29T23:59:00Z",
     focus: "Longevity, AI, d/acc, urbanism, frontier tech",
     tags: ["edge-city", "frontier-tech", "longevity", "ai", "d-acc"],
   },
@@ -44,6 +46,8 @@ const cities: PopupCityPayload[] = [
     country: "Malaysia",
     url: "https://network.school/",
     applyUrl: "https://network.school/",
+    // Sequential 3-month cohorts accept applications continuously.
+    rolling: true,
     focus: "Network states, founders, fitness, tech",
     tags: ["network-state", "founders"],
   },

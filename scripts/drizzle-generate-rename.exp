@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+# Drives `drizzle-kit generate` through any "rename vs create column"
+# disambiguation prompts by always selecting "rename column" (down arrow +
+# enter). Use any time the schema has drifted in a way that drizzle-kit
+# can't auto-resolve. Idempotent; safe to re-run.
+
+set timeout 60
+spawn npx drizzle-kit generate --name baseline_after_drift
+
+expect {
+  -re {created or renamed from another column} {
+    # Down arrow → highlight "rename column", then Enter
+    send "\033\[B"
+    send "\r"
+    exp_continue
+  }
+  -re {created or renamed from another table} {
+    send "\033\[B"
+    send "\r"
+    exp_continue
+  }
+  eof
+}
