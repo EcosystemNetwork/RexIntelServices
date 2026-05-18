@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
 import { fetchValueStats } from "@/lib/graph-data";
 import { getGraphSummary } from "@/lib/expo-context";
+import { countRecentGeminiDrafts } from "@/lib/harvesters/gemini-editor";
 import { ExpoDemo } from "./expo-demo";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ExpoPage() {
-  const [valueStats, summary] = await Promise.all([
+  const [valueStats, summary, agent] = await Promise.all([
     fetchValueStats({ includeUserReported: false }),
     getGraphSummary(),
+    countRecentGeminiDrafts(7),
   ]);
 
   return (
@@ -47,6 +49,8 @@ export default async function ExpoPage() {
             <Chip label={`${summary.topSources.length} attribution sources`} />
           </div>
         </header>
+
+        <AgentLoopBlock agent={agent} />
 
         <ExpoDemo
           topSources={summary.topSources}
@@ -123,6 +127,69 @@ export default async function ExpoPage() {
         </footer>
       </main>
     </PublicShell>
+  );
+}
+
+function AgentLoopBlock({
+  agent,
+}: {
+  agent: { drafted: number; pending: number; approved: number };
+}) {
+  return (
+    <section className="rex-card p-5 sm:p-6 bg-[rgba(95,185,31,0.04)] border-[var(--rex-accent)]/40 space-y-3">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
+            ● Live agent loop
+          </div>
+          <h2 className="font-display text-2xl font-semibold text-white mt-1">
+            Gemini drafts the briefing while you sleep.
+          </h2>
+          <p className="text-sm text-[var(--rex-text-muted)] mt-2 max-w-2xl leading-relaxed">
+            Every day at 16:00 UTC, a cron pulls fresh ≥$1M hacks from the
+            DefiLlama feed, dedupes against the corpus, and asks Gemini Pro
+            to draft up to 5 editorial-grade incident briefs. Drafts land as{" "}
+            <span className="text-white">status=&apos;pending&apos;</span> — a
+            curator approves before publish. The agent never auto-publishes
+            scraped content.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-x-5 gap-y-1 shrink-0">
+          <Stat label="Drafted · 7d" value={agent.drafted} />
+          <Stat label="Pending" value={agent.pending} accent />
+          <Stat label="Approved" value={agent.approved} />
+        </div>
+      </div>
+      <div className="border-t border-[var(--rex-border-subtle)] pt-3 text-[11px] font-mono text-[var(--rex-text-dim)] leading-relaxed">
+        Source: api.llama.fi/hacks · Dedupe: deterministic headline match ·
+        Model: gemini-2.5-pro · Per-run cap: 5 drafts · Editorial gate:
+        pending review
+      </div>
+    </section>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
+  return (
+    <div className="border-l border-[var(--rex-border-subtle)] pl-3">
+      <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
+        {label}
+      </div>
+      <div
+        className="text-2xl font-mono"
+        style={{ color: accent ? "var(--rex-accent)" : "#fff" }}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 

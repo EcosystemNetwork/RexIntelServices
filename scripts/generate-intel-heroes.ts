@@ -681,6 +681,17 @@ const HEROES: Hero[] = [
     badge: "HIGH",
     caption: "NiftyDegen #5504 · Blur.io · Scam Sniffer-flagged Fake_Phishing187019",
   },
+  {
+    slug: "github-key-sweeper",
+    kicker: "▸ ORIGINAL · GITHUB-LEAK SWEEPER",
+    statBig: "196",
+    statLabel: "VICTIM FLOWS · 4 DAYS · ONE OPERATOR",
+    headline: "Five sweeps. Ten days. One leaked key.",
+    subhead: "Vanity sink `0x6382…aAaAaAaA` — actively cashing out at 1.4 tx/min as of publish. No public label yet.",
+    accent: "red",
+    badge: "CRITICAL",
+    caption: "EIP-7702-class sweeper · per-victim forwarder pattern · Scam Sniffer / Etherscan unattributed",
+  },
 ];
 
 const ACCENT: Record<NonNullable<Hero["accent"]>, { hex: string; alt: string }> = {

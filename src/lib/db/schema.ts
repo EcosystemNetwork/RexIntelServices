@@ -488,7 +488,7 @@ export type IntelPayload = {
   // import-rekt-leaderboard; absent on community-submitted intel. The
   // UPDATE branches in those importers refuse to overwrite a row unless
   // sourceHarvester matches.
-  sourceHarvester?: "defillama" | "rekt";
+  sourceHarvester?: "defillama" | "rekt" | "gemini-editor";
   // Editorial heat flag — opt-in marker for high-temperature investigative
   // pieces (named-and-shamed accusations, active-operator exposes, things
   // we expect legal interest in). Renders as an animated fire chip on the

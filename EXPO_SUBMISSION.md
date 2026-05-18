@@ -25,7 +25,15 @@ one address attribution graph, then point Gemini at it.
    anything in plain English. Citations are forced — Gemini cites by
    `publicId` or it says "not in the indexed corpus." No hallucinated answers.
 
-3. **The moat toggle.** Same graph, two trust modes — industry-only
+3. **Daily Gemini agent loop (live cron).** A scheduled agent at 16:00 UTC
+   pulls fresh ≥$1M hacks from the DefiLlama feed, dedupes against the
+   corpus, and asks Gemini 2.5 Pro to draft up to 5 editorial-grade
+   incident briefs. Drafts land as `status='pending'` — a curator approves
+   before publish. The agent never auto-publishes scraped content. The
+   `/expo` page shows a live counter of drafts produced, pending, and
+   approved over the last 7 days.
+
+4. **The moat toggle.** Same graph, two trust modes — industry-only
    (sanctions + curated) vs industry + community (adds victim-trace,
    community-loss-report, bounty-claim sources). The delta is the proof.
 
@@ -88,8 +96,11 @@ added:**
 3. `src/app/api/expo/brief/route.ts` — POST endpoint, rate-limited 20/hr/IP
 4. `src/app/api/expo/query/route.ts` — POST endpoint, rate-limited 30/hr/IP
 5. `src/app/expo/page.tsx` + `expo-demo.tsx` — the live demo surface
+6. `src/lib/harvesters/gemini-editor.ts` + `src/app/api/cron/gemini-draft-intel/route.ts`
+   — the daily Gemini agent that drafts pending incident briefs
+7. `vercel.json` — new cron schedule (16:00 UTC daily)
 
-Total surface added: ~5 files, ~900 LOC. The underlying graph (5k+ symbols,
+Total surface added: ~7 files, ~1100 LOC. The underlying graph (5k+ symbols,
 9k+ relationships) is what makes the briefs actually useful.
 
 ---
