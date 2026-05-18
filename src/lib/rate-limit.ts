@@ -130,8 +130,17 @@ export async function rateLimit(
  * Pull the best-effort client IP from a Next.js request. Falls back to a
  * sentinel so unidentifiable requests still share a bucket and can't bypass
  * limits by stripping headers.
+ *
+ * On Vercel, the standard `x-forwarded-for` header is attacker-spoofable
+ * because anything upstream of the Vercel edge can inject arbitrary values
+ * into it. `x-vercel-forwarded-for` is set by Vercel's edge and overwrites
+ * whatever the caller sent — that's the tamper-resistant header to read on
+ * Vercel. Off-Vercel deployments fall back to x-forwarded-for; document
+ * the trust boundary by reading the Vercel-specific header first.
  */
 export function clientIp(req: Request): string {
+  const vercelXff = req.headers.get("x-vercel-forwarded-for");
+  if (vercelXff) return vercelXff.split(",")[0]!.trim();
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim();
   const real = req.headers.get("x-real-ip");

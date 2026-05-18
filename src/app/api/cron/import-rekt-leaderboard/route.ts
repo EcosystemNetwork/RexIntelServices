@@ -259,7 +259,9 @@ export async function GET(req: Request) {
   let skippedAmount = 0;
   let skippedHandled = 0;
 
+  const rowErrors: Array<{ name: string; error: string }> = [];
   for (const e of entries) {
+    try {
     const usd = e.rekt?.amount ?? 0;
     if (usd < MIN_AMOUNT_USD) {
       skippedAmount++;
@@ -330,6 +332,13 @@ export async function GET(req: Request) {
       });
       inserted++;
     }
+    } catch (err) {
+      // Per-row safety net for malformed entries (missing names, NaN dates).
+      rowErrors.push({
+        name: e.title ?? "unknown",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   return NextResponse.json({
@@ -339,5 +348,6 @@ export async function GET(req: Request) {
     updated,
     skippedAmount,
     skippedHandled,
+    rowErrors: rowErrors.slice(0, 20),
   });
 }

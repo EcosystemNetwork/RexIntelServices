@@ -141,6 +141,12 @@ export async function harvestOpenSanctions(
   };
 }
 
+// Cap each OpenSanctions dataset at 200MB. The largest single dataset is
+// the global all-sanctioned NDJSON which sits around 60MB at time of
+// writing; the cap is several × headroom. Without it, a runaway redirect
+// or a misconfigured proxy could stream into the Vercel function until OOM.
+const OPENSANCTIONS_MAX_BYTES = 200 * 1024 * 1024;
+
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
@@ -153,7 +159,29 @@ async function fetchText(url: string): Promise<string> {
   if (!res.ok) {
     throw new Error(`OpenSanctions fetch failed: ${res.status} ${res.statusText} for ${url}`);
   }
-  return res.text();
+  const reader = res.body?.getReader();
+  if (!reader) return res.text();
+  let total = 0;
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      total += value.byteLength;
+      if (total > OPENSANCTIONS_MAX_BYTES) {
+        try {
+          await reader.cancel();
+        } catch {}
+        throw new Error(
+          `OpenSanctions fetch exceeded ${OPENSANCTIONS_MAX_BYTES} byte cap for ${url}`,
+        );
+      }
+      chunks.push(value);
+    }
+  }
+  return new TextDecoder("utf-8").decode(
+    Buffer.concat(chunks.map((c) => Buffer.from(c))),
+  );
 }
 
 function mapHolderSchemaToOwnerKind(

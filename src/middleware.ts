@@ -118,7 +118,13 @@ function publicResponse(req: NextRequest): NextResponse {
   const loc = req.nextUrl.searchParams.get("loc");
   if (loc !== null) {
     const trimmed = loc.trim().slice(0, 80);
-    if (trimmed) {
+    // Allowlist: only letters/digits/spaces/commas/dots/hyphens are valid
+    // location-context tokens. A future component that renders rex_loc into
+    // an href/meta-refresh without escaping shouldn't be able to be turned
+    // into a `javascript:` redirect or HTML-injection vector from this
+    // path. Anything outside the allowlist deletes the cookie instead of
+    // setting it.
+    if (trimmed && /^[A-Za-z0-9 ,.\-]{1,80}$/.test(trimmed)) {
       res.cookies.set(LOC_COOKIE, trimmed, {
         path: "/",
         maxAge: 60 * 60 * 24 * 30, // 30 days

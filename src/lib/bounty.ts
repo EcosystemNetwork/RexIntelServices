@@ -16,6 +16,7 @@ import {
   type BountyPayoutPayeeKind,
   type ClearanceTier,
 } from "./db";
+import { CHAIN_SLUG_SET } from "./chains";
 import { awardContributionPoints } from "./circle-auth";
 import { upsertAttributionsBatch } from "./address-attribution";
 
@@ -355,11 +356,18 @@ export function validateClaimEvidence(
           )
           .slice(0, 10)
       : undefined,
-    chain:
-      typeof p.chain === "string"
-        ? p.chain.trim().toLowerCase().slice(0, 32)
-        : undefined,
+    chain: undefined,
   };
+
+  // Validate chain against the known set so a malformed value doesn't slip
+  // through and cause the post-commit attribution write to silently fail.
+  if (typeof p.chain === "string") {
+    const c = p.chain.trim().toLowerCase().slice(0, 32);
+    if (c && !CHAIN_SLUG_SET.has(c)) {
+      return { ok: false, reason: `unknown chain: ${c}` };
+    }
+    evidence.chain = c || undefined;
+  }
 
   return { ok: true, evidence };
 }

@@ -8,6 +8,19 @@
  * concatenate with paths.
  */
 export function siteUrl(): string {
+  // In production NEXT_PUBLIC_SITE_URL must be set. Falling back to
+  // VERCEL_URL silently rebases the canonical origin onto a per-deploy
+  // hostname, which breaks isSameOrigin's allowlist (CSRF guard rejects
+  // legitimate same-origin POSTs) AND lands magic-link OTP URLs in
+  // emails pointing at a URL that 404s after the next deploy. Fail loud.
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.env.NEXT_PUBLIC_SITE_URL
+  ) {
+    throw new Error(
+      "NEXT_PUBLIC_SITE_URL must be set in production. Set it to the canonical apex (https://rexintelservices.com).",
+    );
+  }
   const raw =
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.VERCEL_URL ??

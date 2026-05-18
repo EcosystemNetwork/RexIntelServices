@@ -252,7 +252,9 @@ export const subscribers = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
-    emailIdx: uniqueIndex("subscribers_email_idx").on(t.email),
+    // Case-insensitive uniqueness — both /api/subscribe and the bulk
+    // importer lowercase before insert, but the DB enforces it.
+    emailIdx: uniqueIndex("subscribers_email_idx").on(sql`lower(${t.email})`),
     statusIdx: index("subscribers_status_idx").on(t.status),
     tokenIdx: uniqueIndex("subscribers_token_idx").on(t.unsubscribeToken),
   }),
@@ -1055,10 +1057,16 @@ export const submitters = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
-    emailIdx: uniqueIndex("submitters_email_idx").on(sql`lower(${t.email})`),
-    circleUserIdx: uniqueIndex("submitters_circle_user_idx").on(
-      t.circleUserId,
-    ),
+    // Partial unique — Postgres treats multiple NULLs as distinct in a
+    // regular unique, so a bug that inserts an email-less submitter could
+    // write unlimited rows. The IS NOT NULL filter preserves the dedup
+    // intent while leaving NULL semantics intact.
+    emailIdx: uniqueIndex("submitters_email_idx")
+      .on(sql`lower(${t.email})`)
+      .where(sql`${t.email} IS NOT NULL`),
+    circleUserIdx: uniqueIndex("submitters_circle_user_idx")
+      .on(t.circleUserId)
+      .where(sql`${t.circleUserId} IS NOT NULL`),
     walletIdx: uniqueIndex("submitters_wallet_idx").on(
       sql`lower(${t.walletAddress})`,
     ),

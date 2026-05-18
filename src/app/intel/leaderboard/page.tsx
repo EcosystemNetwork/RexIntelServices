@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { db, submissions, intelVotes, monthlyPrizes } from "@/lib/db";
+import { desc } from "drizzle-orm";
+import { db, monthlyPrizes } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { detailHref } from "@/lib/slug";
@@ -11,6 +11,7 @@ import {
   computePayouts,
   currentYearMonth,
   monthBounds,
+  getMonthlyTopIntel,
 } from "@/lib/prize-pool";
 
 export const dynamic = "force-dynamic";
@@ -33,42 +34,15 @@ type LeaderRow = {
 
 export default async function LeaderboardPage() {
   const ym = currentYearMonth();
-  const { start, end } = monthBounds(ym);
 
+  // Use the shared getMonthlyTopIntel so the public leaderboard applies
+  // the same cooling-window + self-vote exclusion as the admin dashboard
+  // and the settlement cron. The inline query that used to live here
+  // skipped both gates — Sybils showed on the public page even though
+  // they wouldn't count at settlement, drifting the two surfaces.
   const [poolBalance, leaderRows, lastSettled] = await Promise.all([
     fetchPoolBalance(),
-    db
-      .select({
-        publicId: submissions.publicId,
-        payload: submissions.payload,
-        submitterHandle: submissions.submitterHandle,
-        voteCount: sql<number>`count(${intelVotes.subscriberId})::int`,
-      })
-      .from(submissions)
-      .leftJoin(
-        intelVotes,
-        and(
-          eq(intelVotes.submissionId, submissions.id),
-          gte(intelVotes.votedAt, start),
-          lt(intelVotes.votedAt, end),
-        ),
-      )
-      .where(
-        and(
-          eq(submissions.type, "intel"),
-          eq(submissions.status, "approved"),
-          gte(submissions.publishedAt, start),
-          lt(submissions.publishedAt, end),
-        ),
-      )
-      .groupBy(
-        submissions.id,
-        submissions.publicId,
-        submissions.payload,
-        submissions.submitterHandle,
-      )
-      .orderBy(desc(sql`count(${intelVotes.subscriberId})`))
-      .limit(20),
+    getMonthlyTopIntel({ yearMonth: ym, limit: 20 }),
     db
       .select()
       .from(monthlyPrizes)
@@ -91,7 +65,8 @@ export default async function LeaderboardPage() {
 
   const config = getPrizePoolConfig();
   const payouts = computePayouts(poolBalance.amount);
-  const monthLabel = new Date(start).toLocaleDateString("en-US", {
+  const { start: monthStart } = monthBounds(ym);
+  const monthLabel = new Date(monthStart).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",

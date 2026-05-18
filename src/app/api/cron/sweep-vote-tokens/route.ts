@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/cron-auth";
-import { lt } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db, voteTokens } from "@/lib/db";
 
 /**
@@ -20,7 +20,16 @@ import { db, voteTokens } from "@/lib/db";
  * which is fine for the UX.
  */
 
-const RETENTION_DAYS = 30;
+// Retention tightened from 30d → 7d to minimize the PII window. The "this
+// link expired" UX message survives for 7 days post-expiry, after which
+// the link collapses to "invalid" — acceptable since the original token
+// only had a 24h TTL anyway.
+const RETENTION_DAYS = 7;
+// Batch ceiling so a runaway-attack scenario where the table has millions
+// of expired rows doesn't lock on a single DELETE. Re-runs sweep the rest.
+const SWEEP_BATCH_LIMIT = 10_000;
+
+export const maxDuration = 60;
 
 export async function GET(req: Request) {
   const fail = verifyCronSecret(req);
@@ -30,14 +39,24 @@ export async function GET(req: Request) {
     Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const deleted = await db
-    .delete(voteTokens)
-    .where(lt(voteTokens.expiresAt, cutoff))
-    .returning({ id: voteTokens.id });
+  // Drizzle doesn't expose LIMIT on DELETE directly; use a CTE that
+  // selects the ids first, then deletes by id.
+  const deleted = await db.execute<{ id: string }>(sql`
+    WITH victims AS (
+      SELECT id FROM ${voteTokens}
+      WHERE ${voteTokens.expiresAt} < ${cutoff}
+      ORDER BY ${voteTokens.expiresAt} ASC
+      LIMIT ${SWEEP_BATCH_LIMIT}
+    )
+    DELETE FROM ${voteTokens}
+    WHERE id IN (SELECT id FROM victims)
+    RETURNING id
+  `);
 
   return NextResponse.json({
     ok: true,
-    deleted: deleted.length,
+    deleted: deleted.rowCount ?? 0,
     cutoff: cutoff.toISOString(),
+    capped: (deleted.rowCount ?? 0) >= SWEEP_BATCH_LIMIT,
   });
 }

@@ -157,10 +157,20 @@ export async function POST(
       : null
     : row.eventEndsAt;
 
+  // Demote an approved/featured row back to pending on edit so a curator
+  // re-reviews. A leaked or archived edit link otherwise lets the holder
+  // silently rewrite a published intel post — investigative-journalism
+  // surfaces depend on a published article matching what was approved.
+  // Honeypot/spam rows can't reach here; pending/needs_info rows stay
+  // in their current state.
+  const nextStatus =
+    row.status === "approved" ? ("pending" as const) : row.status;
+
   const [updated] = await db
     .update(submissions)
     .set({
       payload: validation.payload,
+      status: nextStatus,
       eventStartsAt,
       eventEndsAt,
       updatedAt: new Date(),
@@ -168,8 +178,9 @@ export async function POST(
     .where(eq(submissions.id, row.id))
     .returning({ id: submissions.id, publicId: submissions.publicId });
 
-  // Only approved rows are visible on listings, so only flush the cache when
-  // an approved row was edited. Pending edits don't change the public view.
+  // Revalidate the public listing if the edited row was previously visible
+  // — even if we're demoting it back to pending, the public surface must
+  // refresh so the now-pending row stops appearing.
   if (row.status === "approved") {
     revalidateTag(SUBMISSIONS_TAG);
   }

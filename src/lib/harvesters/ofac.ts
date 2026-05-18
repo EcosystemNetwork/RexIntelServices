@@ -142,6 +142,12 @@ export async function harvestOfac(): Promise<OfacHarvestResult> {
   };
 }
 
+// Hard cap on the SDN.XML download. Actual file is ~30MB; the cap is 4×
+// that as headroom for OFAC ever growing. A buggy redirect or upstream
+// outage that returned an unbounded stream would otherwise OOM the cron
+// function and never error visibly.
+const OFAC_MAX_BYTES = 120 * 1024 * 1024;
+
 async function fetchXml(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
@@ -153,7 +159,35 @@ async function fetchXml(url: string): Promise<string> {
   if (!res.ok) {
     throw new Error(`OFAC fetch failed: ${res.status} ${res.statusText}`);
   }
-  return res.text();
+  return readWithCap(res, OFAC_MAX_BYTES, "OFAC");
+}
+
+async function readWithCap(
+  res: Response,
+  maxBytes: number,
+  label: string,
+): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) return res.text();
+  let total = 0;
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      total += value.byteLength;
+      if (total > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {}
+        throw new Error(
+          `${label} fetch exceeded ${maxBytes} byte cap (got >${total})`,
+        );
+      }
+      chunks.push(value);
+    }
+  }
+  return new TextDecoder("utf-8").decode(Buffer.concat(chunks.map((c) => Buffer.from(c))));
 }
 
 function buildOwnerName(entry: SdnEntry): string {

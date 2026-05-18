@@ -193,48 +193,58 @@ export async function runProgramImageBackfill(
 
   for (let i = 0; i < rows.length; i += concurrency) {
     const slice = rows.slice(i, i + concurrency);
+    // Per-row try/catch — Promise.all rejects on the first thrown row and
+    // strands the rest of the slice. A single fetchOgImage timeout or DB
+    // hiccup should bump `failed` for that row, not crater the cron.
     await Promise.all(
       slice.map(async (row) => {
-        const payload = row.payload as SubmissionPayload;
-        const candidates = urlsForPayload(
-          row.type as ProgramType,
-          payload,
-        );
-        if (candidates.length === 0) {
-          skipped++;
-          return;
-        }
-
-        let imageUrl: string | null = null;
-        for (const u of candidates) {
-          const r = await fetchOgImage(u);
-          if (r.ok) {
-            imageUrl = r.url;
-            break;
+        try {
+          const payload = row.payload as SubmissionPayload;
+          const candidates = urlsForPayload(
+            row.type as ProgramType,
+            payload,
+          );
+          if (candidates.length === 0) {
+            skipped++;
+            return;
           }
-        }
 
-        if (!imageUrl) {
+          let imageUrl: string | null = null;
+          for (const u of candidates) {
+            const r = await fetchOgImage(u);
+            if (r.ok) {
+              imageUrl = r.url;
+              break;
+            }
+          }
+
+          if (!imageUrl) {
+            failed++;
+            return;
+          }
+
+          await db
+            .update(submissions)
+            .set({
+              payload: { ...payload, imageUrl } as SubmissionPayload,
+              updatedAt: new Date(),
+            })
+            .where(eq(submissions.id, row.id));
+          scraped++;
+          if (samples.length < 20) {
+            samples.push({
+              publicId: row.publicId,
+              type: row.type as ProgramType,
+              imageUrl,
+            });
+          }
+          log(`  ✓ ${row.type} ${row.publicId} ← ${imageUrl}`);
+        } catch (err) {
           failed++;
-          return;
+          log(
+            `  ✗ ${row.type} ${row.publicId} failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
-
-        await db
-          .update(submissions)
-          .set({
-            payload: { ...payload, imageUrl } as SubmissionPayload,
-            updatedAt: new Date(),
-          })
-          .where(eq(submissions.id, row.id));
-        scraped++;
-        if (samples.length < 20) {
-          samples.push({
-            publicId: row.publicId,
-            type: row.type as ProgramType,
-            imageUrl,
-          });
-        }
-        log(`  ✓ ${row.type} ${row.publicId} ← ${imageUrl}`);
       }),
     );
   }

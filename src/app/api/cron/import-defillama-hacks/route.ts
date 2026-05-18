@@ -226,7 +226,9 @@ export async function GET(req: Request) {
   let skippedAmount = 0;
   let skippedHandled = 0;
 
+  const rowErrors: Array<{ name: string; error: string }> = [];
   for (const h of raw) {
+    try {
     const usd = h.amount ?? 0;
     if (usd < MIN_AMOUNT_USD) {
       skippedAmount++;
@@ -296,6 +298,14 @@ export async function GET(req: Request) {
       });
       inserted++;
     }
+    } catch (err) {
+      // Per-row safety net: a single bad upstream entry shouldn't abort the
+      // whole batch and silently drop the remainder. Log and continue.
+      rowErrors.push({
+        name: h.name ?? "unknown",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   return NextResponse.json({
@@ -305,5 +315,6 @@ export async function GET(req: Request) {
     updated,
     skippedAmount,
     skippedHandled,
+    rowErrors: rowErrors.slice(0, 20),
   });
 }

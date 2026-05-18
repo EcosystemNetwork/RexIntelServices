@@ -63,6 +63,14 @@ export function getPrizePoolConfig(): PrizePoolConfig {
       explorerUrl = `https://sepolia.basescan.org/address/${walletAddress}`;
     } else if (chain === "ethereum") {
       explorerUrl = `https://etherscan.io/address/${walletAddress}`;
+    } else {
+      // Unknown chain: log + leave explorerUrl null so the donate panel
+      // doesn't render an unverifiable address with no explorer link. A
+      // misconfigured PRIZE_POOL_CHAIN should fail loudly, not silently
+      // show donors a wallet they can't sanity-check on-chain.
+      console.warn(
+        `[prize-pool] unknown PRIZE_POOL_CHAIN=${chain}; explorerUrl unset (add a case to getPrizePoolConfig)`,
+      );
     }
   }
 
@@ -225,6 +233,28 @@ function formatUnits(raw: bigint, decimals: number): string {
   const negative = raw < 0n;
   const abs = negative ? -raw : raw;
   const base = 10n ** BigInt(decimals);
+  // Banker's-round at the 3rd decimal so 12.999 USDC reads as 13.00 not
+  // 12.99 (truncation). The schema stores 6 decimals; the display takes 2
+  // so the rounded view never exceeds the underlying balance by more than
+  // half a cent. half-to-even avoids systematic upward bias on .5 boundaries.
+  if (decimals >= 2) {
+    const halfStep = 10n ** BigInt(decimals - 2) / 2n; // 0.005 in the asset's unit
+    const rest = abs % 10n ** BigInt(decimals - 2);
+    let rounded = abs - rest;
+    // banker's round: round half-to-even on the kept-cent digit
+    if (rest > halfStep) {
+      rounded += 10n ** BigInt(decimals - 2);
+    } else if (rest === halfStep) {
+      const centDigit = (abs / 10n ** BigInt(decimals - 2)) % 10n;
+      if (centDigit % 2n !== 0n) {
+        rounded += 10n ** BigInt(decimals - 2);
+      }
+    }
+    const whole = rounded / base;
+    const frac = (rounded % base).toString().padStart(decimals, "0").slice(0, 2);
+    const result = frac === "00" ? whole.toString() : `${whole}.${frac}`;
+    return negative ? `-${result}` : result;
+  }
   const whole = abs / base;
   const frac = abs % base;
   const fracStr = frac.toString().padStart(decimals, "0").slice(0, 2);

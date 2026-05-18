@@ -70,7 +70,7 @@ export function PublicShell({
                 Submit
               </Link>
               <span className="text-[var(--rex-border)]">│</span>
-              <span>All transmissions reserved</span>
+              <span>Based on the high seas</span>
             </div>
             <div className="mono-label flex items-center gap-3">
               <span className="pulse-dot" />
