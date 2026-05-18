@@ -5,6 +5,7 @@ import {
   http,
   formatUnits,
   type Address,
+  type PublicClient,
 } from "viem";
 import { base, baseSepolia } from "viem/chains";
 import { requireOperator } from "@/lib/auth";
@@ -135,9 +136,16 @@ export async function GET(req: NextRequest) {
     targets = recent.map((r) => r.yearMonth);
   }
 
+  // Cast through PublicClient — viem's per-chain return type from
+  // createPublicClient<typeof base> is too narrow to assign to the
+  // generic PublicClient that reconcileMonth's helper expects (chain
+  // adds a "deposit" transaction variant that doesn't satisfy the
+  // wider union). The runtime behavior is unchanged.
+  const genericClient = client as unknown as PublicClient;
+
   const results: MonthReconciliation[] = [];
   for (const ym of targets) {
-    results.push(await reconcileMonth(ym, cfg.contractAddress, client));
+    results.push(await reconcileMonth(ym, cfg.contractAddress, genericClient));
   }
 
   const driftCount = results.reduce(
@@ -161,7 +169,7 @@ export async function GET(req: NextRequest) {
 async function reconcileMonth(
   yearMonth: string,
   contractAddress: Address,
-  client: ReturnType<typeof createPublicClient>,
+  client: PublicClient,
 ): Promise<MonthReconciliation> {
   const monthYYYYMM = yearMonthToYYYYMM(yearMonth);
   const notes: string[] = [];
