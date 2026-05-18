@@ -1660,12 +1660,16 @@ export const bountyClaims = pgTable(
     }),
     reviewedAt: timestamp("reviewed_at"),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+    // Bumped any time the row's status or curator notes change. Powers
+    // the "oldest needing attention" sort on the admin curator queue.
+    lastTouchedAt: timestamp("last_touched_at").defaultNow().notNull(),
   },
   (t) => ({
     publicIdIdx: uniqueIndex("bounty_claims_public_id_idx").on(t.publicId),
     bountyIdx: index("bounty_claims_bounty_idx").on(t.bountyId),
     claimantIdx: index("bounty_claims_claimant_idx").on(t.claimantSubmitterId),
     statusIdx: index("bounty_claims_status_idx").on(t.status),
+    lastTouchedIdx: index("bounty_claims_last_touched_idx").on(t.lastTouchedAt),
     // One claim per (bounty, claimant) — revisions reuse the row.
     bountyClaimantIdx: uniqueIndex("bounty_claims_bounty_claimant_idx").on(
       t.bountyId,
@@ -1758,6 +1762,20 @@ export const bountyPayoutsRelations = relations(bountyPayouts, ({ one }) => ({
     references: [submitters.id],
   }),
 }));
+
+// Inbound dedupe ledger for Circle webhook deliveries. Circle retries on any
+// non-2xx (and occasionally on the same notification.id even after 2xx during
+// region failovers). Without this, a retried "inbound transfer confirmed"
+// notification double-credits the bounty's escrowedAmountUsdc. The webhook
+// handler INSERTs the notification id with ON CONFLICT DO NOTHING; a 0-row
+// result means we've already applied this delivery and the handler short-
+// circuits with a 200 so Circle stops retrying.
+export const circleWebhookDeliveries = pgTable("circle_webhook_deliveries", {
+  notificationId: text("notification_id").primaryKey(),
+  notificationType: text("notification_type"),
+  transactionId: text("transaction_id"),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+});
 
 // Type exports for use in app code
 export type Subscriber = typeof subscribers.$inferSelect;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicKey, createVerify } from "crypto";
-import { eq, sql } from "drizzle-orm";
-import { db, bounties } from "@/lib/db";
+import { and, eq, ne, or, isNull, sql } from "drizzle-orm";
+import { db, bounties, circleWebhookDeliveries } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,6 +116,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: "no_transaction" });
   }
 
+  // ── 2a. Notification-level dedupe ────────────────────────────────────
+  // Circle retries on any non-2xx and occasionally re-delivers the same
+  // notification id after a 2xx during region failover. INSERT … ON CONFLICT
+  // DO NOTHING returns 0 rows when we've already applied this delivery;
+  // short-circuit with 200 so Circle stops retrying.
+  if (event.notificationId) {
+    const inserted = await db
+      .insert(circleWebhookDeliveries)
+      .values({
+        notificationId: event.notificationId,
+        notificationType: event.notificationType ?? null,
+        transactionId: tx.id ?? null,
+      })
+      .onConflictDoNothing()
+      .returning({ id: circleWebhookDeliveries.notificationId });
+    if (inserted.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        ignored: "duplicate_notification",
+        notificationId: event.notificationId,
+      });
+    }
+  } else {
+    // No notification id means we can't dedupe — log + still process. Older
+    // payload shapes can land here; once those are off the wire we should
+    // 400 instead. Don't let undeduped events accidentally double-credit.
+    console.warn(
+      "[circle-webhook] payload missing notificationId; processing without dedupe",
+    );
+  }
+
   // ── 3. Inbound transfer → resolve bounty + call fund handler ─────────
   // Only ACT on terminal-good states (CONFIRMED / COMPLETE). INITIATED
   // events fire while the tx is still mempool-pending; acting on them
@@ -211,7 +242,12 @@ async function handleInboundTransfer(tx: CircleTransaction) {
   const victimVerified = bounty.victimVerifiedAt != null;
   const shouldOpen = escrowSatisfied && victimVerified;
 
-  await db
+  // Belt-and-suspenders on top of the notification-id dedupe: if the same
+  // on-chain txHash arrives under a fresh notificationId (Circle region
+  // failover regenerating notification ids), this guard prevents double-
+  // crediting. UPDATE returns 0 rows when the same txHash is already on the
+  // bounty.
+  const updated = await db
     .update(bounties)
     .set({
       escrowedAmountUsdc: sql`${bounties.escrowedAmountUsdc} + ${amount.toFixed(2)}`,
@@ -219,7 +255,27 @@ async function handleInboundTransfer(tx: CircleTransaction) {
       status: shouldOpen ? "open" : "funded",
       updatedAt: new Date(),
     })
-    .where(eq(bounties.id, bounty.id));
+    .where(
+      and(
+        eq(bounties.id, bounty.id),
+        tx.txHash
+          ? or(
+              isNull(bounties.fundingTxHash),
+              ne(bounties.fundingTxHash, tx.txHash),
+            )
+          : sql`true`,
+      ),
+    )
+    .returning({ id: bounties.id });
+
+  if (updated.length === 0) {
+    return {
+      action: "skipped",
+      reason: "duplicate_funding_tx",
+      bounty: bounty.publicId,
+      txHash: tx.txHash ?? null,
+    };
+  }
 
   return {
     action: "funded",

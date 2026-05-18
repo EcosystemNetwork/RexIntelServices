@@ -31,7 +31,9 @@ export function PostBountyForm({
   const [email, setEmail] = useState(traceContext?.prefilledEmail ?? "");
   const [percentBps, setPercentBps] = useState<number>(1000); // 10% default
   const [flatAmount, setFlatAmount] = useState<number>(
-    traceContext?.lossUsd ? Math.min(50_000, Math.round(traceContext.lossUsd * 0.1)) : 5_000,
+    traceContext?.lossUsd
+      ? Math.max(500, Math.min(50_000, Math.round(traceContext.lossUsd * 0.1)))
+      : 5_000,
   );
   const [expiresInDays, setExpiresInDays] = useState<number>(60);
   const [description, setDescription] = useState("");
@@ -159,7 +161,14 @@ export function PostBountyForm({
         </span>
         <select
           value={kind}
-          onChange={(e) => setKind(e.target.value as Kind)}
+          onChange={(e) => {
+            const v = e.target.value as Kind;
+            // info_arrest is "coming soon" — don't let it become the
+            // active selection. The option is rendered as disabled below
+            // so it's visible (we want creators to know it's planned)
+            // but unselectable until legal sign-off.
+            if (v !== "info_arrest") setKind(v);
+          }}
           className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
         >
           <option value="recovery">
@@ -168,8 +177,8 @@ export function PostBountyForm({
           <option value="info_recovery">
             Info → Recovery — flat USDC for info that leads to recovery
           </option>
-          <option value="info_arrest">
-            Info → Arrest — flat USDC, requires filed police report
+          <option value="info_arrest" disabled>
+            Info → Arrest — coming soon (counsel review)
           </option>
         </select>
       </label>
@@ -216,11 +225,11 @@ export function PostBountyForm({
       ) : (
         <label className="block space-y-1">
           <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
-            Flat USDC amount (min $100)
+            Flat USDC amount (min $500)
           </span>
           <input
             type="number"
-            min={100}
+            min={500}
             max={1_000_000}
             step={100}
             required

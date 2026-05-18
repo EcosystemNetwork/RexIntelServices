@@ -90,13 +90,23 @@ export const BOUNTY_STRIKE_LIMIT = 2;
 /**
  * Default refundable bond charged at claim submit (USDC). Slashed to the
  * victim's pool on a bad_faith / doxx_attempt verdict; refunded otherwise.
- * Overridable per-deploy via BOUNTY_CLAIM_BOND_USDC env. Set to 0 to disable.
+ * Overridable per-deploy via BOUNTY_CLAIM_BOND_USDC env.
+ *
+ * IMPORTANT: defaults to 0 until the bond deposit rail is real. The claim
+ * route advertises bondAmountUsdc but the actual on-chain bond is never
+ * collected today — bondTxHash stays NULL. Charging a non-zero amount here
+ * caused a money-loss bug pre-launch: refund/slash payouts were drawn from
+ * the bounty escrow (the only walletId on the payout row) even though the
+ * claimant never deposited a bond. The bond payout writes in applyClaimReview
+ * and sweep-expired-bounties now also gate on claim.bondTxHash IS NOT NULL,
+ * so a future deploy can re-enable bonds by (a) wiring on-chain collection,
+ * (b) writing bondTxHash on a confirmed deposit, then (c) setting this env.
  */
 export function bountyClaimBondUsdc(): number {
   const raw = process.env.BOUNTY_CLAIM_BOND_USDC;
-  if (raw === undefined) return 25;
+  if (raw === undefined) return 0;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return 25;
+  if (!Number.isFinite(n) || n < 0) return 0;
   return n;
 }
 
@@ -473,6 +483,7 @@ export async function applyClaimReview(args: {
   // partway failure can't leave the bounty marked paid with no payout row,
   // points awarded with no claim status update, etc.
   const result = await db.transaction(async (tx) => {
+    const reviewedAt = new Date();
     const updatedRows = await tx
       .update(bountyClaims)
       .set({
@@ -481,7 +492,10 @@ export async function applyClaimReview(args: {
         strikeIssued: issuesStrike,
         curatorNotes: curatorNotes ?? claim.curatorNotes,
         reviewedByUserId: reviewerUserId,
-        reviewedAt: new Date(),
+        reviewedAt,
+        // Bump the sort key on every verdict so the admin queue can move
+        // it down or out without a manual touch.
+        lastTouchedAt: reviewedAt,
       })
       .where(
         and(
@@ -522,13 +536,16 @@ export async function applyClaimReview(args: {
     }
 
     // Bond handling. v1: a no-strike rejection refunds; a strike-bearing
-    // rejection slashes the bond — but only if we have a payee submitter
-    // to send it to. For anon-victim bounties (no submitter row) the
-    // slashed bond stays in escrow rather than writing a payout row with
-    // a null payee that the worker can't fulfill.
+    // rejection slashes the bond. Gated on (a) bondTxHash present — i.e. the
+    // bond was actually collected on-chain — and (b) for slashes only, a
+    // non-null payee submitter (anon victims have nowhere to send the slash).
+    // The bondTxHash gate is load-bearing: writing a refund payout for an
+    // un-collected bond would drain the bounty's own escrow (the payout cron
+    // sources from bounties.circleWalletId), i.e. the victim would pay
+    // refunds for bonds the claimant never sent.
     let bondPayoutId: string | undefined;
     const bond = Number(claim.bondAmountUsdc ?? "0");
-    if (bond > 0) {
+    if (bond > 0 && claim.bondTxHash) {
       const payeeKind: BountyPayoutPayeeKind = issuesStrike
         ? "bond_slash"
         : "bond_refund";
@@ -557,6 +574,10 @@ export async function applyClaimReview(args: {
           .returning({ id: bountyPayouts.id });
         bondPayoutId = row?.id;
       }
+    } else if (bond > 0 && !claim.bondTxHash) {
+      console.warn(
+        `bounty.applyClaimReview: bond payout skipped for claim ${claim.publicId} — bondAmountUsdc=${bond} but bondTxHash is NULL (bond was never collected on-chain)`,
+      );
     }
 
     let payoutId: string | undefined;

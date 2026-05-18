@@ -19,7 +19,11 @@ import {
   parseSector,
   sectorClause,
   closingSoonClause,
+  formatUsd,
+  parseFundingFloor,
+  FUNDING_BUCKETS,
   type Sector,
+  type FundingFloor,
 } from "./_shared";
 
 const INTAKE_LABEL: Record<Exclude<Intake, null>, string> = {
@@ -35,7 +39,7 @@ const SECTOR_LABEL: Record<Sector, string> = {
 type Intake = "rolling" | "scheduled" | "soon" | null;
 
 const getAcceleratorsRows = unstable_cache(
-  async (intake: Intake, sector: Sector | null) => {
+  async (intake: Intake, sector: Sector | null, minUsd: FundingFloor) => {
     const intakeClause =
       intake === "rolling"
         ? sql`(${submissions.payload}->>'rolling')::boolean = true`
@@ -44,6 +48,10 @@ const getAcceleratorsRows = unstable_cache(
           : intake === "soon"
             ? closingSoonClause(true, "nextDeadline")
             : sql`true`;
+    const fundingClause =
+      minUsd > 0
+        ? sql`COALESCE(NULLIF(${submissions.payload}->>'investmentUsd', ''), '0')::numeric >= ${minUsd}`
+        : sql`true`;
     return db
       .select({
         id: submissions.id,
@@ -58,6 +66,7 @@ const getAcceleratorsRows = unstable_cache(
           eq(submissions.type, "accelerator"),
           eq(submissions.status, "approved"),
           intakeClause,
+          fundingClause,
           sectorClause(sector, ["focus", "description", "name"]),
         ),
       )
@@ -68,7 +77,7 @@ const getAcceleratorsRows = unstable_cache(
       )
       .limit(200);
   },
-  ["intel-lane-accelerators-v3"],
+  ["intel-lane-accelerators-v4"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
@@ -76,10 +85,12 @@ export async function AcceleratorsLane({
   filter,
   sector: sectorParam,
   soon,
+  minUsd: minUsdParam,
 }: {
   filter?: string;
   sector?: string;
   soon?: string;
+  minUsd?: string;
 }) {
   const intake: Intake =
     soon === "1"
@@ -90,21 +101,28 @@ export async function AcceleratorsLane({
           ? "scheduled"
           : null;
   const sector = parseSector(sectorParam);
+  const minUsd = parseFundingFloor(minUsdParam);
 
-  const rows = await getAcceleratorsRows(intake, sector);
+  const rows = await getAcceleratorsRows(intake, sector, minUsd);
 
   const visible = rows.map((r) => ({
     ...r,
     payload: r.payload as AcceleratorPayload,
   }));
 
-  const href = (next: { intake?: Intake; sector?: Sector | null }) => {
+  const href = (next: {
+    intake?: Intake;
+    sector?: Sector | null;
+    minUsd?: FundingFloor;
+  }) => {
     const params = new URLSearchParams({ lane: "accelerators" });
     const ni = next.intake !== undefined ? next.intake : intake;
     const ns = next.sector !== undefined ? next.sector : sector;
+    const nu = next.minUsd !== undefined ? next.minUsd : minUsd;
     if (ni === "soon") params.set("soon", "1");
     else if (ni) params.set("filter", ni);
     if (ns) params.set("sector", ns);
+    if (nu > 0) params.set("minUsd", String(nu));
     return `/intel?${params.toString()}`;
   };
 
@@ -123,7 +141,11 @@ export async function AcceleratorsLane({
 
       <FilterBar
         summary={
-          [sector ? SECTOR_LABEL[sector] : null, intake ? INTAKE_LABEL[intake] : null]
+          [
+            sector ? SECTOR_LABEL[sector] : null,
+            intake ? INTAKE_LABEL[intake] : null,
+            minUsd > 0 ? `${formatUsd(minUsd)}+` : null,
+          ]
             .filter(Boolean)
             .join(" · ") || "All"
         }
@@ -168,6 +190,24 @@ export async function AcceleratorsLane({
           <Chip href={href({ intake: "soon" })} active={intake === "soon"}>
             Closing ≤14d
           </Chip>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            CHECK ▸
+          </span>
+          {FUNDING_BUCKETS.map((b) => (
+            <Chip
+              key={b.value}
+              href={href({ minUsd: b.value })}
+              active={minUsd === b.value}
+            >
+              {b.label}
+            </Chip>
+          ))}
         </div>
       </FilterBar>
 
@@ -233,6 +273,18 @@ function AcceleratorCard({
           {featured && <FeaturedTag />}
           {expired && <ClosedTag label="Cohort closed" />}
           <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+          {typeof payload.investmentUsd === "number" && payload.investmentUsd > 0 && (
+            <span
+              className="px-1.5 py-0.5 rounded-sm"
+              style={{
+                background: "rgba(95,185,31,0.12)",
+                color: "var(--rex-accent)",
+                border: "1px solid rgba(95,185,31,0.45)",
+              }}
+            >
+              ⌬ {formatUsd(payload.investmentUsd)}
+            </span>
+          )}
           {payload.investment && (
             <span style={{ color: "var(--rex-text-muted)" }}>· {payload.investment}</span>
           )}

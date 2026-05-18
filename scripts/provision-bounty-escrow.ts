@@ -1,9 +1,13 @@
 /**
  * scripts/provision-bounty-escrow.ts
  *
- * One-shot provisioning script for the bounty payout rail. Does Steps 2 + 3
- * of the Circle DCW setup checklist in a single run:
+ * One-shot provisioning script for the bounty payout rail. The runtime
+ * provisions one Circle DCW wallet PER bounty (see provisionBountyWallet in
+ * src/lib/bounty-payout.ts) inside a shared wallet *set*. This script's job
+ * is therefore to produce a wallet *set id*, not a single wallet — that
+ * mismatch was the C1 audit finding pre-launch.
  *
+ * Steps:
  *   1. Reads CIRCLE_API_KEY from env (or prompts for it).
  *   2. Auto-detects sandbox vs production from the key prefix (TEST_API_KEY
  *      vs LIVE_API_KEY) and picks the right base URL + chain.
@@ -14,9 +18,9 @@
  *   5. Registers the encrypted secret with Circle and writes the
  *      RECOVERY FILE to ./circle-entity-secret-recovery.dat (restricted perms).
  *   6. Creates a wallet set named "RexIntel Bounty Escrow".
- *   7. Creates a single EOA wallet on BASE (mainnet) or BASE-SEPOLIA
- *      (sandbox), depending on the key flavor.
- *   8. Prints the exact env-var block to paste into Vercel.
+ *   7. Prints the exact env-var block to paste into Vercel — including the
+ *      operator action required for CIRCLE_WEBHOOK_PUBLIC_KEY (must be
+ *      copied out of Circle Console manually).
  *
  * Run:
  *   npx tsx scripts/provision-bounty-escrow.ts
@@ -25,7 +29,7 @@
  *   - Entity secret is shown ONCE at the end. Save it then.
  *   - Recovery file is written with 0o600 perms. Move it offline.
  *   - Script is rerunnable: if CIRCLE_ENTITY_SECRET is already in env, it
- *     skips secret generation and registration and just creates wallets.
+ *     skips secret generation and registration and just creates the wallet set.
  *   - Dry-run mode: pass --dry-run to print the steps without hitting Circle.
  */
 import "dotenv/config";
@@ -162,36 +166,9 @@ async function main() {
     console.log(`✓ Created wallet set: ${walletSetId}`);
   }
 
-  // --- Wallet --------------------------------------------------------------
-  let walletId = "<wallet-id-on-success>";
-  let walletAddress = "<wallet-address-on-success>";
-  if (DRY_RUN) {
-    console.log(
-      `↷ Dry run — would POST /v1/w3s/developer/wallets with walletSetId, blockchains: ['${cfg.blockchain}'], count: 1, accountType: 'EOA'.`,
-    );
-  } else {
-    // Fresh ciphertext — Circle rejects reused ones.
-    const walletCiphertext = await encryptEntitySecret(entitySecretHex, cfg);
-    const w = await circlePost<{
-      wallets: Array<{ id: string; address: string; blockchain: string }>;
-    }>(cfg, "/v1/w3s/developer/wallets", {
-      idempotencyKey: randomUUID(),
-      entitySecretCiphertext: walletCiphertext,
-      walletSetId,
-      blockchains: [cfg.blockchain],
-      count: 1,
-      accountType: "EOA",
-    });
-    const wallet = w.wallets[0];
-    if (!wallet) die("Circle returned no wallet in the create-wallets response.");
-    walletId = wallet.id;
-    walletAddress = wallet.address;
-    console.log(`✓ Created bounty escrow wallet`);
-    console.log(`  id      : ${walletId}`);
-    console.log(`  address : ${walletAddress}`);
-  }
-
   // --- Print env block -----------------------------------------------------
+  // The runtime creates one wallet per bounty inside this wallet set at
+  // bounty-create time (provisionBountyWallet). No singleton wallet here.
   console.log("");
   console.log("─────────────────────────────────────────────────────────────");
   console.log("PASTE THESE INTO VERCEL (Production env, same key set):");
@@ -199,37 +176,65 @@ async function main() {
   console.log(`CIRCLE_BASE_URL=${cfg.baseUrl}`);
   console.log(`CIRCLE_BOUNTY_BLOCKCHAIN=${cfg.blockchain}`);
   console.log(`CIRCLE_BOUNTY_USDC_TOKEN_ADDRESS=${cfg.usdcTokenAddress}`);
-  console.log(`CIRCLE_BOUNTY_ESCROW_WALLET_ID=${walletId}`);
+  console.log(`CIRCLE_BOUNTY_WALLET_SET_ID=${walletSetId}`);
   if (entitySecretSource === "generated") {
     console.log(`CIRCLE_ENTITY_SECRET=${entitySecretHex}`);
-    console.log("");
-    console.log(
-      "⚠ The entity secret above is shown ONCE. Save it to your password manager NOW.",
-    );
   } else {
     console.log(
       `CIRCLE_ENTITY_SECRET=<already set in your env; reuse the same value in Vercel>`,
     );
   }
+  console.log("");
+  console.log("# Required for inbound deposit detection. Copy from Circle");
+  console.log("# Console → Webhooks → (create endpoint) → Public Key.");
+  console.log("# Set as a single env-var with the PEM literally newline-");
+  console.log("# delimited (Vercel UI handles multi-line values fine).");
+  console.log("CIRCLE_WEBHOOK_PUBLIC_KEY=<paste PEM from Circle Console>");
+  if (entitySecretSource === "generated") {
+    console.log("");
+    console.log(
+      "⚠ The entity secret above is shown ONCE. Save it to your password manager NOW.",
+    );
+  }
   console.log("─────────────────────────────────────────────────────────────");
   console.log("");
   console.log("Next steps:");
+  console.log("  1. Set the env vars above in Vercel.");
   console.log(
-    `  1. Fund the wallet ${walletAddress} with USDC on ${cfg.blockchain}.`,
+    "  2. In Circle Console → Webhooks, create a subscription pointing at",
+  );
+  console.log(
+    `     https://<your-prod-host>/api/webhooks/circle for the events`,
+  );
+  console.log(
+    `     'transactions.created' and 'transactions.updated'. Copy the`,
+  );
+  console.log(
+    `     subscription's Public Key (PEM) into CIRCLE_WEBHOOK_PUBLIC_KEY.`,
+  );
+  console.log(
+    "  3. Redeploy. Bounty creates now provision one escrow wallet per",
+  );
+  console.log(
+    `     bounty inside wallet set ${walletSetId}; the deposit address`,
+  );
+  console.log(
+    "     for each is rendered on the bounty's funding page. The inbound",
+  );
+  console.log(
+    "     webhook flips draft → funded → open. The /api/cron/process-",
+  );
+  console.log(
+    "     bounty-payouts cron drains pending payouts via Circle every 5min.",
   );
   if (cfg.environment === "sandbox") {
     console.log(
-      `     · Sandbox: use Circle Console → Faucet to drop test USDC.`,
+      "  4. Sandbox testing: drop testnet USDC via Circle Console → Faucet",
     );
-  } else {
     console.log(
-      `     · Production: send real USDC to that address from any source.`,
+      "     into the per-bounty wallet address shown on the funding page.",
     );
   }
-  console.log("  2. Set the env vars above in Vercel.");
-  console.log(
-    "  3. Redeploy. The /api/cron/process-bounty-payouts cron picks up pending payouts every 5min and drains via Circle.",
-  );
   console.log("");
 }
 

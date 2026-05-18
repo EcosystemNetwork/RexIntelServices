@@ -82,16 +82,32 @@ export async function GET(req: Request) {
     const escrow = Number(b.escrowedAmountUsdc ?? "0");
     const willRefund = escrow > 0;
 
+    // Anon-victim guard: payout cron resolves the destination via
+    // submitters.walletAddress (joined on payeeSubmitterId). For anon-victim
+    // bounties (victimSubmitterId IS NULL) the cron has no destination,
+    // returns skipped: no_or_invalid_destination, and the row sits pending
+    // forever — i.e. anon-victim escrow gets stuck. Until the OTP-claim
+    // refund path is wired, flip to 'expired' (not 'refunded') and surface
+    // a loud warning so ops can manually sweep the wallet.
+    const anonVictim = !b.victimSubmitterId;
+    const writeRefund = willRefund && !anonVictim;
+
     await db
       .update(bounties)
       .set({
-        status: willRefund ? "refunded" : "expired",
+        status: writeRefund ? "refunded" : "expired",
         updatedAt: now,
       })
       .where(eq(bounties.id, b.id));
     bountiesExpired += 1;
 
-    if (willRefund) {
+    if (willRefund && anonVictim) {
+      console.warn(
+        `[sweep-expired-bounties] anon-victim bounty ${b.publicId} expired with $${escrow.toFixed(2)} in escrow and no submitter to refund — manual sweep required`,
+      );
+    }
+
+    if (writeRefund) {
       await db.insert(bountyPayouts).values({
         bountyId: b.id,
         bountyClaimId: null,
@@ -103,13 +119,18 @@ export async function GET(req: Request) {
       refundsWritten += 1;
     }
 
-    // Step 2: auto-withdraw any open claims and refund their bonds.
+    // Step 2: auto-withdraw any open claims and refund their bonds. Gated
+    // on bondTxHash being present: an un-collected bond has no funds to
+    // refund, and writing a payout row anyway would drain the bounty's own
+    // escrow to the claimant (the payout cron sources from
+    // bounties.circleWalletId regardless of payeeKind).
     const openClaims = await db
       .select({
         id: bountyClaims.id,
         publicId: bountyClaims.publicId,
         claimantSubmitterId: bountyClaims.claimantSubmitterId,
         bondAmountUsdc: bountyClaims.bondAmountUsdc,
+        bondTxHash: bountyClaims.bondTxHash,
       })
       .from(bountyClaims)
       .where(
@@ -131,7 +152,7 @@ export async function GET(req: Request) {
       claimsWithdrawn += 1;
 
       const bond = Number(c.bondAmountUsdc ?? "0");
-      if (bond > 0) {
+      if (bond > 0 && c.bondTxHash) {
         await db.insert(bountyPayouts).values({
           bountyId: b.id,
           bountyClaimId: c.id,

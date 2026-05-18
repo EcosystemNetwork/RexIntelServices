@@ -325,3 +325,37 @@ export function formatRange(start: Date, end: Date): string {
 export function todayBucket(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** Compact USD display: $850 → "$850", $12500 → "$12.5K", $1000000 → "$1M".
+ *  Used on funding chips for fellowships / accelerators / hackathons. */
+export function formatUsd(amount: number): string {
+  if (amount >= 1_000_000) {
+    const m = amount / 1_000_000;
+    return `$${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
+  }
+  if (amount >= 1_000) {
+    const k = amount / 1_000;
+    return `$${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+  }
+  return `$${amount}`;
+}
+
+/** Funding-floor filter buckets — shared between fellowships / accelerators
+ *  so the chip set stays consistent across lanes. */
+export const FUNDING_BUCKETS = [
+  { value: 0, label: "All" },
+  { value: 10000, label: "$10K+" },
+  { value: 50000, label: "$50K+" },
+  { value: 100000, label: "$100K+" },
+  { value: 250000, label: "$250K+" },
+  { value: 500000, label: "$500K+" },
+] as const;
+
+export type FundingFloor = (typeof FUNDING_BUCKETS)[number]["value"];
+
+export function parseFundingFloor(v: string | undefined): FundingFloor {
+  if (!v) return 0;
+  const n = Number(v);
+  const match = FUNDING_BUCKETS.find((b) => b.value === n);
+  return match ? match.value : 0;
+}

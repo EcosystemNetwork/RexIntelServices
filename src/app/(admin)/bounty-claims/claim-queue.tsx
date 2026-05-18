@@ -10,6 +10,7 @@ type ClaimRow = {
   claimPublicId: string;
   claimStatus: "submitted" | "under_review" | "needs_info";
   submittedAt: string;
+  lastTouchedAt: string;
   claimantSubmitterId: string;
   claimantHandle: string | null;
   claimantSlug: string | null;
@@ -171,6 +172,16 @@ function ClaimCard({
             </span>
             <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
               {claim.bountyKind.replace("_", " ")}
+            </span>
+            <span
+              className={`text-[10px] font-mono uppercase tracking-widest ${
+                ageHours(claim.lastTouchedAt) > 48
+                  ? "text-[var(--rex-warning)]"
+                  : "text-[var(--rex-text-dim)]"
+              }`}
+              title={`last touched ${claim.lastTouchedAt}`}
+            >
+              · {humanAge(claim.lastTouchedAt)} since touch
             </span>
             {claim.bountyPoliceReportFiled ? (
               <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-warning)]">
@@ -386,6 +397,17 @@ function ClaimCard({
       </div>
     </article>
   );
+}
+
+function ageHours(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / (60 * 60 * 1000);
+}
+
+function humanAge(iso: string): string {
+  const h = ageHours(iso);
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  if (h < 48) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
 }
 
 function suggestedPayout(claim: ClaimRow): string {

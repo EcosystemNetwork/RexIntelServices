@@ -199,6 +199,7 @@ export default async function IntelHubPage({
     view?: string;
     sector?: string;
     soon?: string;
+    minUsd?: string;
   };
 }) {
   const lane = laneFrom(searchParams.lane);
@@ -254,6 +255,7 @@ export default async function IntelHubPage({
             filter={searchParams.filter}
             sector={searchParams.sector}
             soon={searchParams.soon}
+            minUsd={searchParams.minUsd}
           />
         )}
         {lane === "fellowships" && (
@@ -261,6 +263,7 @@ export default async function IntelHubPage({
             filter={searchParams.filter}
             sector={searchParams.sector}
             soon={searchParams.soon}
+            minUsd={searchParams.minUsd}
           />
         )}
         {lane === "grants" && (

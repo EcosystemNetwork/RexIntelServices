@@ -647,18 +647,6 @@ const HEROES: Hero[] = [
     badge: "MEDIUM",
     caption: "MatchX · Moonchain transition",
   },
-  // ── Casper deployer-cluster (companion to the main exposé) ─────────
-  {
-    slug: "casper-deployer-cluster",
-    kicker: "▸ INCIDENT · DEPLOYER CLUSTER",
-    statBig: "106",
-    statLabel: "VOTERS FUNDED FROM ONE WALLET",
-    headline: "The Casper Hackathon deployer cluster.",
-    subhead: "The 3rd-place team's owner wallet is the apex bot-funder. Same chain. Same wallet.",
-    accent: "red",
-    badge: "CRITICAL",
-    caption: "SohamJuneja/CasperLink · phase1.md",
-  },
 ];
 
 const ACCENT: Record<NonNullable<Hero["accent"]>, { hex: string; alt: string }> = {

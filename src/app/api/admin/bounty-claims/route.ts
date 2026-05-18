@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   db,
   bounties,
@@ -46,6 +46,7 @@ export async function GET(req: Request) {
       claimPublicId: bountyClaims.publicId,
       claimStatus: bountyClaims.status,
       submittedAt: bountyClaims.submittedAt,
+      lastTouchedAt: bountyClaims.lastTouchedAt,
       claimantSubmitterId: bountyClaims.claimantSubmitterId,
       claimantHandle: submitters.displayHandle,
       claimantSlug: submitters.slug,
@@ -67,7 +68,10 @@ export async function GET(req: Request) {
     .innerJoin(bounties, eq(bounties.id, bountyClaims.bountyId))
     .leftJoin(submitters, eq(submitters.id, bountyClaims.claimantSubmitterId))
     .where(and(inArray(bountyClaims.status, filteredStatuses)))
-    .orderBy(desc(bountyClaims.submittedAt))
+    // Oldest-needing-attention first: a claim that's been sitting
+    // unanswered the longest tops the queue. submittedAt as the tie-break
+    // keeps fresh re-submissions from leapfrogging stale ones.
+    .orderBy(asc(bountyClaims.lastTouchedAt), asc(bountyClaims.submittedAt))
     .limit(200);
 
   return NextResponse.json({ ok: true, claims: rows });

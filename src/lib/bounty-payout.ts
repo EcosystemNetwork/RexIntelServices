@@ -1,4 +1,4 @@
-import { publicEncrypt, randomUUID } from "crypto";
+import { publicEncrypt } from "crypto";
 import { CircleApiError } from "./circle-auth";
 
 // =====================================================================
