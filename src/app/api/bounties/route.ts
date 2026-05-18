@@ -35,11 +35,7 @@ export const dynamic = "force-dynamic";
 //   ?limit=N                              (clamped 1..100, default 50)
 // =====================================================================
 
-const DEFAULT_VISIBLE_STATUSES: BountyStatus[] = [
-  "open",
-  "adjudicating",
-  "paid",
-];
+import { DEFAULT_VISIBLE_STATUSES } from "@/lib/bounty-visibility";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -335,6 +331,3 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export function isPubliclyVisible(status: BountyStatus): boolean {
-  return (DEFAULT_VISIBLE_STATUSES as BountyStatus[]).includes(status);
-}

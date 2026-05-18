@@ -4,7 +4,7 @@ import { db, bounties, hackTraces } from "@/lib/db";
 import { getCircleSession } from "@/lib/circle-auth";
 import { meetsTier } from "@/lib/clearance";
 import { BOUNTY_CLAIM_MIN_TIER, checkVictimAccessToken } from "@/lib/bounty";
-import { isPubliclyVisible } from "../route";
+import { isPubliclyVisible } from "@/lib/bounty-visibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

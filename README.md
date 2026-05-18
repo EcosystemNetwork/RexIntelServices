@@ -2,6 +2,8 @@
 
 **Crypto + AI intelligence for builders. One weekly briefing, plus live boards the field contributes to.**
 
+Live at **[rexintelservices.com](https://rexintelservices.com)**.
+
 RexIntel is a self-hosted intelligence platform: a public-facing field guide of accelerators, fellowships, grants, capital, perks, residencies and pop-up cities — plus a community intel wire for tips, originals and incident reports — wrapped around a production-grade newsletter stack with subscriber management, campaign sending, bounce/complaint handling and an on-chain address graph.
 
 Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
@@ -119,7 +121,7 @@ Public landing at `http://localhost:3000`, log in at `/login`, admin at `/dashbo
 ### 8. Webhook (before sending real campaigns)
 
 1. Resend → **Webhooks → Add Endpoint**
-2. URL: `https://your-domain.com/api/webhooks/resend`
+2. URL: `https://rexintelservices.com/api/webhooks/resend`
 3. Events: `email.delivered`, `email.bounced`, `email.complained`
 4. Copy the signing secret into `.env` as `RESEND_WEBHOOK_SECRET`
 

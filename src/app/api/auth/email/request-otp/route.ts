@@ -28,10 +28,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "If that address is valid, a code is on the way." });
   }
 
-  const result = await requestEmailOtp({ email, ipAddress: ip === "unknown" ? null : ip });
-  if (!result.ok) {
-    // Log internally; mirror success externally.
-    console.error("[otp request]", email, result.reason);
+  // Wrap in try/catch to honor the always-200 contract: any internal throw
+  // (DB blip, missing env var, Resend SDK error) must not leak as a 5xx,
+  // because a 5xx tells the client "this email is special" relative to a
+  // generic 200 — partial enumeration channel. Log the reason so the cause
+  // is visible in server logs, then mirror the success body.
+  try {
+    const result = await requestEmailOtp({ email, ipAddress: ip === "unknown" ? null : ip });
+    if (!result.ok) {
+      console.error("[otp request]", email, result.reason);
+    }
+  } catch (err) {
+    console.error("[otp request] threw:", email, err);
   }
   return NextResponse.json({ ok: true, message: "If that address is valid, a code is on the way." });
 }
