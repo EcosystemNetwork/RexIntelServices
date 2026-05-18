@@ -14,7 +14,7 @@ case_file: project_despark_interview_drain.md
 
 A multi-chain crypto founder, anonymous for his protection, accepted a paid user-research interview booked through a Consensys-funded recruitment platform on 2025-05-12. The mission was titled "Web3 Identity." The fee was $54 USDC. The interviewer was introduced as a Consensys/MetaMask employee.
 
-Forty-seven minutes after the call ended, his Solana wallet executed eight transactions in eighty seconds. By the time the bot finished, every liquid asset in the wallet was gone, swept to a one-time burner address controlled by an operator that, as of this writing, is still draining victims in real time.
+Forty-seven minutes after the call ended, his Solana wallet executed eight transactions in eighty seconds. By the time the bot finished, every liquid asset in the wallet was gone, swept to a one-time burner address controlled by an operator that, **as of 2026-05-18**, is still receiving substantial inflows in real time across associated infrastructure.
 
 He had told the researcher, on camera, what was in that wallet.
 

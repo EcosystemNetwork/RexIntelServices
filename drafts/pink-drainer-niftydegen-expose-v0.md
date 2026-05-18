@@ -1,12 +1,12 @@
 ---
-title: "A vanity-contract NFT drainer stole one founder's 2.4 ETH PFP in 12 seconds — and hit 99 other victims using the same infrastructure"
+title: "A vanity-contract NFT drainer stole one founder's 2.4 ETH PFP in 12 seconds — and hit at least 98 other victims using the same infrastructure"
 standfirst: "Inside an 18-month-old NiftyDegen PFP, signed away in a single transaction to a Scam Sniffer-flagged phishing address that aggregated drains from at least 99 wallets across late 2023 / early 2024."
 status: draft-v0
 date: 2026-05-18
 case_file: project_pink_drainer_nft_case.md
 ---
 
-# A vanity-contract NFT drainer stole one founder's 2.4 ETH PFP in 12 seconds via Blur.io — and hit 99 other victims using the same infrastructure
+# A vanity-contract NFT drainer stole one founder's 2.4 ETH PFP in 12 seconds via Blur.io — and hit at least 98 other victims using the same infrastructure
 
 *Inside an 18-month-old NiftyDegen PFP, signed away via Blur.io to a Scam Sniffer-flagged phishing address that aggregated drains from at least 99 wallets across late 2023 / early 2024.*
 

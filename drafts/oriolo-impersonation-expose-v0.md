@@ -74,13 +74,13 @@ That collection hub is where the operation's structure becomes visible.
 
 ## Four other victims confirmed on-chain
 
-`bc1q234du9...` is **not** Rex's wallet, and it is not the operator's personal wallet. It is a **collection hub** that aggregates proceeds from multiple drainer-source wallets in a single window.
+`bc1q234du9...` is **not** the participant's wallet, and it is not the operator's personal wallet. It is a **collection hub** that aggregates proceeds from multiple drainer-source wallets in a single window.
 
-Within the same hour on June 21, 2025, the collection hub received inbound transfers from **five different source wallets** — Rex's drainer plus four others:
+Within the same hour on June 21, 2025, the collection hub received inbound transfers from **five different source wallets** — the participant's drainer plus four others:
 
 | Source wallet | Inbound | Likely role |
 |---------------|---------|-------------|
-| `bc1q704czv9hyce6fg2m9s6c097hg3hue2tzpqwngz` | 327,114 sats | Rex's drainer |
+| `bc1q704czv9hyce6fg2m9s6c097hg3hue2tzpqwngz` | 327,114 sats | the participant's drainer |
 | `3LZg5gWCBXwVJ5w3fgE5pAvt...` | 26,949 sats | Other victim's drainer |
 | `3Dnu1u2qRj33XBqcNCdxwaxW...` | 33,305 sats | Other victim's drainer |
 | `32GDoJ43CXzsiV66vSFhN2c4...` | 147,943 sats | Other victim's drainer |
