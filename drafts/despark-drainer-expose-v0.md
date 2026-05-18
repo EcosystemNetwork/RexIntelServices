@@ -18,6 +18,18 @@ Forty-seven minutes after the call ended, his Solana wallet executed eight trans
 
 He had told the researcher, on camera, what was in that wallet.
 
+**At a glance:**
+
+- **Consensys-Mesh-funded user-research platform.** Despark.io, the firm that booked the paid interview, is a Boston-based research recruiter whose publicly disclosed investors include Consensys Mesh — the venture arm of the company that makes MetaMask.
+- **Researcher introduced as a Consensys/MetaMask employee.** Despark's co-founder later confirmed via email that the researcher was a verified Consensys employee with Slack and corporate-email accounts on file.
+- **Wallet contents disclosed on camera.** Over a recorded ~46-minute Zoom call, the participant voluntarily catalogued his multi-chain wallet providers, his approved DeFi positions, and the rough scale of his holdings to the researcher.
+- **Fully automated drain, 47 minutes after the call ended.** Eight transactions in 80 seconds emptied his Solana wallet to a one-time burner address — every transaction signed by his own Phantom keypair as fee payer.
+- **Drain enabled by prior key theft, not a session compromise.** Solana has no ERC-20-style approvals; the operator already held the participant's private key when the call began. The call's role was either confirmation or trigger.
+- **Same MetaMask wallet re-hijacked four months later.** In September 2025, the Polygon wallet the participant had disclosed in Despark's screener was authorized via EIP-7702 to two delegate contracts whose creators are labeled "Fake_Phishing" by Etherscan's community attribution system. One of those delegations is still live as of publication.
+- **Despark released only one side of the recording.** After a California two-party-consent request, the company provided only the participant's own audio and a transcript of his own speech, withholding the researcher's video, audio, and questions, and attributing the partial release to lawyer review.
+- **The operator's infrastructure is still active.** Two wallets in the same Solana Address Lookup Table batch as the participant's drain destination have received more than $27,000 in SOL inflows within the last 96 hours.
+- **Four other addresses in the same batch share the participant's drainer-sink fingerprint.** Single-day activity envelopes, low signature counts, zero ending balances — a cohort of likely co-victims who may not yet know they were hit.
+
 ---
 
 ## The mission

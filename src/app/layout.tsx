@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
+
+const GA_MEASUREMENT_ID = "G-Y8ZLY6GX04";
 
 // metadataBase is what Next uses to resolve any relative OG/Twitter image
 // path (like "/rex-banner.png") to an absolute URL in the rendered <meta>
@@ -94,6 +97,18 @@ export default function RootLayout({
         {children}
         <Analytics />
         <SpeedInsights />
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
       </body>
     </html>
   );
