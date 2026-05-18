@@ -12,6 +12,22 @@
     {
       "path": "/api/cron/sweep-vote-tokens",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/harvest-luma",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/harvest-ofac",
+      "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/harvest-ofsi",
+      "schedule": "0 5 * * 1"
+    },
+    {
+      "path": "/api/cron/harvest-eu-sanctions",
+      "schedule": "0 6 * * 1"
     }
   ]
 }

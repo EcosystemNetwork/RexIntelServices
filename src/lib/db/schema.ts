@@ -90,6 +90,103 @@ export const addressRoleEnum = pgEnum("address_role", [
   "observed",
 ]);
 
+// What an address IS — the entity-class tag that drives graph coloring,
+// filter pills, and "show me all X" queries. This is the moat: most graph
+// products require a paid Chainalysis/TRM seat to know that 0xbe0eb... is
+// "Binance hot wallet 7" or that a given Tornado deposit was sanctioned.
+// We attribute from authoritative public sources (OFAC, OFSI, EU, DefiLlama,
+// curated lists) and let community contributions tighten the labels over time.
+export const addressCategoryEnum = pgEnum("address_category", [
+  "exchange", // CEX hot/cold wallets (Binance, Coinbase, Kraken)
+  "defi-protocol", // protocol contracts (Aave, Compound, Uniswap routers)
+  "treasury", // DAO treasuries
+  "foundation", // ETH Foundation, Solana Foundation multisigs
+  "bridge", // cross-chain bridges
+  "mixer", // Tornado Cash, Wasabi coordinators, etc.
+  "sanctioned", // OFAC / OFSI / EU listed
+  "government-seized", // FBI / DOJ / IRS / Bundeskriminalamt seizure addresses
+  "lost", // famously stuck/lost funds (Mt. Gox, Howells HDD)
+  "dormant", // Satoshi-era untouched coins
+  "hack-source", // attacker-controlled addresses in known incidents
+  "hack-destination", // confirmed proceeds destinations
+  "validator", // staking / validator addresses
+  "personality", // publicly-known individuals (Vitalik, CZ, etc.)
+  "market-maker", // Wintermute, Jump, GSR
+  "mev-bot", // known MEV searchers
+  "scam", // rug pulls, confirmed scam addresses
+]);
+
+// What KIND of entity owns the address. Pairs with category to answer
+// "show me all government-owned addresses" or "all individual personalities".
+export const addressOwnerKindEnum = pgEnum("address_owner_kind", [
+  "exchange",
+  "dao",
+  "foundation",
+  "government",
+  "individual",
+  "protocol",
+  "market-maker",
+  "criminal-group",
+  "estate", // bankruptcy estates (Mt. Gox, FTX, Celsius)
+  "unknown",
+]);
+
+// Where an attribution came from. Used by the harvesters to upsert
+// idempotently and by the graph layer to display provenance. Precedence
+// for denormalized `addresses.category` is enforced in
+// `lib/address-attribution.ts`: sanctions sources > curated > derivative.
+export const addressAttributionSourceEnum = pgEnum(
+  "address_attribution_source",
+  [
+    "ofac", // US Treasury SDN list
+    "ofsi", // UK Office of Financial Sanctions Implementation
+    "eu-sanctions", // EU consolidated sanctions list
+    "defillama", // DefiLlama protocol/treasury labels
+    "rexintel-curated", // hand-curated by the RexIntel team
+    "rexintel-community", // crowdsourced via /submit
+    "etherscan", // Etherscan public label (manual capture)
+    "incident", // derived from an approved intel submission
+  ],
+);
+
+// Clearance tier gates which intel surfaces a contributor can read. Earned,
+// not bought — see lib/clearance.ts for thresholds and lib/circle-auth.ts for
+// session-bound checks. Ordering matters: tier comparisons rely on ordinal
+// position (open < contributor < trusted < inner_circle).
+export const clearanceTierEnum = pgEnum("clearance_tier", [
+  "open", // no wallet / unauthenticated — public lanes only
+  "contributor", // wallet connected + at least one accepted contribution
+  "trusted", // sustained accepted contributions; sees draft incidents
+  "inner_circle", // top-tier contributors; sees pre-publish OFAC/L2Beat diffs
+]);
+
+// What a contribution event represents in the points ledger. Each enum
+// member maps to a fixed point award (see lib/clearance.ts CONTRIBUTION_POINTS).
+// Keep this list aligned with the curator review flow — adding a new kind
+// without updating the points map is a no-op for the ledger.
+export const contributionEventKindEnum = pgEnum("contribution_event_kind", [
+  "incident_accepted", // kind=incident intel approved
+  "original_accepted", // kind=original intel approved
+  "tip_accepted", // kind=tip intel approved
+  "event_scoop_accepted", // off-platform event submission approved
+  "event_paste_accepted", // already-on-Luma event submission approved
+  "address_tag_accepted", // community-submitted address attribution accepted
+  "vote_cast", // intel vote confirmed
+  "prize_win_first", // monthly prize pool 1st place
+  "prize_win_second", // monthly prize pool 2nd place
+  "prize_win_third", // monthly prize pool 3rd place
+  "curator_award", // discretionary curator-issued points
+  // Awarded when a later approved intel references an address that this
+  // submitter was first to flag (different submitter). Compounds the
+  // address-graph moat — the original tipster keeps earning as new
+  // investigations build on their attribution.
+  "intel_cited",
+  // Retained for forward compat. Product rule today: trust is monotonic up,
+  // moderation handles bad actors via clearance freeze/ban, not score
+  // deduction. awardContributionPoints rejects this kind at runtime.
+  "retraction_clawback",
+]);
+
 // =====================================================================
 // USERS (admin accounts)
 // =====================================================================
@@ -677,6 +774,29 @@ export const addresses = pgTable(
     // Human label if known: "Lazarus cluster", "Tornado Cash router", etc.
     label: text("label"),
     notes: text("notes"),
+    // Denormalized "primary attribution" — populated by the harvester layer
+    // (see lib/address-attribution.ts) based on source precedence. Allows
+    // graph queries to color/filter by category without joining
+    // address_attributions. Full provenance lives in that table.
+    category: addressCategoryEnum("category"),
+    ownerName: text("owner_name"),
+    ownerKind: addressOwnerKindEnum("owner_kind"),
+    primarySource: addressAttributionSourceEnum("primary_source"),
+    // Confidence in the primary attribution (0-100). Sanctions lists are 100.
+    confidence: integer("confidence"),
+    // Optional USD balance estimate — useful for ranking the famous-lost
+    // wallets on a leaderboard ("8000 BTC stuck since 2011 = $X").
+    balanceEstimateUsd: numeric("balance_estimate_usd", {
+      precision: 18,
+      scale: 2,
+    }),
+    // Native-token amount + symbol at this address. Powers the per-token
+    // counter on /graph ("174,783 BTC tracked · 513,774 ETH frozen").
+    // Symbol stored as uppercase token ticker; amount can be fractional.
+    nativeAmount: numeric("native_amount", { precision: 38, scale: 8 }),
+    nativeSymbol: text("native_symbol"),
+    firstSeenAt: timestamp("first_seen_at"),
+    lastVerifiedAt: timestamp("last_verified_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -689,6 +809,56 @@ export const addresses = pgTable(
       sql`lower(${t.address})`,
     ),
     chainIdx: index("addresses_chain_idx").on(t.chain),
+    // Lets the graph layer scan "all sanctioned addresses on Ethereum" or
+    // "all exchange wallets" without a sequential scan as the table grows
+    // into the hundreds of thousands of OFAC + DefiLlama labels.
+    categoryIdx: index("addresses_category_idx").on(t.category),
+    ownerKindIdx: index("addresses_owner_kind_idx").on(t.ownerKind),
+  }),
+);
+
+// =====================================================================
+// ADDRESS ATTRIBUTIONS — multi-source provenance for each address.
+//
+// One address can be attributed by many sources (OFAC says "Lazarus", EU
+// says "DPRK actor", a community submission adds "drained Atomic Wallet").
+// Keeping every claim lets us show provenance in the UI ("OFAC + 2 others")
+// and recompute the denormalized `addresses.category` when precedence rules
+// change. Harvesters upsert on (address_id, source, source_ref).
+// =====================================================================
+
+export const addressAttributions = pgTable(
+  "address_attributions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    addressId: uuid("address_id")
+      .notNull()
+      .references(() => addresses.id, { onDelete: "cascade" }),
+    source: addressAttributionSourceEnum("source").notNull(),
+    // Source-specific identifier so re-running a harvester updates rather
+    // than duplicates. OFAC uses entity numbers ("36052"), DefiLlama uses
+    // protocol slugs ("aave"), curated entries use a stable slug.
+    sourceRef: text("source_ref"),
+    sourceUrl: text("source_url"),
+    category: addressCategoryEnum("category"),
+    ownerName: text("owner_name"),
+    ownerKind: addressOwnerKindEnum("owner_kind"),
+    label: text("label"),
+    notes: text("notes"),
+    confidence: integer("confidence"),
+    reportedAt: timestamp("reported_at"),
+    harvestedAt: timestamp("harvested_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    addressIdx: index("address_attributions_address_idx").on(t.addressId),
+    sourceIdx: index("address_attributions_source_idx").on(t.source),
+    // Idempotent upsert key — one row per (address, source, source_ref).
+    // sourceRef nullable rows (e.g. curated) dedupe by (address, source).
+    addrSourceRefIdx: uniqueIndex("address_attributions_addr_source_ref_idx").on(
+      t.addressId,
+      t.source,
+      t.sourceRef,
+    ),
   }),
 );
 
@@ -701,22 +871,127 @@ export const addresses = pgTable(
 // submissions.submitter_id NULL.
 // =====================================================================
 
+// Submitters are the "people" side of the platform. Identity is anchored
+// on a Circle programmable wallet (user-controlled, email-onboarded, PIN-
+// signed) — the user enters an email, Circle issues them an on-chain
+// wallet without seed-phrase UX, and we record (circleUserId, walletAddress,
+// email) as the contributor identity. Email is the entry point; wallet
+// stays canonical for the points ledger and the address-graph moat.
+// Anonymous tips bypass this table entirely.
 export const submitters = pgTable(
   "submitters",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull(),
-    displayHandle: text("display_handle").notNull(),
-    // URL slug for /contributors/[slug]. Includes a uuid-prefix suffix so
-    // collisions never happen and we never need a retry loop.
+    email: text("email"),
+    // Circle programmable-wallet user id (UUID we generate and hand to
+    // Circle when provisioning). Stable for the life of the contributor;
+    // separate from our internal submitter id so Circle API calls and our
+    // own joins don't collide.
+    circleUserId: text("circle_user_id"),
+    // Lowercased hex wallet address returned by Circle after user
+    // initialization. Unique when present; the address-graph layer indexes
+    // these as nodes alongside externally-attributed addresses.
+    walletAddress: text("wallet_address"),
+    walletChain: text("wallet_chain").default("ethereum"),
+    displayHandle: text("display_handle"),
+    // URL slug for /contributors/[slug]. Generated server-side from handle
+    // or wallet at insert time.
     slug: text("slug").notNull(),
     bio: text("bio"),
+    // Running points total. Recomputable from contribution_events but kept
+    // denormalized for fast tier checks on every gated route hit.
+    points: integer("points").notNull().default(0),
+    clearanceTier: clearanceTierEnum("clearance_tier")
+      .notNull()
+      .default("open"),
+    // Lifetime count of successful Circle-PIN auth completions. Bumped in
+    // createCircleSession so legacy SIWE-era rows stay at 0 until next
+    // sign-in. Powers the admin Contributors analytics view.
+    loginCount: integer("login_count").notNull().default(0),
+    lastLoginAt: timestamp("last_login_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
     emailIdx: uniqueIndex("submitters_email_idx").on(sql`lower(${t.email})`),
+    circleUserIdx: uniqueIndex("submitters_circle_user_idx").on(
+      t.circleUserId,
+    ),
+    walletIdx: uniqueIndex("submitters_wallet_idx").on(
+      sql`lower(${t.walletAddress})`,
+    ),
     slugIdx: uniqueIndex("submitters_slug_idx").on(t.slug),
+    pointsIdx: index("submitters_points_idx").on(t.points),
+    lastLoginIdx: index("submitters_last_login_idx").on(t.lastLoginAt),
+  }),
+);
+
+// One-time-passcode challenges issued during the email-OTP step of the
+// Circle sign-in flow. The code itself is hashed at rest (HMAC-SHA256 with
+// SESSION_PASSWORD as key) so a leaked DB snapshot cannot replay live
+// challenges. A successful verify sets `verified_at` and also drops a
+// short-lived sealed cookie that the Circle init endpoint reads — the row
+// is the audit record, the cookie is the load-bearing check.
+export const emailVerifications = pgTable(
+  "email_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    // Bumped on each verify attempt — hitting MAX_ATTEMPTS invalidates the
+    // row, forcing the user to request a fresh code rather than letting an
+    // attacker brute-force the 6-digit space.
+    attempts: integer("attempts").notNull().default(0),
+    verifiedAt: timestamp("verified_at"),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    // Lookup pattern: "most recent non-expired challenge for this email"
+    emailExpiresIdx: index("email_verifications_email_expires_idx").on(
+      sql`lower(${t.email})`,
+      t.expiresAt,
+    ),
+    createdAtIdx: index("email_verifications_created_at_idx").on(t.createdAt),
+  }),
+);
+
+// Append-only ledger of every point-earning action a submitter has taken.
+// Source of truth for `submitters.points` (which is a denormalized cache).
+// Curator-approved actions write here at the moment of approval; clawbacks
+// write negative-point rows rather than mutating prior records.
+export const contributionEvents = pgTable(
+  "contribution_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    submitterId: uuid("submitter_id")
+      .notNull()
+      .references(() => submitters.id, { onDelete: "cascade" }),
+    kind: contributionEventKindEnum("kind").notNull(),
+    points: integer("points").notNull(),
+    // Optional FK — most events trace back to a submission, but curator
+    // awards and vote_cast events may not.
+    submissionId: uuid("submission_id").references(() => submissions.id, {
+      onDelete: "set null",
+    }),
+    // Curator who approved the action. NULL for system-issued events
+    // (votes, prize-pool settlements).
+    awardedByUserId: uuid("awarded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    notes: text("notes"),
+    awardedAt: timestamp("awarded_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    submitterIdx: index("contribution_events_submitter_idx").on(t.submitterId),
+    submitterAwardedIdx: index("contribution_events_submitter_awarded_idx").on(
+      t.submitterId,
+      t.awardedAt,
+    ),
+    submissionIdx: index("contribution_events_submission_idx").on(
+      t.submissionId,
+    ),
   }),
 );
 
@@ -918,6 +1193,7 @@ export const voteTokensRelations = relations(voteTokens, ({ one }) => ({
 
 export const addressesRelations = relations(addresses, ({ many }) => ({
   submissions: many(intelAddresses),
+  attributions: many(addressAttributions),
 }));
 
 export const intelAddressesRelations = relations(intelAddresses, ({ one }) => ({
@@ -930,6 +1206,39 @@ export const intelAddressesRelations = relations(intelAddresses, ({ one }) => ({
     references: [addresses.id],
   }),
 }));
+
+export const addressAttributionsRelations = relations(
+  addressAttributions,
+  ({ one }) => ({
+    address: one(addresses, {
+      fields: [addressAttributions.addressId],
+      references: [addresses.id],
+    }),
+  }),
+);
+
+export const submittersRelations = relations(submitters, ({ many }) => ({
+  submissions: many(submissions),
+  contributionEvents: many(contributionEvents),
+}));
+
+export const contributionEventsRelations = relations(
+  contributionEvents,
+  ({ one }) => ({
+    submitter: one(submitters, {
+      fields: [contributionEvents.submitterId],
+      references: [submitters.id],
+    }),
+    submission: one(submissions, {
+      fields: [contributionEvents.submissionId],
+      references: [submissions.id],
+    }),
+    awardedBy: one(users, {
+      fields: [contributionEvents.awardedByUserId],
+      references: [users.id],
+    }),
+  }),
+);
 
 // Type exports for use in app code
 export type Subscriber = typeof subscribers.$inferSelect;
@@ -944,9 +1253,26 @@ export type NewSubmission = typeof submissions.$inferInsert;
 export type Address = typeof addresses.$inferSelect;
 export type IntelAddress = typeof intelAddresses.$inferSelect;
 export type AddressRole = (typeof addressRoleEnum.enumValues)[number];
+export type AddressAttribution = typeof addressAttributions.$inferSelect;
+export type NewAddressAttribution = typeof addressAttributions.$inferInsert;
+export type AddressCategory =
+  (typeof addressCategoryEnum.enumValues)[number];
+export type AddressOwnerKind =
+  (typeof addressOwnerKindEnum.enumValues)[number];
+export type AddressAttributionSource =
+  (typeof addressAttributionSourceEnum.enumValues)[number];
 export type IntelVote = typeof intelVotes.$inferSelect;
 export type VoteToken = typeof voteTokens.$inferSelect;
 export type MonthlyPrize = typeof monthlyPrizes.$inferSelect;
+export type Submitter = typeof submitters.$inferSelect;
+export type NewSubmitter = typeof submitters.$inferInsert;
+export type ContributionEvent = typeof contributionEvents.$inferSelect;
+export type EmailVerification = typeof emailVerifications.$inferSelect;
+export type NewEmailVerification = typeof emailVerifications.$inferInsert;
+export type NewContributionEvent = typeof contributionEvents.$inferInsert;
+export type ClearanceTier = (typeof clearanceTierEnum.enumValues)[number];
+export type ContributionEventKind =
+  (typeof contributionEventKindEnum.enumValues)[number];
 
 // Persona tag slugs / labels live in /src/lib/personas.ts so client
 // components (e.g. the landing-page signup form) can import them without

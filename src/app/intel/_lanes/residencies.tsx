@@ -10,6 +10,7 @@ import {
   Chip,
   DeadlineChip,
   EmptyState,
+  FilterBar,
   OrgLogo,
   FeaturedTag,
   PasteHint,
@@ -20,6 +21,11 @@ import {
   closingSoonClause,
   type Sector,
 } from "./_shared";
+
+const SECTOR_LABEL: Record<Sector, string> = {
+  web3: "Web3",
+  ai: "AI & Robotics",
+};
 
 const getResidenciesRows = unstable_cache(
   async (
@@ -130,37 +136,49 @@ export async function ResidenciesLane({
         — programs from join-thebridge.com, lu.ma residencies, and similar trusted hosts publish instantly.
       </PasteHint>
 
-      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          SECTOR ▸
-        </span>
-        <Chip href={href({ sector: null })} active={!sector}>
-          All
-        </Chip>
-        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
-          Web3
-        </Chip>
-        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
-          AI & Robotics
-        </Chip>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-6 text-xs font-mono">
-        <Chip href={href({ view: "upcoming" })} active={!showPast}>
-          Upcoming · {upcomingCount}
-        </Chip>
-        <Chip href={href({ view: "past" })} active={showPast}>
-          Past · {pastCount}
-        </Chip>
-        {!showPast && (
-          <Chip href={href({ soon: !isSoon })} active={isSoon}>
-            Closing ≤14d
+      <FilterBar
+        summary={
+          [
+            sector ? SECTOR_LABEL[sector] : null,
+            showPast ? "Past" : "Upcoming",
+            !showPast && isSoon ? "Closing ≤14d" : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            SECTOR ▸
+          </span>
+          <Chip href={href({ sector: null })} active={!sector}>
+            All
           </Chip>
-        )}
-      </div>
+          <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+            Web3
+          </Chip>
+          <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+            AI & Robotics
+          </Chip>
+        </div>
+
+        <div className="flex flex-wrap gap-2 text-xs font-mono">
+          <Chip href={href({ view: "upcoming" })} active={!showPast}>
+            Upcoming · {upcomingCount}
+          </Chip>
+          <Chip href={href({ view: "past" })} active={showPast}>
+            Past · {pastCount}
+          </Chip>
+          {!showPast && (
+            <Chip href={href({ soon: !isSoon })} active={isSoon}>
+              Closing ≤14d
+            </Chip>
+          )}
+        </div>
+      </FilterBar>
 
       {visible.length === 0 ? (
         <EmptyState>

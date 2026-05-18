@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { UniversalSearch } from "@/components/universal-search";
 import { ThemeToggle } from "@/components/theme-toggle";
+import ConnectWalletButton from "@/components/connect-wallet-button";
 
 export function PublicHeader({
   // When the hero animation is present it already paints the wordmark, so we
@@ -46,6 +47,7 @@ export function PublicHeader({
         <PublicNavLink href="/submit" accent>
           Submit ▸
         </PublicNavLink>
+        <ConnectWalletButton compact />
         <ThemeToggle />
       </div>
     </nav>

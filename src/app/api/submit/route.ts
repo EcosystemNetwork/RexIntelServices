@@ -22,6 +22,7 @@ import {
   sanitizeSingleUrl,
 } from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { getCircleSession } from "@/lib/circle-auth";
 import { CHAIN_SLUG_SET } from "@/lib/chains";
 import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
 import { sendAdminAlertEmail } from "@/lib/email/admin-alert-email";
@@ -238,12 +239,39 @@ export async function POST(req: NextRequest) {
   const addressInputs =
     submissionType === "intel" ? sanitizeAddresses(body.addresses) : [];
 
-  // Upsert the submitter identity. Returns null for anonymous submissions
-  // (no email) so the FK stays NULL — that's the "anonymous" contract at the
-  // schema level, not just at the form layer.
-  const submitterId = submitterEmail
-    ? await upsertSubmitter(submitterEmail, submitterHandle)
-    : null;
+  // Identity resolution order:
+  //   1. Anonymous intel → no submitter (whistleblower contract).
+  //   2. Circle session present → the email-onboarded contributor IS the
+  //      canonical identity. If a handle was also typed in the form,
+  //      persist it on the contributor row so the byline reflects the
+  //      latest preference. Form email is ignored when a session is active.
+  //   3. Email-only path (form-entered email, no signed-in session) →
+  //      upsert keyed on lower(email). These rows have no wallet yet; the
+  //      submitter can later sign in via Circle to claim them.
+  //   4. Neither → no submitter (anonymous, can't earn clearance).
+  //
+  // Anonymous-intel always wins so a signed-in user can still file a
+  // sensitive tip without it getting tied back to them.
+  const isAnonymousIntel =
+    submissionType === "intel" &&
+    (validation.payload as { anonymous?: boolean }).anonymous === true;
+  let submitterId: string | null = null;
+  if (!isAnonymousIntel) {
+    const session = await getCircleSession();
+    if (session) {
+      submitterId = session.submitterId;
+      if (submitterHandle) {
+        // Best-effort handle update — never blocks the submission flow.
+        await db
+          .update(submitters)
+          .set({ displayHandle: submitterHandle, updatedAt: new Date() })
+          .where(eq(submitters.id, session.submitterId))
+          .catch(() => null);
+      }
+    } else if (submitterEmail) {
+      submitterId = await upsertSubmitter(submitterEmail, submitterHandle);
+    }
+  }
 
   // Every submission goes through human review — moderation is the product.
   // Honeypot trips are still recorded so we can study spam patterns, but

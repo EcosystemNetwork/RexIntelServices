@@ -39,3 +39,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gitnexus
+
+# investigations — raw forensic output (voter dumps, etc.). Don't commit
+# the data itself; the script is committed so we can re-run on demand.
+scripts/.casper-forensics-output/

@@ -1,100 +1,148 @@
-# Rex Intel Services — self-hosted newsletter & intelligence platform
+# RexIntel
 
-A production-ready Next.js app that powers your monthly intelligence briefing newsletter. Features a public landing page for subscriber acquisition, a full admin backend for email management, campaign composition, and sending — all with premium dark-mode UI.
+**Crypto + AI intelligence for builders. One weekly briefing, plus live boards the field contributes to.**
 
-**Realistic monthly cost** for 5,000 subscribers sending 1 campaign/month:
+RexIntel is a self-hosted intelligence platform: a public-facing field guide of accelerators, fellowships, grants, capital, perks, residencies and pop-up cities — plus a community intel wire for tips, originals and incident reports — wrapped around a production-grade newsletter stack with subscriber management, campaign sending, bounce/complaint handling and an on-chain address graph.
 
-| | Cost |
+Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
+
+---
+
+## What it does
+
+### Public surfaces
+
+- **Landing** (`/`) — Hero, subscriber capture, signal preview
+- **Intel** (`/intel`) — Lane-switcher across Signals, Accel, Fellowships, Grants, Capital, Perks, Cities, Residencies
+- **Intel detail** (`/intel/[publicId]`) — Public intel pages with kind kicker (tip / original / incident), source attribution, OG cards
+- **Address graph** (`/intel/address`, `/graph`) — Force-directed visualization of on-chain entity relationships
+- **Submit** (`/submit`) — Public intake for intel, programs, capital, events, jobs, perks
+- **Leaderboard** (`/intel/leaderboard`) — Contributor ranking + community prize pool
+- **Hackathons / Events / Jobs / Pop-up cities / Accelerators / Fellowships / Grants / Capital / Perks / Residencies** — Directory routes
+- **Feed** (`/intel/feed.xml`) — RSS for the intel wire
+- **Unsubscribe** (`/unsubscribe/[token]`) — Branded one-click unsub, RFC 8058 compliant
+
+### Admin (`/dashboard`)
+
+- Dashboard with subscriber and campaign stats
+- Subscriber management — CSV import, dedup, suppression filtering, status tracking
+- Campaign composer — HTML editor, live preview, merge tags (`{{firstName}}`)
+- Batched sending — chunks of 100 via Resend's batch endpoint, rate-limited, resumable
+- Open + click tracking — own-hosted pixel and redirect, no third-party trackers
+- Bounce + complaint webhook auto-suppresses hard bounces and spam complaints
+- Global suppression list, respected by every send and import
+- Submission moderation queue — approve / reject inbound intel and listings
+- Encrypted-cookie sessions, bcrypt passwords, server-side logout
+
+### Scheduled jobs (Vercel Cron)
+
+| Path | Schedule | Purpose |
+|---|---|---|
+| `/api/cron/dispatch-scheduled` | every 5 min | Send queued campaigns at their scheduled time |
+| `/api/cron/draft-digest` | Sun 22:00 UTC | Auto-draft the weekly digest from approved intel |
+| `/api/cron/sweep-vote-tokens` | daily 03:00 | Expire stale magic-link vote tokens |
+
+---
+
+## Cost
+
+For ~5,000 subscribers and one campaign per month:
+
+| Component | Cost |
 |---|---|
 | Domain | ~$1/mo (annualized) |
-| Postgres (Neon/Supabase free tier) | $0 |
-| Resend (Free tier covers 3k/mo, Pro $20 covers 50k) | $0–$20 |
+| Postgres (Neon / Supabase free tier) | $0 |
+| Resend (Free 3k/mo, Pro $20 covers 50k) | $0–$20 |
 | Hosting (Vercel Hobby / Railway $5) | $0–$5 |
 | **Total** | **$1–$26/mo** |
 
 ---
 
-## What's in the box
-
-### Public-facing
-- **Landing page** (`/`) — Premium dark-mode hero with email signup form
-- **Public subscribe API** (`POST /api/subscribe`) — Handles dedup, re-subscription, suppression list checks
-- **Branded unsubscribe page** — Compliant one-click unsubscribe + RFC 8058 for Gmail/Yahoo
-
-### Admin backend (`/dashboard`)
-- **Dashboard** — Overview stats for active subscribers, unsubscribed, bounced, campaigns
-- **Subscriber management** — CSV import (with dedup, validation, suppression-list filtering), search, status tracking
-- **Campaign composer** — HTML editor, live preview, merge tags (`{{firstName}}`)
-- **Batched sending** — sends in chunks of 100 via Resend's batch endpoint, rate-limited, resumable on crash
-- **Open & click tracking** — own-hosted pixel + redirect, no third-party trackers
-- **Bounce & complaint handling** — webhook auto-suppresses hard bounces and spam complaints
-- **Suppression list** — global do-not-email list, automatically respected by all sends and imports
-- **Admin auth** — encrypted-cookie sessions, bcrypt passwords, server-side logout
-
----
-
 ## Setup
 
-### 1. Get a Postgres database
+### 1. Postgres
 
-Easiest free options:
-- [Neon](https://neon.tech) — 3 GB free, generous compute
+Pick one:
+- [Neon](https://neon.tech) — 3 GB free
 - [Supabase](https://supabase.com) — 500 MB free, includes a UI
 
-### 2. Get a Resend account and verify your domain
+### 2. Resend + domain
 
 1. Sign up at [resend.com](https://resend.com)
-2. Go to **Domains → Add Domain**, enter the domain you'll send from
-3. Add the SPF, DKIM, and DMARC DNS records Resend gives you
-4. Get an API key from **API Keys**
+2. **Domains → Add Domain**, then add the SPF / DKIM / DMARC records
+3. Grab an API key from **API Keys**
 
-### 3. Clone and install
+### 3. Clone + install
 
 ```bash
-git clone <this-repo> RexIntelServices
+git clone https://github.com/<you>/RexIntelServices
 cd RexIntelServices
 npm install
 ```
 
-### 4. Configure environment
+### 4. Configure
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in `.env`:
-- `DATABASE_URL` from your Postgres provider
-- `RESEND_API_KEY` from Resend
-- `APP_URL` — `http://localhost:3000` for dev, your real URL for prod
-- `SESSION_PASSWORD` — generate with `openssl rand -base64 32`
-- `RESEND_WEBHOOK_SECRET` — leave blank for now, fill in after step 7
+Fill in:
+- `DATABASE_URL` — your Postgres URL
+- `RESEND_API_KEY` — from Resend
+- `APP_URL` — `http://localhost:3000` for dev, your domain for prod
+- `SESSION_PASSWORD` — `openssl rand -base64 32`
+- `RESEND_WEBHOOK_SECRET` — fill in after step 7
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — rate limiting on public endpoints
+- `CRON_SECRET` — shared secret for Vercel Cron headers
+- `DIGEST_BYPASS_EDITORIAL_BAR` — `true` only when force-drafting an empty week (default off)
 
-### 5. Set up the database
+### 5. Database
 
 ```bash
 npm run db:push
 ```
 
-### 6. Create your admin user
+### 6. Create your admin
 
 ```bash
 npm run create-admin
 ```
 
-### 7. Start the app
+### 7. Run it
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000` for the public landing page. Log in at `/login` to access the admin at `/dashboard`.
+Public landing at `http://localhost:3000`, log in at `/login`, admin at `/dashboard`.
 
-### 8. Set up the webhook (before sending real campaigns)
+### 8. Webhook (before sending real campaigns)
 
-1. In Resend dashboard → **Webhooks → Add Endpoint**
+1. Resend → **Webhooks → Add Endpoint**
 2. URL: `https://your-domain.com/api/webhooks/resend`
 3. Events: `email.delivered`, `email.bounced`, `email.complained`
-4. Copy the signing secret to `.env` as `RESEND_WEBHOOK_SECRET`
+4. Copy the signing secret into `.env` as `RESEND_WEBHOOK_SECRET`
+
+### 9. Seed (optional)
+
+Populate intel lanes and directories with curated data:
+
+```bash
+npx tsx scripts/seed-accelerators.ts
+npx tsx scripts/seed-fellowships.ts
+npx tsx scripts/seed-grants.ts
+npx tsx scripts/seed-capital.ts
+npx tsx scripts/seed-perks.ts
+npx tsx scripts/seed-residencies.ts
+npx tsx scripts/seed-popup-cities.ts
+npx tsx scripts/seed-hackathons.ts
+npx tsx scripts/seed-events-flagships.ts
+npx tsx scripts/seed-jobs.ts
+npx tsx scripts/seed-intel-tips.ts
+npx tsx scripts/seed-intel-originals.ts
+npx tsx scripts/seed-intel-incidents.ts
+npx tsx scripts/seed-intel-addresses.ts
+```
 
 ---
 
@@ -103,55 +151,72 @@ Visit `http://localhost:3000` for the public landing page. Log in at `/login` to
 ```
 src/
 ├── app/
-│   ├── page.tsx                       # Public landing page with signup
-│   ├── (admin)/                       # Auth-protected admin UI
-│   │   ├── layout.tsx                 # Admin sidebar shell
-│   │   ├── dashboard/page.tsx         # Dashboard stats
-│   │   ├── subscribers/page.tsx       # List + CSV import
-│   │   └── campaigns/                 # List + composer
-│   │       ├── page.tsx
-│   │       └── new/page.tsx
+│   ├── page.tsx                # Public landing
+│   ├── intel/                  # Lane-switcher + detail + leaderboard + address graph
+│   │   ├── page.tsx
+│   │   ├── _lanes/             # signals, accel, fellowships, grants, capital,
+│   │   │                       # perks, cities, residencies
+│   │   ├── [publicId]/         # Intel detail page
+│   │   ├── address/            # Address graph view
+│   │   ├── leaderboard/
+│   │   └── feed.xml/
+│   ├── accelerators|fellowships|grants|capital|perks|residencies|
+│   │   pop-up-cities|hackathons|events|jobs|contributors|graph|search/
+│   ├── submit/                 # Public submission intake
+│   ├── (admin)/                # Auth-protected admin
+│   │   ├── dashboard/
+│   │   ├── subscribers/
+│   │   ├── campaigns/
+│   │   └── submissions/        # Moderation queue
 │   ├── api/
-│   │   ├── subscribe                  # POST (public signup)
-│   │   ├── auth/login                 # POST { email, password }
-│   │   ├── auth/logout                # POST (destroy session)
-│   │   ├── subscribers                # GET (list), POST (create)
-│   │   ├── subscribers/import         # POST CSV
-│   │   ├── campaigns                  # GET (list), POST (create)
-│   │   ├── campaigns/[id]/send        # POST trigger send
-│   │   ├── webhooks/resend            # Bounce + complaint handler
-│   │   └── track/
-│   │       ├── open/[id]              # 1x1 pixel
-│   │       └── click/[id]             # tracked redirect
-│   ├── login/                         # Login page
-│   └── unsubscribe/[token]/           # Public unsub page (+ RFC 8058)
+│   │   ├── subscribe           # Public signup
+│   │   ├── submit              # Public submission intake
+│   │   ├── intel/vote          # Magic-link voting for prize pool
+│   │   ├── auth/{login,logout}
+│   │   ├── subscribers         # List + import
+│   │   ├── submissions         # Admin moderation
+│   │   ├── campaigns           # CRUD + send
+│   │   ├── webhooks/resend     # Bounce + complaint handler
+│   │   ├── cron/               # Vercel Cron handlers
+│   │   ├── graph               # Address graph data
+│   │   └── track/{open,click}  # Pixel + redirect
+│   ├── login/
+│   └── unsubscribe/[token]/
 ├── lib/
-│   ├── auth.ts                        # iron-session + bcrypt
-│   ├── db/
-│   │   ├── schema.ts                  # Drizzle schema
-│   │   └── index.ts                   # DB connection
-│   └── email/
-│       ├── render.ts                  # Merge tags, link rewriting, pixel
-│       └── sender.ts                  # Batched send with retries
-└── middleware.ts                      # Route protection
+│   ├── auth.ts                 # iron-session + bcrypt
+│   ├── db/                     # Drizzle schema + connection
+│   ├── email/                  # Merge tags, link rewriting, batched sender
+│   └── intel/                  # Kind taxonomy, editorial bar, voting
+├── components/                 # Shared UI (PublicShell, chips, icons)
+└── middleware.ts               # Route protection
 ```
 
 ---
 
-## Routes
+## Intel kind taxonomy
 
-| Route | Auth | Description |
-|---|---|---|
-| `/` | Public | Landing page with newsletter signup |
-| `/login` | Public | Admin login |
-| `/dashboard` | Admin | Overview dashboard |
-| `/subscribers` | Admin | Subscriber list + CSV import |
-| `/campaigns` | Admin | Campaign list |
-| `/campaigns/new` | Admin | Campaign composer + send |
-| `/unsubscribe/[token]` | Public | Branded unsubscribe page |
+Every intel record carries a `kind`:
+
+- **tip** — anonymous sighting or rumor, lower bar to publish
+- **original** — RexIntel-authored analysis or reporting
+- **incident** — confirmed exploit / hack / failure with on-chain or public evidence
+
+`original` and `incident` are load-bearing for the editorial bar: the weekly digest cron will not draft an issue unless at least one of those exists for the period (override with `DIGEST_BYPASS_EDITORIAL_BAR=true`).
+
+---
+
+## Tech
+
+- **Next.js 14** (App Router) on Node
+- **Drizzle ORM** + Postgres (Neon serverless driver)
+- **Resend** for transactional + campaign email, **svix** for webhook verification
+- **iron-session** + bcryptjs for admin auth
+- **Upstash Redis** for rate limiting public endpoints
+- **react-force-graph-2d** for the address graph
+- **Tailwind** for styling, custom dark theme
 
 ---
 
 ## License
 
-MIT — do whatever you want.
+MIT.

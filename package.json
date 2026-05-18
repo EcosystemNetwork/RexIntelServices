@@ -14,6 +14,7 @@
     "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
+    "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
@@ -23,6 +24,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.33.0",
     "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.8.0",
     "iron-session": "^8.0.3",
     "nanoid": "^5.0.7",
     "next": "^14.2.0",

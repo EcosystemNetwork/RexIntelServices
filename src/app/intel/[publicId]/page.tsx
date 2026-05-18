@@ -15,6 +15,9 @@ import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 import { VoteButton } from "@/components/vote-button";
 import { VOTER_COOKIE_NAME, verifyVoterCookie } from "@/lib/voter-cookie";
 import { PrizePoolBanner } from "@/app/intel/_lanes/signals";
+import { getCircleSession } from "@/lib/circle-auth";
+import { meetsTier } from "@/lib/clearance";
+import { ClearanceWall } from "@/components/clearance-wall";
 
 export const dynamic = "force-dynamic";
 
@@ -240,6 +243,27 @@ export default async function IntelDetailPage({
 
   const relatedIntel = await loadRelatedIntel(row.id, payload);
 
+  // Incident-class intel is gated behind the `contributor` clearance tier.
+  // Public lanes still get the headline, kind/severity tags, source byline,
+  // and a teaser; the full body sits behind a connect-wallet wall. Original
+  // and tip kinds stay fully public — those drive the audience funnel.
+  const isIncident = payload.kind === "incident";
+  const session = isIncident ? await getCircleSession() : null;
+  const currentTier = session?.clearanceTier ?? "open";
+  const isGated = isIncident && !meetsTier(currentTier, "contributor");
+  // ~280 chars is enough to set the hook (one solid paragraph of context)
+  // without giving away the timeline + addresses + payoff. Trim at the
+  // nearest word boundary so the ellipsis doesn't split a word.
+  const bodyForRender = isGated
+    ? (() => {
+        const cut = payload.body.slice(0, 280);
+        const lastSpace = cut.lastIndexOf(" ");
+        return (
+          (lastSpace > 200 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…"
+        );
+      })()
+    : payload.body;
+
   const dateLabel = row.publishedAt
     ? new Date(row.publishedAt).toLocaleDateString(undefined, {
         weekday: "short",
@@ -260,6 +284,19 @@ export default async function IntelDetailPage({
     "@type": payload.kind === "incident" ? "ReportageNewsArticle" : "NewsArticle",
     headline: payload.headline,
     description: payload.body.slice(0, 300),
+    // Honest paywall signal for Google so we don't get flagged for cloaking
+    // when the human-visible body is truncated. Incidents only — original
+    // and tip kinds stay fully public.
+    ...(isIncident
+      ? {
+          isAccessibleForFree: "False",
+          hasPart: {
+            "@type": "WebPageElement",
+            isAccessibleForFree: "False",
+            cssSelector: ".gated-body",
+          },
+        }
+      : {}),
     datePublished: row.publishedAt?.toISOString(),
     articleSection: payload.kind ?? "tip",
     author: {
@@ -400,11 +437,19 @@ export default async function IntelDetailPage({
           </h1>
 
           <div
-            className="text-[var(--rex-text-muted)] leading-relaxed whitespace-pre-wrap mb-6"
+            className={`text-[var(--rex-text-muted)] leading-relaxed whitespace-pre-wrap mb-6 ${isIncident ? "gated-body" : ""}`}
             style={{ fontSize: "15px" }}
           >
-            {payload.body}
+            {bodyForRender}
           </div>
+
+          {isGated && (
+            <ClearanceWall
+              required="contributor"
+              current={currentTier}
+              reason="Connect a wallet to read the full incident report."
+            />
+          )}
 
           {payload.links && payload.links.length > 0 && (
             <Section label="Links">

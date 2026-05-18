@@ -7,9 +7,16 @@ import {
   db,
   submissions,
   addresses,
+  addressAttributions,
   intelAddresses,
 } from "@/lib/db";
-import type { IntelPayload, AddressRole } from "@/lib/db/schema";
+import type {
+  IntelPayload,
+  AddressRole,
+  AddressCategory,
+  AddressOwnerKind,
+  AddressAttributionSource,
+} from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { CHAIN_SLUG_SET, explorerUrl, SUPPORTED_CHAINS } from "@/lib/chains";
@@ -26,12 +33,35 @@ type LinkedIntel = {
   submitterHandle: string | null;
 };
 
+type AttributionRow = {
+  source: AddressAttributionSource;
+  sourceRef: string | null;
+  sourceUrl: string | null;
+  category: AddressCategory | null;
+  ownerName: string | null;
+  ownerKind: AddressOwnerKind | null;
+  label: string | null;
+  notes: string | null;
+  confidence: number | null;
+  reportedAt: Date | null;
+  harvestedAt: Date;
+};
+
 type LoadedEntity = {
   id: string;
   chain: string;
   address: string;
   label: string | null;
   notes: string | null;
+  category: AddressCategory | null;
+  ownerName: string | null;
+  ownerKind: AddressOwnerKind | null;
+  primarySource: AddressAttributionSource | null;
+  confidence: number | null;
+  balanceEstimateUsd: string | null;
+  firstSeenAt: Date | null;
+  lastVerifiedAt: Date | null;
+  attributions: AttributionRow[];
   intel: LinkedIntel[];
 };
 
@@ -45,6 +75,14 @@ const loadEntity = cache(
         address: addresses.address,
         label: addresses.label,
         notes: addresses.notes,
+        category: addresses.category,
+        ownerName: addresses.ownerName,
+        ownerKind: addresses.ownerKind,
+        primarySource: addresses.primarySource,
+        confidence: addresses.confidence,
+        balanceEstimateUsd: addresses.balanceEstimateUsd,
+        firstSeenAt: addresses.firstSeenAt,
+        lastVerifiedAt: addresses.lastVerifiedAt,
       })
       .from(addresses)
       .where(
@@ -55,6 +93,24 @@ const loadEntity = cache(
       )
       .limit(1);
     if (!row) return undefined;
+
+    const attributionRows = await db
+      .select({
+        source: addressAttributions.source,
+        sourceRef: addressAttributions.sourceRef,
+        sourceUrl: addressAttributions.sourceUrl,
+        category: addressAttributions.category,
+        ownerName: addressAttributions.ownerName,
+        ownerKind: addressAttributions.ownerKind,
+        label: addressAttributions.label,
+        notes: addressAttributions.notes,
+        confidence: addressAttributions.confidence,
+        reportedAt: addressAttributions.reportedAt,
+        harvestedAt: addressAttributions.harvestedAt,
+      })
+      .from(addressAttributions)
+      .where(eq(addressAttributions.addressId, row.id))
+      .orderBy(desc(addressAttributions.harvestedAt));
 
     const intelRows = await db
       .select({
@@ -78,6 +134,7 @@ const loadEntity = cache(
 
     return {
       ...row,
+      attributions: attributionRows,
       intel: intelRows.map((r) => ({
         publicId: r.publicId,
         payload: r.payload as IntelPayload,
@@ -120,6 +177,62 @@ function chainLabel(slug: string): string {
 function truncateAddress(addr: string, head = 8, tail = 6): string {
   if (addr.length <= head + tail + 3) return addr;
   return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
+}
+
+const SOURCE_LABEL: Record<AddressAttributionSource, string> = {
+  ofac: "OFAC SDN",
+  ofsi: "UK OFSI",
+  "eu-sanctions": "EU FSF",
+  defillama: "DefiLlama",
+  "rexintel-curated": "RexIntel (curated)",
+  "rexintel-community": "RexIntel (community)",
+  etherscan: "Etherscan label",
+  incident: "Intel incident",
+};
+
+const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> = {
+  ofac: { bg: "rgba(239,68,68,0.12)", fg: "#fca5a5" },
+  ofsi: { bg: "rgba(239,68,68,0.12)", fg: "#fca5a5" },
+  "eu-sanctions": { bg: "rgba(239,68,68,0.12)", fg: "#fca5a5" },
+  defillama: { bg: "rgba(20,184,166,0.10)", fg: "#5eead4" },
+  "rexintel-curated": {
+    bg: "rgba(95,185,31,0.12)",
+    fg: "var(--rex-accent)",
+  },
+  "rexintel-community": {
+    bg: "rgba(31,168,224,0.10)",
+    fg: "var(--rex-accent-2)",
+  },
+  etherscan: { bg: "rgba(168,85,247,0.10)", fg: "#c4b5fd" },
+  incident: { bg: "rgba(251,191,36,0.10)", fg: "var(--rex-warning)" },
+};
+
+const CATEGORY_LABEL: Record<AddressCategory, string> = {
+  exchange: "Exchange",
+  "defi-protocol": "DeFi protocol",
+  treasury: "DAO treasury",
+  foundation: "Foundation",
+  bridge: "Bridge",
+  mixer: "Mixer",
+  sanctioned: "Sanctioned",
+  "government-seized": "Govt. seized",
+  lost: "Lost",
+  dormant: "Dormant",
+  "hack-source": "Hack source",
+  "hack-destination": "Hack destination",
+  validator: "Validator",
+  personality: "Personality",
+  "market-maker": "Market maker",
+  "mev-bot": "MEV bot",
+  scam: "Scam",
+};
+
+function formatUsdShort(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
 }
 
 export async function generateMetadata({
@@ -246,6 +359,43 @@ export default async function EntityPage({
           )}
 
           <div className="mt-6 flex flex-wrap gap-3 text-[10px] font-mono uppercase tracking-widest">
+            {entity.category && (
+              <span
+                className="px-2 py-0.5 rounded-sm"
+                style={{
+                  background: "rgba(95,185,31,0.10)",
+                  color: "var(--rex-accent)",
+                  border: "1px solid rgba(95,185,31,0.30)",
+                }}
+              >
+                {CATEGORY_LABEL[entity.category]}
+              </span>
+            )}
+            {entity.ownerName && (
+              <span
+                className="px-2 py-0.5 rounded-sm"
+                style={{
+                  background: "rgba(31,168,224,0.10)",
+                  color: "var(--rex-accent-2)",
+                  border: "1px solid rgba(31,168,224,0.25)",
+                }}
+              >
+                Owner: {entity.ownerName}
+              </span>
+            )}
+            {entity.confidence != null && (
+              <span style={{ color: "var(--rex-text-dim)" }}>
+                Confidence: {entity.confidence}/100
+              </span>
+            )}
+            {entity.balanceEstimateUsd && (
+              <span style={{ color: "var(--rex-text-muted)" }}>
+                Balance est.{" "}
+                <span className="text-white">
+                  {formatUsdShort(Number(entity.balanceEstimateUsd))}
+                </span>
+              </span>
+            )}
             {(["subject", "counterparty", "observed"] as const).map((role) => {
               if (counts[role] === 0) return null;
               const tone = ROLE_TONE[role];
@@ -265,6 +415,96 @@ export default async function EntityPage({
             })}
           </div>
         </article>
+
+        {entity.attributions.length > 0 && (
+          <section className="mt-8">
+            <h2
+              className="text-[10px] font-mono uppercase tracking-widest mb-3"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              Attribution provenance · {entity.attributions.length} source
+              {entity.attributions.length === 1 ? "" : "s"}
+            </h2>
+            <ul className="space-y-2">
+              {entity.attributions.map((a, i) => {
+                const tone = SOURCE_TONE[a.source];
+                return (
+                  <li
+                    key={`${a.source}:${a.sourceRef ?? i}`}
+                    className="rex-card p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest flex-wrap">
+                      <span
+                        className="px-1.5 py-0.5 rounded-sm"
+                        style={{
+                          background: tone.bg,
+                          color: tone.fg,
+                          border: `1px solid ${tone.bg}`,
+                        }}
+                      >
+                        {SOURCE_LABEL[a.source]}
+                      </span>
+                      {a.category && (
+                        <span style={{ color: "var(--rex-text-muted)" }}>
+                          → {CATEGORY_LABEL[a.category]}
+                        </span>
+                      )}
+                      {a.confidence != null && (
+                        <span style={{ color: "var(--rex-text-dim)" }}>
+                          {a.confidence}/100
+                        </span>
+                      )}
+                      <span
+                        className="ml-auto"
+                        style={{ color: "var(--rex-text-dim)" }}
+                      >
+                        Harvested{" "}
+                        {a.harvestedAt.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                    {a.ownerName && (
+                      <div className="text-sm text-white font-semibold mb-1">
+                        {a.ownerName}
+                        {a.ownerKind && (
+                          <span
+                            className="ml-2 text-[10px] font-mono uppercase tracking-widest"
+                            style={{ color: "var(--rex-text-dim)" }}
+                          >
+                            ({a.ownerKind})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {a.label && a.label !== a.ownerName && (
+                      <div className="text-sm text-[var(--rex-text-muted)] mb-1">
+                        {a.label}
+                      </div>
+                    )}
+                    {a.notes && (
+                      <p className="text-xs text-[var(--rex-text-muted)] leading-relaxed">
+                        {a.notes}
+                      </p>
+                    )}
+                    {a.sourceUrl && (
+                      <a
+                        href={a.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-2 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent-2)] hover:text-white transition-colors"
+                      >
+                        Source ▸
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         <section className="mt-8">
           <h2

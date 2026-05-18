@@ -52,6 +52,9 @@ export default async function AdminLayout({
           <NavLink href="/subscribers" icon="◉">
             Subscribers
           </NavLink>
+          <NavLink href="/users" icon="◐">
+            Contributors
+          </NavLink>
           <NavLink href="/tags" icon="◇">
             Tags
           </NavLink>

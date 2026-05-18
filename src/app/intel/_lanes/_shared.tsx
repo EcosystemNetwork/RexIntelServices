@@ -84,6 +84,43 @@ export function Chip({
   );
 }
 
+/** Collapsible wrapper for lane filter rows. Native `<details>` so it works
+ *  without client JS and survives SSR. Closed by default — `summary` shows the
+ *  active filter state ("All" or e.g. "Web3 · Rolling") so users can see what
+ *  is applied without opening it. */
+export function FilterBar({
+  summary,
+  children,
+}: {
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="mb-6 group [&[open]_.rex-filter-chev]:rotate-90">
+      <summary
+        className="flex items-center gap-2 mb-3 text-xs font-mono cursor-pointer select-none list-none hover:text-white transition-colors"
+        style={{ color: "var(--rex-text-muted)" }}
+      >
+        <span
+          className="uppercase tracking-widest"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          FILTERS
+        </span>
+        <span
+          className="rex-filter-chev inline-block transition-transform"
+          style={{ color: "var(--rex-text-dim)" }}
+          aria-hidden="true"
+        >
+          ▸
+        </span>
+        <span>{summary}</span>
+      </summary>
+      <div className="space-y-3">{children}</div>
+    </details>
+  );
+}
+
 export function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <div

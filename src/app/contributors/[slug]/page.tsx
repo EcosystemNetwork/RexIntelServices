@@ -4,21 +4,60 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db, submissions, submitters } from "@/lib/db";
-import type { SubmissionPayload } from "@/lib/db/schema";
+import type { ClearanceTier, SubmissionPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
 import { detailHref } from "@/lib/slug";
 import { absoluteUrl } from "@/lib/site-url";
+import { TIER_THRESHOLDS } from "@/lib/clearance";
 
 export const dynamic = "force-dynamic";
 
 type ContributorRow = {
   id: string;
-  displayHandle: string;
+  displayHandle: string | null;
+  walletAddress: string | null;
   slug: string;
   bio: string | null;
+  points: number;
+  clearanceTier: ClearanceTier;
   createdAt: Date;
 };
+
+const TIER_LABEL: Record<ClearanceTier, string> = {
+  open: "Open",
+  contributor: "Contributor",
+  trusted: "Trusted",
+  inner_circle: "Inner Circle",
+};
+
+const TIER_ORDER: ClearanceTier[] = [
+  "open",
+  "contributor",
+  "trusted",
+  "inner_circle",
+];
+
+function nextTierGap(points: number, tier: ClearanceTier):
+  | { nextTier: ClearanceTier; pointsToGo: number }
+  | null {
+  const idx = TIER_ORDER.indexOf(tier);
+  const next = TIER_ORDER[idx + 1];
+  if (!next) return null;
+  const threshold = TIER_THRESHOLDS[next];
+  return { nextTier: next, pointsToGo: Math.max(0, threshold - points) };
+}
+
+// Wallet-only contributors (post-0023 SIWE rail) have no displayHandle until
+// they set one. Render their wallet as a truncated EVM address; legacy
+// email submitters always have a handle and use that as-is.
+function displayName(c: Pick<ContributorRow, "displayHandle" | "walletAddress">): string {
+  if (c.displayHandle) return c.displayHandle;
+  if (c.walletAddress && c.walletAddress.length >= 10) {
+    return `${c.walletAddress.slice(0, 6)}…${c.walletAddress.slice(-4)}`;
+  }
+  return "anonymous";
+}
 
 type Counts = {
   total: number;
@@ -82,8 +121,11 @@ const loadContributor = cache(
       .select({
         id: submitters.id,
         displayHandle: submitters.displayHandle,
+        walletAddress: submitters.walletAddress,
         slug: submitters.slug,
         bio: submitters.bio,
+        points: submitters.points,
+        clearanceTier: submitters.clearanceTier,
         createdAt: submitters.createdAt,
       })
       .from(submitters)
@@ -138,8 +180,9 @@ export async function generateMetadata({
     return { title: "Contributor not found — Rex Intel Services" };
   }
   const { contributor, counts } = loaded;
+  const name = displayName(contributor);
   return {
-    title: `@${contributor.displayHandle} — Contributor · Rex Intel Services`,
+    title: `@${name} — Contributor · Rex Intel Services`,
     description: `${counts.approved} approved ${
       counts.approved === 1 ? "submission" : "submissions"
     } to Rex Intel Services. ${counts.featured} featured in the weekly digest.`,
@@ -164,16 +207,20 @@ export default async function ContributorPage({
       ? Math.round((counts.featured / counts.approved) * 100)
       : null;
 
+  const tierLabel = TIER_LABEL[contributor.clearanceTier];
+  const gap = nextTierGap(contributor.points, contributor.clearanceTier);
+
   const joined = contributor.createdAt.toLocaleDateString(undefined, {
     month: "short",
     year: "numeric",
   });
 
+  const name = displayName(contributor);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
-    name: `@${contributor.displayHandle}`,
-    alternateName: contributor.displayHandle,
+    name: `@${name}`,
+    alternateName: name,
     description: contributor.bio ?? undefined,
     url: absoluteUrl(`/contributors/${contributor.slug}`),
   };
@@ -194,13 +241,17 @@ export default async function ContributorPage({
 
         <article className="rex-card p-8 mb-8">
           <div
-            className="text-[10px] font-mono uppercase tracking-widest mb-2"
+            className="text-[10px] font-mono uppercase tracking-widest mb-2 flex items-center gap-2"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            ▸ Contributor · joined {joined}
+            <span>▸ Contributor · joined {joined}</span>
+            <span style={{ color: "var(--rex-accent-2)" }}>·</span>
+            <span style={{ color: "var(--rex-accent-2)" }}>
+              ◆ {tierLabel}
+            </span>
           </div>
           <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-4 leading-tight">
-            @{contributor.displayHandle}
+            @{name}
           </h1>
 
           {contributor.bio && (
@@ -212,7 +263,16 @@ export default async function ContributorPage({
             </p>
           )}
 
-          <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <Stat
+              label="Trust"
+              value={contributor.points.toLocaleString()}
+              hint={
+                gap
+                  ? `${gap.pointsToGo.toLocaleString()} to ${TIER_LABEL[gap.nextTier]}`
+                  : "Max tier reached"
+              }
+            />
             <Stat label="Approved" value={counts.approved.toLocaleString()} />
             <Stat label="Featured" value={counts.featured.toLocaleString()} />
             <Stat
@@ -220,7 +280,7 @@ export default async function ContributorPage({
               value={accuracy === null ? "—" : `${accuracy}%`}
               hint={
                 accuracy === null
-                  ? "Needs ≥5 approved submissions"
+                  ? "Needs ≥5 approved"
                   : "Featured / approved"
               }
             />

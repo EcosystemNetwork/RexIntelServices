@@ -9,6 +9,7 @@ import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   Chip,
   EmptyState,
+  FilterBar,
   OrgLogo,
   FeaturedTag,
   PasteHint,
@@ -16,6 +17,15 @@ import {
   sectorClause,
   type Sector,
 } from "./_shared";
+
+const STAGE_LABEL: Record<Exclude<Stage, null>, string> = {
+  "pre-seed": "Pre-seed",
+  seed: "Seed",
+};
+const SECTOR_LABEL: Record<Sector, string> = {
+  web3: "Web3",
+  ai: "AI & Robotics",
+};
 
 type Stage = "pre-seed" | "seed" | null;
 
@@ -90,41 +100,49 @@ export async function CapitalLane({
         — we curate this lane manually so the bar stays high. No application form, no fees.
       </PasteHint>
 
-      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          SECTOR ▸
-        </span>
-        <Chip href={href({ sector: null })} active={!sector}>
-          All
-        </Chip>
-        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
-          Web3
-        </Chip>
-        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
-          AI & Robotics
-        </Chip>
-      </div>
+      <FilterBar
+        summary={
+          [sector ? SECTOR_LABEL[sector] : null, stage ? STAGE_LABEL[stage] : null]
+            .filter(Boolean)
+            .join(" · ") || "All"
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            SECTOR ▸
+          </span>
+          <Chip href={href({ sector: null })} active={!sector}>
+            All
+          </Chip>
+          <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+            Web3
+          </Chip>
+          <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+            AI & Robotics
+          </Chip>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          STAGE ▸
-        </span>
-        <Chip href={href({ stage: null })} active={!stage}>
-          All
-        </Chip>
-        <Chip href={href({ stage: "pre-seed" })} active={stage === "pre-seed"}>
-          Pre-seed
-        </Chip>
-        <Chip href={href({ stage: "seed" })} active={stage === "seed"}>
-          Seed
-        </Chip>
-      </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            STAGE ▸
+          </span>
+          <Chip href={href({ stage: null })} active={!stage}>
+            All
+          </Chip>
+          <Chip href={href({ stage: "pre-seed" })} active={stage === "pre-seed"}>
+            Pre-seed
+          </Chip>
+          <Chip href={href({ stage: "seed" })} active={stage === "seed"}>
+            Seed
+          </Chip>
+        </div>
+      </FilterBar>
 
       {visible.length === 0 ? (
         <EmptyState>No funds match this filter yet.</EmptyState>

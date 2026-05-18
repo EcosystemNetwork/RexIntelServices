@@ -11,6 +11,7 @@ import {
   type AddressRoleSlug,
 } from "@/lib/chains";
 import { Turnstile } from "@/components/turnstile";
+import ConnectWalletButton from "@/components/connect-wallet-button";
 import { track } from "@vercel/analytics";
 import {
   PERSONA_SLUGS,
@@ -670,8 +671,10 @@ function IntelForm() {
         )}
       </div>
 
-      <div className="border-t border-[var(--rex-border-subtle)] pt-4">
-        <label className="flex items-center gap-2 mb-3 cursor-pointer">
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4 space-y-3">
+        <ConnectWalletButton />
+
+        <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={anonymous}
@@ -679,7 +682,7 @@ function IntelForm() {
             className="accent-[var(--rex-accent)]"
           />
           <span className="text-sm text-[var(--rex-text-muted)]">
-            Submit anonymously (recommended)
+            Submit anonymously (recommended for sensitive tips)
           </span>
         </label>
 
@@ -713,8 +716,8 @@ function IntelForm() {
       <div className="flex items-center justify-between pt-2">
         <Hint>
           {anonymous
-            ? "Your IP is logged for abuse prevention but not published."
-            : "Email is shown only to RexIntel analysts."}
+            ? "Anonymous mode: no wallet linkage, no email persisted. Your IP is logged for abuse prevention but not published."
+            : "Connected wallets earn clearance tier on approval. Email/handle are optional and only shown to RexIntel analysts."}
         </Hint>
         <button
           type="submit"
@@ -2134,26 +2137,33 @@ function SubmitterFields({
   setHandle: (v: string) => void;
 }) {
   return (
-    <div className="border-t border-[var(--rex-border-subtle)] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <Field label="Your Email (opt.)">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rex-input w-full"
-          placeholder="for follow-up"
-        />
-      </Field>
-      <Field label="Handle / Org (opt.)">
-        <input
-          type="text"
-          value={handle}
-          onChange={(e) => setHandle(e.target.value)}
-          maxLength={80}
-          className="rex-input w-full"
-          placeholder="who's submitting"
-        />
-      </Field>
+    <div className="border-t border-[var(--rex-border-subtle)] pt-4 space-y-3">
+      <ConnectWalletButton />
+      <Hint>
+        Connect a wallet to earn clearance tiers. Email below is optional and
+        used only for follow-up.
+      </Hint>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Your Email (opt.)">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="rex-input w-full"
+            placeholder="for follow-up"
+          />
+        </Field>
+        <Field label="Handle / Org (opt.)">
+          <input
+            type="text"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            maxLength={80}
+            className="rex-input w-full"
+            placeholder="who's submitting"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

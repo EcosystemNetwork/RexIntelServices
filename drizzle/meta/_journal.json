@@ -155,6 +155,41 @@
       "when": 1780000000000,
       "tag": "0021_seed_founder_journalist_personas",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1779059127096,
+      "tag": "0022_address_attribution_graph",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1780300000000,
+      "tag": "0023_contributors_circle_clearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1780400000000,
+      "tag": "0024_submitter_login_analytics",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780500000000,
+      "tag": "0025_email_verifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780600000000,
+      "tag": "0026_intel_cited_event_kind",
+      "breakpoints": true
     }
   ]
 }

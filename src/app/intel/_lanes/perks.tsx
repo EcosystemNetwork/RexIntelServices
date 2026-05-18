@@ -11,12 +11,19 @@ import {
   ClosedTag,
   DeadlineChip,
   EmptyState,
+  FilterBar,
   OrgLogo,
   FeaturedTag,
   PasteHint,
   isDeadlinePassed,
   closingSoonClause,
 } from "./_shared";
+
+const ECOSYSTEM_LABEL: Record<"solana" | "ethereum" | "any", string> = {
+  solana: "Solana",
+  ethereum: "Ethereum / EVM",
+  any: "Any / Multi-chain",
+};
 
 type PerksFilter =
   | { kind: "ecosystem"; ecosystem: "solana" | "ethereum" | "any" }
@@ -122,61 +129,73 @@ export async function PerksLane({
         — programs from alchemy.com, quicknode.com, helius.dev, stripe.com and similar trusted hosts publish instantly.
       </PasteHint>
 
-      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          ECOSYSTEM ▸
-        </span>
-        <Chip
-          href={href({ kind: "ecosystem", eco: null })}
-          active={active.kind !== "ecosystem"}
-        >
-          All
-        </Chip>
-        <Chip
-          href={href({ kind: "ecosystem", eco: "solana" })}
-          active={active.kind === "ecosystem" && active.ecosystem === "solana"}
-        >
-          Solana
-        </Chip>
-        <Chip
-          href={href({ kind: "ecosystem", eco: "ethereum" })}
-          active={
-            active.kind === "ecosystem" && active.ecosystem === "ethereum"
-          }
-        >
-          Ethereum / EVM
-        </Chip>
-        <Chip
-          href={href({ kind: "ecosystem", eco: "any" })}
-          active={active.kind === "ecosystem" && active.ecosystem === "any"}
-        >
-          Any / Multi-chain
-        </Chip>
-      </div>
+      <FilterBar
+        summary={
+          [
+            active.kind === "ecosystem" ? ECOSYSTEM_LABEL[active.ecosystem] : null,
+            active.kind === "tier" ? "Free stuff" : null,
+            isSoon ? "Closing ≤14d" : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "All"
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            ECOSYSTEM ▸
+          </span>
+          <Chip
+            href={href({ kind: "ecosystem", eco: null })}
+            active={active.kind !== "ecosystem"}
+          >
+            All
+          </Chip>
+          <Chip
+            href={href({ kind: "ecosystem", eco: "solana" })}
+            active={active.kind === "ecosystem" && active.ecosystem === "solana"}
+          >
+            Solana
+          </Chip>
+          <Chip
+            href={href({ kind: "ecosystem", eco: "ethereum" })}
+            active={
+              active.kind === "ecosystem" && active.ecosystem === "ethereum"
+            }
+          >
+            Ethereum / EVM
+          </Chip>
+          <Chip
+            href={href({ kind: "ecosystem", eco: "any" })}
+            active={active.kind === "ecosystem" && active.ecosystem === "any"}
+          >
+            Any / Multi-chain
+          </Chip>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          TIER ▸
-        </span>
-        <Chip
-          href={href({ kind: "tier", tier: "free" })}
-          active={active.kind === "tier" && active.tier === "free"}
-        >
-          Free stuff (no application)
-        </Chip>
-        <Chip
-          href={href({ kind: "soon", soon: !isSoon })}
-          active={isSoon}
-        >
-          Closing ≤14d
-        </Chip>
-      </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            TIER ▸
+          </span>
+          <Chip
+            href={href({ kind: "tier", tier: "free" })}
+            active={active.kind === "tier" && active.tier === "free"}
+          >
+            Free stuff (no application)
+          </Chip>
+          <Chip
+            href={href({ kind: "soon", soon: !isSoon })}
+            active={isSoon}
+          >
+            Closing ≤14d
+          </Chip>
+        </div>
+      </FilterBar>
 
       {visible.length === 0 ? (
         <EmptyState>No perks match this filter yet.</EmptyState>

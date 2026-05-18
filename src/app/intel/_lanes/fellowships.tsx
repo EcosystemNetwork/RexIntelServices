@@ -11,6 +11,7 @@ import {
   ClosedTag,
   DeadlineChip,
   EmptyState,
+  FilterBar,
   OrgLogo,
   FeaturedTag,
   PasteHint,
@@ -20,6 +21,16 @@ import {
   closingSoonClause,
   type Sector,
 } from "./_shared";
+
+const INTAKE_LABEL: Record<Exclude<Intake, null>, string> = {
+  rolling: "Rolling",
+  scheduled: "Scheduled cohort",
+  soon: "Closing ≤14d",
+};
+const SECTOR_LABEL: Record<Sector, string> = {
+  web3: "Web3",
+  ai: "AI & Robotics",
+};
 
 type Intake = "rolling" | "scheduled" | "soon" | null;
 
@@ -110,47 +121,55 @@ export async function FellowshipsLane({
         — programs from Thiel, Schmidt Sciences, Ethereum Foundation and similar trusted hosts publish instantly.
       </PasteHint>
 
-      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          SECTOR ▸
-        </span>
-        <Chip href={href({ sector: null })} active={!sector}>
-          All
-        </Chip>
-        <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
-          Web3
-        </Chip>
-        <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
-          AI & Robotics
-        </Chip>
-      </div>
+      <FilterBar
+        summary={
+          [sector ? SECTOR_LABEL[sector] : null, intake ? INTAKE_LABEL[intake] : null]
+            .filter(Boolean)
+            .join(" · ") || "All"
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            SECTOR ▸
+          </span>
+          <Chip href={href({ sector: null })} active={!sector}>
+            All
+          </Chip>
+          <Chip href={href({ sector: "web3" })} active={sector === "web3"}>
+            Web3
+          </Chip>
+          <Chip href={href({ sector: "ai" })} active={sector === "ai"}>
+            AI & Robotics
+          </Chip>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          INTAKE ▸
-        </span>
-        <Chip href={href({ intake: null })} active={!intake}>
-          All
-        </Chip>
-        <Chip href={href({ intake: "rolling" })} active={intake === "rolling"}>
-          Rolling
-        </Chip>
-        <Chip
-          href={href({ intake: "scheduled" })}
-          active={intake === "scheduled"}
-        >
-          Scheduled cohort
-        </Chip>
-        <Chip href={href({ intake: "soon" })} active={intake === "soon"}>
-          Closing ≤14d
-        </Chip>
-      </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            INTAKE ▸
+          </span>
+          <Chip href={href({ intake: null })} active={!intake}>
+            All
+          </Chip>
+          <Chip href={href({ intake: "rolling" })} active={intake === "rolling"}>
+            Rolling
+          </Chip>
+          <Chip
+            href={href({ intake: "scheduled" })}
+            active={intake === "scheduled"}
+          >
+            Scheduled cohort
+          </Chip>
+          <Chip href={href({ intake: "soon" })} active={intake === "soon"}>
+            Closing ≤14d
+          </Chip>
+        </div>
+      </FilterBar>
 
       {visible.length === 0 ? (
         <EmptyState>No fellowship programs match this filter yet.</EmptyState>

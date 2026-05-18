@@ -9,9 +9,13 @@ const PROTECTED_PREFIXES = [
   "/api/submissions",
   "/api/tags",
   "/api/suppressions",
+  "/api/admin",
 ];
+// `/contributors/[slug]` is a public profile page, so we use the admin URL
+// `/users` (matches the conceptual "users with accounts" naming) to keep the
+// public profile path open while still gating the admin list.
 const PROTECTED_PAGES_REGEX =
-  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions)(\/|$)/;
+  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users)(\/|$)/;
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [

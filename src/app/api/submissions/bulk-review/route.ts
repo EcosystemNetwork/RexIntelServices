@@ -3,6 +3,9 @@ import { revalidateTag } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { awardContributionPoints } from "@/lib/circle-auth";
+import { pointsKindForSubmission } from "@/lib/clearance";
+import { awardCitationCredit } from "@/lib/citation-awards";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
@@ -52,6 +55,9 @@ export async function POST(req: NextRequest) {
     action === "approve" ? "approved" : action === "reject" ? "rejected" : "spam";
   const now = new Date();
 
+  // For approvals we need (type, payload, submitterId) to issue points, so
+  // capture the rows we actually updated rather than just their ids. The
+  // pending-only filter ensures we never double-award on a retry.
   const updated = await db
     .update(submissions)
     .set({
@@ -67,7 +73,45 @@ export async function POST(req: NextRequest) {
         eq(submissions.status, "pending"),
       ),
     )
-    .returning({ id: submissions.id });
+    .returning({
+      id: submissions.id,
+      type: submissions.type,
+      payload: submissions.payload,
+      submitterId: submissions.submitterId,
+    });
+
+  let awardedCount = 0;
+  let citationsAwarded = 0;
+  if (action === "approve") {
+    // Sequential rather than Promise.all — awardContributionPoints runs a
+    // transaction per call, and parallel writes against the same submitter
+    // row would race on the points cache. N is bounded to 200 anyway.
+    for (const r of updated) {
+      if (r.submitterId) {
+        const kind = pointsKindForSubmission(r.type, r.payload);
+        await awardContributionPoints({
+          submitterId: r.submitterId,
+          kind,
+          submissionId: r.id,
+          awardedByUserId: session.userId,
+        });
+        awardedCount += 1;
+      }
+      // Citation credit fires for every intel approval, including anonymous
+      // currents (the *prior* authors are what's being rewarded).
+      if (r.type === "intel") {
+        try {
+          const res = await awardCitationCredit({
+            submissionId: r.id,
+            awardedByUserId: session.userId,
+          });
+          citationsAwarded += res.awardedCount;
+        } catch (err) {
+          console.warn("[bulk-review] citation credit failed:", err);
+        }
+      }
+    }
+  }
 
   if (updated.length > 0) {
     revalidateTag(SUBMISSIONS_TAG);
@@ -77,5 +121,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     updatedCount: updated.length,
     requestedCount: ids.length,
+    awardedCount,
+    citationsAwarded,
   });
 }

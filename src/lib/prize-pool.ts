@@ -228,6 +228,13 @@ function formatUnits(raw: bigint, decimals: number): string {
  * The committed payout split: top-3 of 80% pool (60/30/10), 20% rolls
  * to next month. Encoded as a function so we can derive amounts from any
  * pool snapshot without scattering the rule.
+ *
+ * NOTE for future settlement code: when the monthly settlement is wired
+ * (writing a row to `monthly_prizes`), it must also call `awardPrizeWin`
+ * from `circle-auth.ts` for each of the top-3 submitter ids so the
+ * `prize_win_first/second/third` contribution events land in the ledger.
+ * Without that call the payout still pays out USDC, but the recipient's
+ * Trust score doesn't reflect the win.
  */
 export function computePayouts(poolAmount: string): {
   place1: string;

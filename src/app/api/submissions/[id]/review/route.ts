@@ -3,6 +3,9 @@ import { revalidateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { awardContributionPoints } from "@/lib/circle-auth";
+import { pointsKindForSubmission } from "@/lib/clearance";
+import { awardCitationCredit } from "@/lib/citation-awards";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
@@ -40,6 +43,18 @@ export async function POST(
   const status =
     action === "approve" ? "approved" : action === "reject" ? "rejected" : "spam";
 
+  // Read the prior row first so we can detect the pending → approved
+  // transition (the only edge that awards points) and avoid double-awarding
+  // when an already-approved submission is re-reviewed.
+  const [prior] = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.id, params.id))
+    .limit(1);
+  if (!prior) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
   const now = new Date();
   const [row] = await db
     .update(submissions)
@@ -58,10 +73,43 @@ export async function POST(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
+  // Points award on the first pending → approved transition. Anonymous and
+  // legacy email-only submissions still get the award (the email submitter
+  // row earns points too — they just can't unlock wallet-gated surfaces
+  // without later connecting a wallet). Skip if there's no submitter row at
+  // all (anonymous intel).
+  let award: { points: number; tier: string } | null = null;
+  let citationsAwarded = 0;
+  const isFirstApproval =
+    action === "approve" && prior.status !== "approved";
+  if (isFirstApproval && row.submitterId) {
+    const kind = pointsKindForSubmission(row.type, row.payload);
+    award = await awardContributionPoints({
+      submitterId: row.submitterId,
+      kind,
+      submissionId: row.id,
+      awardedByUserId: session.userId,
+    });
+  }
+  // Citation credit: any prior approved intel that linked the same addresses
+  // earns its original author +1 each (capped). Runs even for anonymous
+  // currents — the *prior* authors are what's being credited.
+  if (isFirstApproval && row.type === "intel") {
+    try {
+      const res = await awardCitationCredit({
+        submissionId: row.id,
+        awardedByUserId: session.userId,
+      });
+      citationsAwarded = res.awardedCount;
+    } catch (err) {
+      console.warn("[review] citation credit failed:", err);
+    }
+  }
+
   // Flush cached listing queries so the new state of this row is visible
   // immediately on /events, /jobs, /hackathons etc. without waiting for the
   // 5-minute revalidate backstop.
   revalidateTag(SUBMISSIONS_TAG);
 
-  return NextResponse.json({ submission: row });
+  return NextResponse.json({ submission: row, award, citationsAwarded });
 }

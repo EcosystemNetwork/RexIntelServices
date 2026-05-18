@@ -11,7 +11,7 @@ import {
   monthBounds,
 } from "@/lib/prize-pool";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
-import { Chip, EmptyState } from "./_shared";
+import { Chip, EmptyState, FilterBar } from "./_shared";
 
 const SEVERITY_TONE: Record<
   NonNullable<IntelPayload["severity"]>,
@@ -191,49 +191,56 @@ export async function SignalsLane({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs font-mono">
-        <span
-          className="uppercase tracking-widest"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          SEVERITY ▸
-        </span>
-        <Chip href={filterHref({ category: catFilter })} active={!sevFilter}>
-          All
-        </Chip>
-        {(["low", "medium", "high", "critical"] as const).map((s) => (
-          <Chip
-            key={s}
-            href={filterHref({ severity: s, category: catFilter })}
-            active={sevFilter === s}
-          >
-            {s}
-          </Chip>
-        ))}
-      </div>
-
-      {categories.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-6 text-xs font-mono">
+      <FilterBar
+        summary={
+          [sevFilter ?? null, catFilter ?? null].filter(Boolean).join(" · ") ||
+          "All"
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
           <span
             className="uppercase tracking-widest"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            CATEGORY ▸
+            SEVERITY ▸
           </span>
-          <Chip href={filterHref({ severity: sevFilter })} active={!catFilter}>
+          <Chip href={filterHref({ category: catFilter })} active={!sevFilter}>
             All
           </Chip>
-          {categories.map((c) => (
+          {(["low", "medium", "high", "critical"] as const).map((s) => (
             <Chip
-              key={c}
-              href={filterHref({ severity: sevFilter, category: c })}
-              active={catFilter?.toLowerCase() === c}
+              key={s}
+              href={filterHref({ severity: s, category: catFilter })}
+              active={sevFilter === s}
             >
-              {c}
+              {s}
             </Chip>
           ))}
         </div>
-      )}
+
+        {categories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <span
+              className="uppercase tracking-widest"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              CATEGORY ▸
+            </span>
+            <Chip href={filterHref({ severity: sevFilter })} active={!catFilter}>
+              All
+            </Chip>
+            {categories.map((c) => (
+              <Chip
+                key={c}
+                href={filterHref({ severity: sevFilter, category: c })}
+                active={catFilter?.toLowerCase() === c}
+              >
+                {c}
+              </Chip>
+            ))}
+          </div>
+        )}
+      </FilterBar>
 
       {visible.length === 0 ? (
         <EmptyState>No intel matches this filter.</EmptyState>
