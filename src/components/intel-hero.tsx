@@ -15,11 +15,16 @@ export function IntelHero({ payload }: { payload: IntelPayload }) {
   return (
     <figure className="mb-8 -mx-4 sm:mx-0">
       <div
-        className="relative overflow-hidden border"
+        className="relative overflow-hidden border mx-auto"
         style={{
           borderColor: "var(--rex-border-subtle)",
           background: "var(--rex-surface-2)",
-          aspectRatio: "16 / 9",
+          // Cap the hero at a sensible reading-flow height so the article
+          // body is still close to the top of the viewport on first paint.
+          // Banner-style hero PNGs (Casper Final Round, etc.) and the
+          // typographic stat-card SVGs both fit cleanly in this envelope.
+          maxHeight: "320px",
+          aspectRatio: "21 / 9",
         }}
       >
         {hasVideo ? (
@@ -33,7 +38,7 @@ export function IntelHero({ payload }: { payload: IntelPayload }) {
             src={payload.heroImageUrl!}
             alt={payload.heroAlt ?? payload.headline}
             loading="eager"
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-contain"
           />
         )}
       </div>

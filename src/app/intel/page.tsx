@@ -248,6 +248,7 @@ export default async function IntelHubPage({
           <SignalsLane
             sevFilter={searchParams.severity}
             catFilter={searchParams.category}
+            view={searchParams.view}
           />
         )}
         {lane === "accelerators" && (

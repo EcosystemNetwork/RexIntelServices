@@ -164,10 +164,16 @@ export async function PrizePoolBanner() {
 export async function SignalsLane({
   sevFilter,
   catFilter,
+  view,
 }: {
   sevFilter?: string;
   catFilter?: string;
+  view?: string;
 }) {
+  // View mode controls how the intel cards are laid out below. `list`
+  // (default) is the original vertical stack of full-width cards; `grid`
+  // is a responsive multi-column layout for higher-density scanning.
+  const viewMode: "list" | "grid" = view === "grid" ? "grid" : "list";
   // Push severity/category filters into SQL so we don't fetch 200 rows just
   // to discard most of them in JS. Indexes added in migration 0015 make these
   // exact-match filters cheap. Results are cached + tag-invalidated, so the
@@ -182,10 +188,15 @@ export async function SignalsLane({
     payload: r.payload as IntelPayload,
   }));
 
-  const filterHref = (args: { severity?: string; category?: string }) => {
+  const filterHref = (args: {
+    severity?: string;
+    category?: string;
+    view?: string;
+  }) => {
     const params = new URLSearchParams();
     if (args.severity) params.set("severity", args.severity);
     if (args.category) params.set("category", args.category);
+    if (args.view && args.view !== "list") params.set("view", args.view);
     const qs = params.toString();
     return qs ? `/intel?${qs}` : "/intel";
   };
@@ -194,8 +205,13 @@ export async function SignalsLane({
     <>
       <FilterBar
         summary={
-          [sevFilter ?? null, catFilter ?? null].filter(Boolean).join(" · ") ||
-          "All"
+          [
+            sevFilter ?? null,
+            catFilter ?? null,
+            viewMode === "grid" ? "grid" : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "All"
         }
       >
         <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
@@ -203,15 +219,44 @@ export async function SignalsLane({
             className="uppercase tracking-widest"
             style={{ color: "var(--rex-text-dim)" }}
           >
+            VIEW ▸
+          </span>
+          <Chip
+            href={filterHref({
+              severity: sevFilter,
+              category: catFilter,
+              view: "list",
+            })}
+            active={viewMode === "list"}
+          >
+            list
+          </Chip>
+          <Chip
+            href={filterHref({
+              severity: sevFilter,
+              category: catFilter,
+              view: "grid",
+            })}
+            active={viewMode === "grid"}
+          >
+            grid
+          </Chip>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span
+            className="uppercase tracking-widest"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
             SEVERITY ▸
           </span>
-          <Chip href={filterHref({ category: catFilter })} active={!sevFilter}>
+          <Chip href={filterHref({ category: catFilter, view: viewMode })} active={!sevFilter}>
             All
           </Chip>
           {(["low", "medium", "high", "critical"] as const).map((s) => (
             <Chip
               key={s}
-              href={filterHref({ severity: s, category: catFilter })}
+              href={filterHref({ severity: s, category: catFilter, view: viewMode })}
               active={sevFilter === s}
             >
               {s}
@@ -227,13 +272,13 @@ export async function SignalsLane({
             >
               CATEGORY ▸
             </span>
-            <Chip href={filterHref({ severity: sevFilter })} active={!catFilter}>
+            <Chip href={filterHref({ severity: sevFilter, view: viewMode })} active={!catFilter}>
               All
             </Chip>
             {categories.map((c) => (
               <Chip
                 key={c}
-                href={filterHref({ severity: sevFilter, category: c })}
+                href={filterHref({ severity: sevFilter, category: c, view: viewMode })}
                 active={catFilter?.toLowerCase() === c}
               >
                 {c}
@@ -246,7 +291,13 @@ export async function SignalsLane({
       {visible.length === 0 ? (
         <EmptyState>No intel matches this filter.</EmptyState>
       ) : (
-        <div className="space-y-3">
+        <div
+          className={
+            viewMode === "grid"
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+              : "space-y-3"
+          }
+        >
           {visible.map((r) => (
             <IntelCard
               key={r.id}
@@ -258,6 +309,7 @@ export async function SignalsLane({
               }
               voteCount={r.voteCount ?? 0}
               featured={r.featured}
+              compact={viewMode === "grid"}
             />
           ))}
         </div>
@@ -273,6 +325,7 @@ function IntelCard({
   submitterHandle,
   voteCount,
   featured = false,
+  compact = false,
 }: {
   publicId: string;
   payload: IntelPayload;
@@ -280,6 +333,7 @@ function IntelCard({
   submitterHandle: string | null;
   voteCount: number;
   featured?: boolean;
+  compact?: boolean;
 }) {
   const dateLabel = publishedAt
     ? new Date(publishedAt).toLocaleDateString(undefined, {
@@ -309,7 +363,12 @@ function IntelCard({
         <div
           className="relative overflow-hidden"
           style={{
-            aspectRatio: "16 / 9",
+            // 2.4:1 letterbox — keeps hero compact and lets banner-style
+            // PNGs (e.g. Casper Final Round) fit without aggressive
+            // cropping. Compact (grid) cards drop another ~25% in height
+            // via the explicit max-height cap.
+            aspectRatio: "2.4 / 1",
+            maxHeight: compact ? "140px" : "200px",
             background: "var(--rex-surface-2)",
             borderBottom: "1px solid var(--rex-border-subtle)",
           }}
