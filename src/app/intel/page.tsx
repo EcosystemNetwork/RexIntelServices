@@ -226,16 +226,6 @@ export default async function IntelHubPage({
             <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">
               {copy.subtitle}
             </p>
-            {lane === "signals" && (
-              <div className="mt-3">
-                <a
-                  href="/intel/feed.xml"
-                  className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-accent)] transition-colors"
-                >
-                  ⌁ RSS
-                </a>
-              </div>
-            )}
           </div>
           {copy.submitHref && (
             <Link href={copy.submitHref} className="rex-btn whitespace-nowrap">

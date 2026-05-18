@@ -369,23 +369,36 @@ export async function SignalsLane({
           className={
             viewMode === "grid"
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
-              : "space-y-3"
+              : "space-y-1.5"
           }
         >
-          {visible.map((r) => (
-            <IntelCard
-              key={r.id}
-              publicId={r.publicId}
-              payload={r.payload}
-              publishedAt={r.publishedAt}
-              submitterHandle={
-                r.payload.anonymous ? null : r.submitterHandle
-              }
-              voteCount={r.voteCount ?? 0}
-              featured={r.featured}
-              compact={viewMode === "grid"}
-            />
-          ))}
+          {visible.map((r) =>
+            viewMode === "list" ? (
+              <IntelRow
+                key={r.id}
+                publicId={r.publicId}
+                payload={r.payload}
+                publishedAt={r.publishedAt}
+                submitterHandle={
+                  r.payload.anonymous ? null : r.submitterHandle
+                }
+                voteCount={r.voteCount ?? 0}
+                featured={r.featured}
+              />
+            ) : (
+              <IntelCard
+                key={r.id}
+                publicId={r.publicId}
+                payload={r.payload}
+                publishedAt={r.publishedAt}
+                submitterHandle={
+                  r.payload.anonymous ? null : r.submitterHandle
+                }
+                voteCount={r.voteCount ?? 0}
+                featured={r.featured}
+              />
+            ),
+          )}
         </div>
       )}
     </>
@@ -399,7 +412,6 @@ function IntelCard({
   submitterHandle,
   voteCount,
   featured = false,
-  compact = false,
 }: {
   publicId: string;
   payload: IntelPayload;
@@ -407,7 +419,6 @@ function IntelCard({
   submitterHandle: string | null;
   voteCount: number;
   featured?: boolean;
-  compact?: boolean;
 }) {
   const dateLabel = publishedAt
     ? new Date(publishedAt).toLocaleDateString(undefined, {
@@ -437,12 +448,8 @@ function IntelCard({
         <div
           className="relative overflow-hidden"
           style={{
-            // 2.4:1 letterbox — keeps hero compact and lets banner-style
-            // PNGs (e.g. Casper Final Round) fit without aggressive
-            // cropping. Compact (grid) cards drop another ~25% in height
-            // via the explicit max-height cap.
             aspectRatio: "2.4 / 1",
-            maxHeight: compact ? "140px" : "200px",
+            maxHeight: "140px",
             background: "var(--rex-surface-2)",
             borderBottom: "1px solid var(--rex-border-subtle)",
           }}
@@ -576,6 +583,104 @@ function IntelCard({
           ▲ {voteCount.toLocaleString()} {voteCount === 1 ? "vote" : "votes"}
         </span>
       </div>
+      </div>
+    </Link>
+  );
+}
+
+function IntelRow({
+  publicId,
+  payload,
+  publishedAt,
+  submitterHandle,
+  voteCount,
+  featured = false,
+}: {
+  publicId: string;
+  payload: IntelPayload;
+  publishedAt: Date | null;
+  submitterHandle: string | null;
+  voteCount: number;
+  featured?: boolean;
+}) {
+  const dateLabel = publishedAt
+    ? new Date(publishedAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })
+    : "";
+  const tone = payload.severity ? SEVERITY_TONE[payload.severity] : null;
+  const dek = payload.dek ?? payload.body;
+
+  return (
+    <Link
+      href={detailHref("/intel", publicId, payload.headline)}
+      className="rex-card-flat block px-4 py-2.5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.04) 0%, rgba(31,168,224,0.02) 100%)",
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5 text-[10px] font-mono uppercase tracking-widest">
+            {featured && (
+              <span style={{ color: "var(--rex-accent)" }}>★ Featured</span>
+            )}
+            {payload.spicy && <SpicyTag />}
+            {payload.kind === "original" && (
+              <span style={{ color: "var(--rex-accent)" }}>Original</span>
+            )}
+            {payload.kind === "incident" && (
+              <span style={{ color: "#f87171" }}>Incident</span>
+            )}
+            {payload.severity && tone && (
+              <span style={{ color: tone.fg }}>{payload.severity}</span>
+            )}
+            {payload.category && (
+              <span style={{ color: "var(--rex-text-dim)" }}>
+                · {payload.category}
+              </span>
+            )}
+            <span
+              style={{ color: "var(--rex-text-dim)" }}
+              className="ml-auto sm:hidden"
+            >
+              {dateLabel}
+            </span>
+          </div>
+          <h3 className="font-display text-sm text-white truncate group-hover:text-[var(--rex-accent)] transition-colors">
+            {payload.headline}
+          </h3>
+          {dek && (
+            <p className="text-xs text-[var(--rex-text-muted)] truncate mt-0.5">
+              {dek}
+            </p>
+          )}
+        </div>
+        <div
+          className="hidden sm:flex flex-none flex-col items-end text-[10px] font-mono whitespace-nowrap gap-0.5"
+          style={{ color: "var(--rex-text-dim)" }}
+        >
+          {dateLabel && <span>{dateLabel}</span>}
+          <span
+            className="uppercase tracking-widest"
+            style={{
+              color:
+                voteCount > 0 ? "var(--rex-accent)" : "var(--rex-text-dim)",
+            }}
+          >
+            ▲ {voteCount.toLocaleString()}
+          </span>
+          <span className="truncate max-w-[100px]">
+            {submitterHandle ? `@${submitterHandle}` : "anon"}
+          </span>
+        </div>
       </div>
     </Link>
   );
