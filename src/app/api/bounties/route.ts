@@ -231,14 +231,8 @@ export async function POST(req: NextRequest) {
   // creator must capture it now (or via the funding-instructions email).
   const accessToken = mintVictimAccessToken();
 
-  // v1: all bounties share a single platform-level Circle escrow wallet
-  // for simplicity. The schema keeps circle_wallet_id per-bounty so a
-  // v2 can switch to per-bounty wallets without a migration. When the
-  // env isn't set (dev / not-yet-provisioned), the column stays NULL and
-  // the payout cron's "no_source_wallet" skip kicks in safely.
-  const sharedEscrowWalletId =
-    process.env.CIRCLE_BOUNTY_ESCROW_WALLET_ID ?? null;
-
+  // Insert FIRST so we have a publicId to use as the Circle wallet refId.
+  // The wallet provisioning step writes back the wallet id + address.
   const [created] = await db
     .insert(bounties)
     .values({
@@ -260,9 +254,9 @@ export async function POST(req: NextRequest) {
       status: "draft",
       victimVerifiedAt,
       victimAccessTokenHash: accessToken.hash,
-      circleWalletId: sharedEscrowWalletId,
     })
     .returning({
+      id: bounties.id,
       publicId: bounties.publicId,
       status: bounties.status,
     });
@@ -274,13 +268,57 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Provision a per-bounty Circle DCW wallet. Failure is non-fatal: the
+  // bounty stays without an escrow wallet, the create response carries a
+  // flag the client can surface, and an admin can re-provision later via
+  // a manual script. Skipped silently in dev (no Circle creds set).
+  let escrowAddress: string | null = null;
+  let walletProvisionWarning: string | null = null;
+  const provision = await provisionBountyWallet({ refId: created.publicId });
+  if (provision.kind === "provisioned") {
+    escrowAddress = provision.address;
+    await db
+      .update(bounties)
+      .set({
+        circleWalletId: provision.walletId,
+        circleWalletAddress: provision.address,
+        updatedAt: new Date(),
+      })
+      .where(eq(bounties.id, created.id));
+  } else if (provision.kind === "failed") {
+    walletProvisionWarning = `wallet_provision_failed: ${provision.reason}`;
+    console.warn(
+      `[bounty-create] wallet provisioning failed for ${created.publicId}: ${provision.reason}`,
+    );
+  } else {
+    walletProvisionWarning = `wallet_skipped: ${provision.reason}`;
+  }
+
+  // Send funding-instructions email. Non-fatal: if Resend is down or env
+  // isn't set we still return the access token in the response so the UI
+  // can surface it. The email is the fallback when the user closes the tab.
+  try {
+    const accessUrl = bountyAccessUrl(created.publicId, accessToken.raw);
+    await sendBountyFundingEmail({
+      to: victimEmail,
+      bountyPublicId: created.publicId,
+      accessUrl,
+      fundingAmountUsdc:
+        kind === "recovery" ? null : (body.flatAmountUsdc as number),
+      depositAddress: escrowAddress,
+      blockchain: process.env.CIRCLE_BOUNTY_BLOCKCHAIN ?? "BASE",
+      victimVerified: victimVerifiedAt != null,
+    });
+  } catch (err) {
+    console.warn(
+      `[bounty-create] funding email failed for ${created.publicId}`,
+      err,
+    );
+  }
+
   // Build the share URLs. The raw access token is appended as ?token=…
   // so the creator's first page reload lands on the gated detail view
-  // without needing a session. The token is also the credential used in
-  // the funding email; if the creator immediately closes the tab and
-  // loses the token, they lose draft access — they'd have to OTP-verify
-  // their email to recover. That's the right safety property: anyone
-  // posting on behalf of someone else can't keep accessing the draft.
+  // without needing a session.
   const tokenSuffix = `?token=${accessToken.raw}`;
 
   return NextResponse.json({
@@ -290,6 +328,8 @@ export async function POST(req: NextRequest) {
     victimVerified: victimVerifiedAt != null,
     // Returned ONCE — store it client-side or in email immediately.
     victimAccessToken: accessToken.raw,
+    escrowAddress,
+    walletProvisionWarning,
     fundingUrl: `/bounties/${created.publicId}/fund${tokenSuffix}`,
     bountyUrl: `/bounties/${created.publicId}${tokenSuffix}`,
   });

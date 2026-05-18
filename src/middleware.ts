@@ -15,7 +15,7 @@ const PROTECTED_PREFIXES = [
 // `/users` (matches the conceptual "users with accounts" naming) to keep the
 // public profile path open while still gating the admin list.
 const PROTECTED_PAGES_REGEX =
-  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users|hermes)(\/|$)/;
+  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users)(\/|$)/;
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [
@@ -55,9 +55,9 @@ function pathMatches(pathname: string, prefix: string): boolean {
 // public/robots.txt for the polite-bot version.
 //
 // Matching is case-insensitive, substring against the User-Agent header.
-// Operator (Hermes) and internal API paths are NOT subject to this block —
-// only public HTML pages. The exemption shapes:
-//   - /api/* requests bypass the UA block (operator + cron + webhook traffic)
+// Internal API paths are NOT subject to this block — only public HTML pages.
+// The exemption shapes:
+//   - /api/* requests bypass the UA block (cron + webhook traffic)
 //   - Static assets (_next/*, favicon) bypass the UA block
 const BLOCKED_AGENT_PATTERNS = [
   "gptbot",

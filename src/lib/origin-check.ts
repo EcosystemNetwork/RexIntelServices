@@ -11,8 +11,7 @@ import { siteUrl } from "./site-url";
  * Returns true when the request appears same-origin. Returns false for
  * any mismatch or for requests with no Origin header (which is itself
  * suspicious for a state-changing POST — legit browser POSTs always
- * include it). Hermes (bearer-token) routes don't need this check; they
- * have their own auth and aren't cookie-driven.
+ * include it).
  */
 export function isSameOrigin(req: NextRequest | Request): boolean {
   const origin = req.headers.get("origin");

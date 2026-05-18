@@ -162,7 +162,7 @@ export type ValueStats = {
  * community-loss-report layer is included so users can compare the delta.
  * Default FALSE (exclude) — this is the trust-bearing headline, and silently
  * mixing in self-reported claims would corrupt the "$X tracked" pitch every
- * caller (including Hermes/admin) is showing somewhere.
+ * caller (admin dashboards, public /graph page) is showing somewhere.
  */
 export async function fetchValueStats(
   opts: { includeUserReported?: boolean } = {},

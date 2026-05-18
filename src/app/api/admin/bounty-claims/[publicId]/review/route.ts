@@ -1,40 +1,23 @@
-import { randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import {
   db,
   bounties,
   bountyClaims,
-  users,
   type BountyClaimRejectionReason,
 } from "@/lib/db";
-import { requireHermes } from "@/lib/hermes-auth";
+import { getSession } from "@/lib/auth";
 import { applyClaimReview } from "@/lib/bounty";
+import { isSameOrigin } from "@/lib/origin-check";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // =====================================================================
-// POST /api/hermes/bounty-claims/[publicId]/review
+// POST /api/admin/bounty-claims/[publicId]/review
 //
-// Hermes-only. Curator verdict on a bounty claim. Single endpoint covers
-// all four terminal verdicts and the non-terminal needs_info nudge.
-// applyClaimReview is the single source of truth — this handler is
-// translation only (HTTP → typed args → JSON).
-//
-// On accepted/partial verdicts a pending bountyPayouts row is written;
-// the actual Circle transfer is dispatched by a separate worker that
-// watches `bounty_payouts.status = 'pending'`. Bond refund/slash payout
-// rows are also written here.
-//
-// Body:
-//   { verdict: "accepted" | "partial" | "rejected" | "needs_info",
-//     rejectionReason?: "insufficient_evidence" | "duplicate" |
-//                        "out_of_scope" | "bad_faith" | "doxx_attempt",
-//     payoutAmountUsdc?: number,   // required for accepted/partial
-//     curatorNotes?: string,
-//     reviewerEmail?: string }     // optional, resolves to users.id
+// Admin-session-gated claim adjudication. Wraps applyClaimReview(); the
+// reviewer-user id comes from the admin session cookie.
 // =====================================================================
 
 type Body = {
@@ -42,7 +25,6 @@ type Body = {
   rejectionReason?: BountyClaimRejectionReason;
   payoutAmountUsdc?: number;
   curatorNotes?: string;
-  reviewerEmail?: string;
 };
 
 const VALID_VERDICTS = new Set<NonNullable<Body["verdict"]>>([
@@ -56,8 +38,19 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { publicId: string } },
 ) {
-  const denial = requireHermes(req);
-  if (denial) return denial;
+  if (!isSameOrigin(req)) {
+    return NextResponse.json(
+      { ok: false, error: "bad_origin" },
+      { status: 403 },
+    );
+  }
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, error: "unauthorized" },
+      { status: 401 },
+    );
+  }
 
   let body: Body;
   try {
@@ -87,10 +80,6 @@ export async function POST(
       { status: 404 },
     );
   }
-
-  // Already-terminal claims cannot be re-reviewed. accepted/partial/
-  // rejected/withdrawn are terminal; submitted / under_review / needs_info
-  // are open for new verdicts.
   const TERMINAL = ["accepted", "partial", "rejected", "withdrawn"] as const;
   if ((TERMINAL as readonly string[]).includes(claim.status)) {
     return NextResponse.json(
@@ -111,43 +100,11 @@ export async function POST(
     );
   }
 
-  // Resolve the reviewer user id. If not provided we fall back to the
-  // "Hermes operator" service user — created on first use.
-  let reviewerUserId: string;
-  const email = (body.reviewerEmail ?? "hermes@rexintel.local").trim().toLowerCase();
-  const [u] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (u) {
-    reviewerUserId = u.id;
-  } else {
-    // Service account — never password-loginable. Bcrypt-hash a 32-byte
-    // random string the caller never sees, so even if /login later
-    // accepts this user's row, no plaintext password can authenticate.
-    // Belt-and-braces hardening on top of "this email isn't surfaced in
-    // any sign-in flow."
-    const disabledPasswordHash = await bcrypt.hash(
-      randomBytes(32).toString("hex"),
-      12,
-    );
-    const [created] = await db
-      .insert(users)
-      .values({
-        email,
-        passwordHash: disabledPasswordHash,
-        name: "Hermes (operator)",
-      })
-      .returning({ id: users.id });
-    reviewerUserId = created!.id;
-  }
-
   try {
     const result = await applyClaimReview({
       claim,
       bounty,
-      reviewerUserId,
+      reviewerUserId: session.userId,
       verdict: body.verdict,
       rejectionReason: body.rejectionReason ?? null,
       payoutAmountUsdc: body.payoutAmountUsdc,
@@ -168,8 +125,6 @@ export async function POST(
     });
   } catch (err) {
     const reason = err instanceof Error ? err.message : "unknown_error";
-    // claim_already_reviewed comes from the status-guarded UPDATE — another
-    // request beat us to the verdict. 409 so clients can refetch and skip.
     const status = reason === "claim_already_reviewed" ? 409 : 400;
     return NextResponse.json(
       { ok: false, error: "review_failed", reason },

@@ -64,11 +64,11 @@ export default async function AdminLayout({
           <NavLink href="/submissions" icon="▣">
             Submissions
           </NavLink>
+          <NavLink href="/bounty-claims" icon="✦">
+            Bounties
+          </NavLink>
           <NavLink href="/suppressions" icon="⊘">
             Suppressions
-          </NavLink>
-          <NavLink href="/hermes" icon="⌬">
-            Hermes
           </NavLink>
         </nav>
 
