@@ -36,7 +36,7 @@ The call ended somewhere between 10:55 and 11:00 AM Pacific Time. Despark's auto
 
 ## The 47 minutes
 
-At **11:45:43 AM PT** — 30 minutes 43 seconds after the Mission Complete email, and (per the participant's recollection) approximately 47 minutes after the researcher hung up — the participant's Phantom wallet on Solana began signing transactions.
+At **11:45:43 AM PT** — 30 minutes 43 seconds after the Mission Complete email, and (per the participant's recollection) approximately 47 minutes after the researcher hung up — the participant's Phantom wallet on Solana (`HeJkAGASQu8esawJyrEW4WFkdoqTpsZSGatkoFb4XqVa`) began signing transactions. Every claim in this section is independently verifiable by loading that address on any Solana block explorer and reading the May 12, 2025 transaction list.
 
 The participant did not sign them. He was not at his computer. His Phantom wallet's private key was. Whoever held that key had decided, at that moment, to start.
 
@@ -87,7 +87,7 @@ The participant asked for a copy of the call video, citing California's two-part
 
 Receiving only one side of a recorded two-party conversation is not a position California's recording statute requires the participant to accept. It is, however, the position Despark has held since.
 
-The participant's screener responses — the questions Despark sends prospective participants before booking the mission — included one wallet address, which Despark's representative confirmed was the only wallet identifier shared with the researcher via the platform: `0x118EDd03335D07B498A511213cDb9FDfB448EcA3`. That wallet is a Polygon-active MetaMask wallet held by the participant.
+The participant's screener responses — the questions Despark sends prospective participants before booking the mission — included one wallet address, which Eusden confirmed was the only wallet identifier shared with the researcher via the platform: the Polygon-active MetaMask wallet `0x118EDd03335D07B498A511213cDb9FDfB448EcA3`.
 
 That same wallet was later hijacked again, in a separate event, in September 2025 — via Ethereum's EIP-7702 mechanism, by delegate contracts both explicitly flagged as phishing operations by Etherscan's community-attribution system. More on that below.
 
@@ -152,7 +152,7 @@ The delegate contract that the participant's wallet was authorized to is unverif
 
 Eleven days later, on 2025-09-22, the same wallet executed a sixth EIP-7702 authorization to a different delegate contract (`0x63245b9fADc65C3a6d61b1A1a812808ffC91BD29`). That contract is also unverified; its creator is labeled "Fake_Phishing1685665" by Etherscan; its deployer address is a vanity-mined `0x6666…f56666` — the kind of cosmetic flourish associated with established drainer crews.
 
-Both authorizations are still live. The wallet, as of this writing, remains under malicious delegate control. Anyone using that wallet to authorize any transaction is currently re-authorizing the attacker's control over it.
+The Sept 22 delegation is still live as of 2026-05-18. An `eth_getCode` call against the wallet on Ethereum mainnet returns the EIP-7702 prefix `0xef0100` followed by the malicious delegate address — meaning the wallet is, at this moment, code-pointed at a contract whose creator is labeled "Fake_Phishing1685665" by Etherscan. (Each new EIP-7702 authorization overwrites the previous one, so the Sept 10-11 delegations to `0x5A77f0DF...` were superseded by the Sept 22 delegation; only the most recent — to `0x63245b9f...` — is currently active.) Anyone using that wallet to sign any transaction today is doing so through that attacker-controlled contract.
 
 What the September re-hijack proves, beyond the May drain, is that whoever has the participant's keys never let them go. When a new attack tool (EIP-7702) became viable in mid-2025, they weaponized it against the same victim four months after the original drain. This is persistence. This is the signature of an actor who has automated long-tail monetization of compromised key inventory.
 
