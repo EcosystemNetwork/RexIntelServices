@@ -86,6 +86,8 @@ const ARTICLES: ArticleSpec[] = [
     links: [
       "https://mempool.space/address/bc1q704czv9hyce6fg2m9s6c097hg3hue2tzpqwngz",
       "https://mempool.space/address/bc1q234du9sa0ugjkrj4pmhuujzu5cqx9eh7aqf3p9",
+      "https://luminex.io/address/bc1q704czv9hyce6fg2m9s6c097hg3hue2tzpqwngz",
+      "https://ordinals.com/address/bc1q704czv9hyce6fg2m9s6c097hg3hue2tzpqwngz",
     ],
     heroImageUrl: "/intel-heroes/oriolo-impersonation.svg",
     heroAlt: "24 hours from pitch to drain: a fake VC on Telegram drained one founder's Bitcoin wallet via a malicious 'open in app' message.",
