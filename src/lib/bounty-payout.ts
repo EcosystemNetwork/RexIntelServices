@@ -187,24 +187,6 @@ export async function sendBountyPayout(
   }
 }
 
-/**
- * Stable Circle-format idempotency key derived from the payout UUID.
- * Same input → same key → Circle dedupes the second send server-side.
- */
-function stableUuidFromPayoutId(payoutId: string): string {
-  if (
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      payoutId,
-    )
-  ) {
-    return payoutId;
-  }
-  console.warn(
-    `[bounty-payout] payoutId not a UUID: ${payoutId} — using fresh idempotency key, retries WILL double-pay`,
-  );
-  return randomUUID();
-}
-
 // ---------------------------------------------------------------------------
 // Entity-secret encryption (RSA-OAEP-SHA256, base64)
 // ---------------------------------------------------------------------------
