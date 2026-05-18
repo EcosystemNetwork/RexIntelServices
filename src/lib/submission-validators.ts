@@ -160,6 +160,7 @@ export function validateIntelPayload(
       heroCredit,
       media,
       bodyFormat,
+      spicy: p.spicy === true ? true : undefined,
     },
   };
 }

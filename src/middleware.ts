@@ -16,7 +16,7 @@ const PROTECTED_PREFIXES = [
 // `/users` (matches the conceptual "users with accounts" naming) to keep the
 // public profile path open while still gating the admin list.
 const PROTECTED_PAGES_REGEX =
-  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users)(\/|$)/;
+  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users|bounty-overview|bounty-claims)(\/|$)/;
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [

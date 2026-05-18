@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Public shape returned by /api/auth/circle/me and /complete. Kept narrow
-// on purpose — anything sensitive stays server-side.
+// Public shape returned by /api/auth/magic/me and /login. Kept narrow on
+// purpose — anything sensitive stays server-side.
 export type ContributorProfile = {
   id: string;
   slug: string;
@@ -16,12 +16,7 @@ export type ContributorProfile = {
 type Phase =
   | "idle"
   | "collecting_email"
-  | "sending_otp"
-  | "collecting_code"
-  | "verifying_code"
-  | "initializing"
-  | "awaiting_pin"
-  | "completing"
+  | "authenticating" // Magic modal is showing / DID is being validated
   | "connected"
   | "error";
 
@@ -36,39 +31,19 @@ function truncate(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-// Minimal subset of the Circle Web SDK surface we actually call. Matches
-// the runtime shape exported by `@circle-fin/w3s-pw-web-sdk` as of the
-// version pinned in package.json — ChallengeResult has `{ type, status }`
-// at the top level (no .data wrapper). The SDK also defines
-// SignMessageResult / SignTransactionResult variants for other challenge
-// types; we only consume the INITIALIZE/SET_PIN/CREATE_WALLET branch so
-// the narrower shape below is sufficient.
-interface CircleChallengeResult {
-  type: string; // ChallengeType — INITIALIZE | SET_PIN | CREATE_WALLET | …
-  status: string; // ChallengeStatus — COMPLETE | EXPIRED | FAILED | IN_PROGRESS | PENDING
-}
-interface CircleSdk {
-  setAppSettings(args: { appId: string }): void;
-  setAuthentication(args: {
-    userToken: string;
-    encryptionKey: string;
-  }): void;
-  execute(
-    challengeId: string,
-    onCompleted: (
-      error: Error | undefined,
-      result: CircleChallengeResult | undefined,
-    ) => Promise<void> | void,
-  ): void;
-}
-
-interface InitResponse {
-  circleUserId: string;
-  userToken: string;
-  encryptionKey: string;
-  challengeId: string | null;
-  walletAddress: string | null;
-  appId: string | null;
+// Minimal subset of the Magic Web SDK surface we actually call. Avoids a
+// hard dependency on Magic's TS surface here — we type-check the values
+// we use (`auth.loginWithEmailOTP`, `user.logout`) and treat the rest as
+// opaque. The full SDK type lives in `magic-sdk` and is loaded lazily so
+// the package isn't pulled into every page bundle.
+interface MagicSdk {
+  auth: {
+    loginWithEmailOTP(args: { email: string }): Promise<string | null>;
+  };
+  user: {
+    logout(): Promise<boolean>;
+    isLoggedIn(): Promise<boolean>;
+  };
 }
 
 interface Props {
@@ -87,19 +62,34 @@ export default function ConnectWalletButton({
     null,
   );
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [emailExpanded, setEmailExpanded] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Lazy-loaded SDK instance. Loaded only on the first connect attempt so
   // the package isn't pulled into the public-header bundle of every page.
-  const sdkRef = useRef<CircleSdk | null>(null);
-  async function getSdk(): Promise<CircleSdk> {
+  const sdkRef = useRef<MagicSdk | null>(null);
+  async function getSdk(): Promise<MagicSdk> {
     if (sdkRef.current) return sdkRef.current;
-    const mod = (await import("@circle-fin/w3s-pw-web-sdk")) as unknown as {
-      W3SSdk: new () => CircleSdk;
+    const publishableKey = process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY;
+    if (!publishableKey) {
+      throw new Error(
+        "NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY is not set — cannot init Magic SDK",
+      );
+    }
+    const rpcUrl =
+      process.env.NEXT_PUBLIC_MAGIC_RPC_URL ?? "https://mainnet.base.org";
+    const chainId = Number(
+      process.env.NEXT_PUBLIC_MAGIC_CHAIN_ID ?? "8453",
+    );
+    const mod = (await import("magic-sdk")) as unknown as {
+      Magic: new (
+        key: string,
+        opts: { network: { rpcUrl: string; chainId: number } },
+      ) => MagicSdk;
     };
-    const sdk = new mod.W3SSdk();
+    const sdk = new mod.Magic(publishableKey, {
+      network: { rpcUrl, chainId },
+    });
     sdkRef.current = sdk;
     return sdk;
   }
@@ -107,7 +97,7 @@ export default function ConnectWalletButton({
   // Hydrate from existing session cookie on mount.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/circle/me", { credentials: "same-origin" })
+    fetch("/api/auth/magic/me", { credentials: "same-origin" })
       .then(async (res) => {
         if (cancelled) return;
         if (res.status === 204) {
@@ -129,105 +119,8 @@ export default function ConnectWalletButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const finalizeSession = useCallback(
-    async (forEmail: string) => {
-      setPhase("completing");
-      const res = await fetch("/api/auth/circle/complete", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ email: forEmail }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(body.error || "Failed to finalize session");
-      }
-      const data = (await res.json()) as { contributor: ContributorProfile };
-      setContributor(data.contributor);
-      setPhase("connected");
-      onChange?.(data.contributor);
-    },
-    [onChange],
-  );
-
-  // Stage 3: hit /circle/init (consumes the email-verified cookie), drive
-  // the Circle PIN UI, then finalize the session. Split out so both the
-  // post-verify path and the "already onboarded" short-circuit reuse it.
-  const runCircleInit = useCallback(
-    async (forEmail: string) => {
-      setPhase("initializing");
-      const res = await fetch("/api/auth/circle/init", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ email: forEmail }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: string;
-          reason?: string;
-        };
-        // 403 with reason=email_not_verified means the cookie wasn't there
-        // — likely a stale session or someone hit /init directly. Bounce
-        // them back to the OTP step rather than show a generic error.
-        if (res.status === 403 && body.reason === "email_not_verified") {
-          setErrorMsg("Email verification expired. Request a new code.");
-          setPhase("collecting_email");
-          return;
-        }
-        throw new Error(body.error || "init failed");
-      }
-      const init = (await res.json()) as InitResponse;
-
-      if (!init.challengeId) {
-        // Already onboarded — Circle has a wallet, mint our session.
-        await finalizeSession(forEmail);
-        return;
-      }
-      if (!init.appId) {
-        throw new Error(
-          "Circle appId missing — set NEXT_PUBLIC_CIRCLE_APP_ID in env.",
-        );
-      }
-
-      const sdk = await getSdk();
-      sdk.setAppSettings({ appId: init.appId });
-      sdk.setAuthentication({
-        userToken: init.userToken,
-        encryptionKey: init.encryptionKey,
-      });
-
-      setPhase("awaiting_pin");
-      sdk.execute(init.challengeId, async (err, result) => {
-        if (err) {
-          setErrorMsg(err.message || "PIN challenge failed");
-          setPhase("error");
-          return;
-        }
-        if (result?.status !== "COMPLETE") {
-          setErrorMsg(
-            `Challenge ended with status ${result?.status ?? "unknown"}`,
-          );
-          setPhase("error");
-          return;
-        }
-        try {
-          await finalizeSession(forEmail);
-        } catch (e) {
-          setErrorMsg(e instanceof Error ? e.message : "completion failed");
-          setPhase("error");
-        }
-      });
-    },
-    [finalizeSession],
-  );
-
-  // Stage 1: user submits email → server emails a 6-digit code, UI swaps
-  // to the code-entry field. We never call /circle/init here; that only
-  // fires after the OTP is verified, otherwise anyone could front-run a
-  // famous-name email.
+  // Single-shot sign-in: open Magic's OTP modal for the supplied email,
+  // wait for the DID token, hand it to our server to mint the session.
   const submitEmail = useCallback(async () => {
     setErrorMsg(null);
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -236,73 +129,52 @@ export default function ConnectWalletButton({
       return;
     }
     try {
-      setPhase("sending_otp");
-      const res = await fetch("/api/auth/email/request-otp", {
+      setPhase("authenticating");
+      const sdk = await getSdk();
+      // Magic shows their iframe OTP modal here and resolves with a DID
+      // token once the user enters the correct code. Returns null if the
+      // user cancels — treat that as "back to idle" without an error.
+      const didToken = await sdk.auth.loginWithEmailOTP({ email });
+      if (!didToken) {
+        setPhase("collecting_email");
+        return;
+      }
+      const res = await fetch("/api/auth/magic/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ email }),
-      });
-      // /request-otp always 200s — even on rate-limit — to prevent email
-      // enumeration. Branch on .ok only for network/5xx.
-      if (!res.ok) throw new Error("Could not send code. Try again.");
-      setPhase("collecting_code");
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "unexpected error");
-      setPhase("error");
-    }
-  }, [email]);
-
-  // Stage 2: user types the 6-digit code → server verifies + sets the
-  // email-verified cookie → we kick off the Circle init flow.
-  const submitCode = useCallback(async () => {
-    setErrorMsg(null);
-    const trimmed = code.trim();
-    if (!/^\d{6}$/.test(trimmed)) {
-      setErrorMsg("Enter the 6-digit code from your email.");
-      return;
-    }
-    try {
-      setPhase("verifying_code");
-      const res = await fetch("/api/auth/email/verify-otp", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ email, code: trimmed }),
+        body: JSON.stringify({ didToken }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
-        setErrorMsg(body.error || "Code didn't match.");
-        setPhase("collecting_code");
-        return;
+        throw new Error(body.error || "Sign-in failed");
       }
-      await runCircleInit(email);
+      const data = (await res.json()) as { contributor: ContributorProfile };
+      setContributor(data.contributor);
+      setPhase("connected");
+      onChange?.(data.contributor);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "unexpected error");
       setPhase("error");
     }
-  }, [code, email, runCircleInit]);
-
-  const resendCode = useCallback(async () => {
-    setErrorMsg(null);
-    setCode("");
-    setPhase("sending_otp");
-    await fetch("/api/auth/email/request-otp", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ email }),
-    }).catch(() => null);
-    setPhase("collecting_code");
-  }, [email]);
+  }, [email, onChange]);
 
   const disconnect = useCallback(async () => {
-    await fetch("/api/auth/circle/logout", {
+    // Clear our own cookie first (cheap, server-side). Magic logout is
+    // best-effort — a Magic-side network blip shouldn't trap the user in
+    // the connected UI on our app.
+    await fetch("/api/auth/magic/logout", {
       method: "POST",
       credentials: "same-origin",
-    });
+    }).catch(() => null);
+    try {
+      const sdk = await getSdk();
+      await sdk.user.logout();
+    } catch {
+      /* non-fatal */
+    }
     setContributor(null);
     setEmail("");
     setEmailExpanded(false);
@@ -362,71 +234,11 @@ export default function ConnectWalletButton({
     );
   }
 
-  const busy =
-    phase === "sending_otp" ||
-    phase === "verifying_code" ||
-    phase === "initializing" ||
-    phase === "awaiting_pin" ||
-    phase === "completing";
-
-  const busyLabel = (() => {
-    if (phase === "sending_otp") return "Sending code…";
-    if (phase === "verifying_code") return "Verifying…";
-    if (phase === "initializing") return "Setting up…";
-    if (phase === "awaiting_pin") return "Set your 6-digit PIN…";
-    if (phase === "completing") return "Finishing up…";
-    return null;
-  })();
-
-  // After OTP is sent, swap the email field for the code field. Stays
-  // in code-entry mode through verify + Circle init + PIN — busyLabel
-  // narrates each step inside the same UI panel.
-  const inCodePhase =
-    phase === "collecting_code" ||
-    phase === "verifying_code" ||
-    phase === "initializing" ||
-    phase === "awaiting_pin" ||
-    phase === "completing";
+  const busy = phase === "authenticating";
+  const busyLabel = busy ? "Check your email…" : null;
 
   // ── COMPACT (HEADER) ───────────────────────────────────────────────
   if (compact) {
-    if (inCodePhase) {
-      return (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitCode();
-          }}
-          className={`flex items-center gap-1 ${className ?? ""}`}
-        >
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="123456"
-            disabled={busy}
-            autoFocus
-            className="rex-input text-[10px] sm:text-[11px] h-7 w-20 px-2 font-mono tracking-widest"
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            className="text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors disabled:opacity-50"
-          >
-            {busyLabel ?? "Verify ▸"}
-          </button>
-          {errorMsg && (
-            <span className="text-[10px] text-red-400 ml-1" role="alert">
-              {errorMsg}
-            </span>
-          )}
-        </form>
-      );
-    }
-    // Collapsed: a single link that, on click, expands an inline email
-    // input. Keeps the header thin until the user actually wants to sign in.
     if (!emailExpanded && phase === "idle") {
       return (
         <button
@@ -475,69 +287,6 @@ export default function ConnectWalletButton({
   }
 
   // ── FULL (IN-FORM) ─────────────────────────────────────────────────
-  if (inCodePhase) {
-    return (
-      <div className={className}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitCode();
-          }}
-          className="flex gap-2"
-        >
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="123456"
-            disabled={busy}
-            autoFocus
-            className="rex-input flex-1 font-mono tracking-widest text-lg"
-          />
-          <button type="submit" disabled={busy} className="rex-btn whitespace-nowrap">
-            {busyLabel ?? "Verify"}
-          </button>
-        </form>
-        <p
-          className="mt-2 text-[11px]"
-          style={{ color: "var(--rex-text-dim)" }}
-        >
-          We sent a 6-digit code to <span className="font-mono">{email}</span>.
-          {" "}
-          <button
-            type="button"
-            onClick={resendCode}
-            disabled={busy}
-            className="underline hover:text-white transition-colors disabled:opacity-50"
-          >
-            Resend
-          </button>{" "}
-          or{" "}
-          <button
-            type="button"
-            onClick={() => {
-              setCode("");
-              setErrorMsg(null);
-              setPhase("collecting_email");
-            }}
-            disabled={busy}
-            className="underline hover:text-white transition-colors disabled:opacity-50"
-          >
-            change email
-          </button>
-          .
-        </p>
-        {errorMsg && (
-          <p className="mt-2 text-xs text-red-400" role="alert">
-            {errorMsg}
-          </p>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className={className}>
       <form
@@ -556,16 +305,15 @@ export default function ConnectWalletButton({
           className="rex-input flex-1"
         />
         <button type="submit" disabled={busy} className="rex-btn whitespace-nowrap">
-          {busyLabel ?? "Send code"}
+          {busyLabel ?? "Sign in"}
         </button>
       </form>
       <p
         className="mt-2 text-[11px]"
         style={{ color: "var(--rex-text-dim)" }}
       >
-        Enter your email — we&apos;ll send a 6-digit code, then provision
-        a wallet for you (no seed phrase, no MetaMask). You&apos;ll set a
-        6-digit PIN to confirm actions.
+        Enter your email — we&apos;ll send a one-time code. No seed phrase,
+        no MetaMask. Your wallet is restored from your email every time.
       </p>
       {errorMsg && (
         <p className="mt-2 text-xs text-red-400" role="alert">

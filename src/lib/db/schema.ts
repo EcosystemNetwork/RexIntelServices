@@ -489,6 +489,13 @@ export type IntelPayload = {
   // UPDATE branches in those importers refuse to overwrite a row unless
   // sourceHarvester matches.
   sourceHarvester?: "defillama" | "rekt";
+  // Editorial heat flag — opt-in marker for high-temperature investigative
+  // pieces (named-and-shamed accusations, active-operator exposes, things
+  // we expect legal interest in). Renders as an animated fire chip on the
+  // listing + detail. Distinct from `featured` (editorial bar / digest
+  // eligibility) and `kind=incident` (postmortem flavor) — spicy is purely
+  // a heat signal.
+  spicy?: boolean;
 };
 
 export type EventPayload = {
@@ -1010,25 +1017,31 @@ export const addressAttributions = pgTable(
 // =====================================================================
 
 // Submitters are the "people" side of the platform. Identity is anchored
-// on a Circle programmable wallet (user-controlled, email-onboarded, PIN-
-// signed) — the user enters an email, Circle issues them an on-chain
-// wallet without seed-phrase UX, and we record (circleUserId, walletAddress,
-// email) as the contributor identity. Email is the entry point; wallet
-// stays canonical for the points ledger and the address-graph moat.
-// Anonymous tips bypass this table entirely.
+// on a Magic Link dedicated wallet (email-onboarded, no seed phrase) — the
+// user enters an email, Magic mints/restores their on-chain wallet behind
+// an OTP challenge, and we record (magicIssuer, walletAddress, email) as
+// the contributor identity. Email is the entry point; wallet stays
+// canonical for the points ledger and the address-graph moat. Anonymous
+// tips bypass this table entirely.
+//
+// circleUserId is retained for legacy rows from the prior Circle-DCW auth
+// rail. New sign-ins write magicIssuer instead; circleUserId can be dropped
+// in a follow-up migration once no live row references it.
 export const submitters = pgTable(
   "submitters",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     email: text("email"),
-    // Circle programmable-wallet user id (UUID we generate and hand to
-    // Circle when provisioning). Stable for the life of the contributor;
-    // separate from our internal submitter id so Circle API calls and our
-    // own joins don't collide.
+    // Magic Link issuer DID — stable cross-session identifier from the Magic
+    // Admin SDK (`getMetadataByIssuer`). Format: `did:ethr:0x...`. Unique
+    // when present.
+    magicIssuer: text("magic_issuer"),
+    // Legacy Circle programmable-wallet user id (UUID we generated). Read-
+    // only after the Magic migration; kept for historical join correctness.
     circleUserId: text("circle_user_id"),
-    // Lowercased hex wallet address returned by Circle after user
-    // initialization. Unique when present; the address-graph layer indexes
-    // these as nodes alongside externally-attributed addresses.
+    // Lowercased hex wallet address from Magic (or legacy Circle). Unique
+    // when present; the address-graph layer indexes these as nodes alongside
+    // externally-attributed addresses.
     walletAddress: text("wallet_address"),
     walletChain: text("wallet_chain").default("ethereum"),
     displayHandle: text("display_handle"),
@@ -1067,6 +1080,9 @@ export const submitters = pgTable(
     circleUserIdx: uniqueIndex("submitters_circle_user_idx")
       .on(t.circleUserId)
       .where(sql`${t.circleUserId} IS NOT NULL`),
+    magicIssuerIdx: uniqueIndex("submitters_magic_issuer_idx")
+      .on(t.magicIssuer)
+      .where(sql`${t.magicIssuer} IS NOT NULL`),
     walletIdx: uniqueIndex("submitters_wallet_idx").on(
       sql`lower(${t.walletAddress})`,
     ),

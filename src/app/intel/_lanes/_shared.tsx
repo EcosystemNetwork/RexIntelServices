@@ -194,6 +194,26 @@ export function FeaturedTag() {
   );
 }
 
+/** Editorial heat marker — animated flame chip rendered alongside Featured
+ *  for high-temperature investigative pieces. Driven by `IntelPayload.spicy`. */
+export function SpicyTag() {
+  return (
+    <span
+      className="spicy-chip px-1.5 py-0.5 rounded-sm inline-flex items-center gap-1"
+      style={{
+        background: "rgba(255,90,0,0.10)",
+        color: "#ff8a3d",
+        border: "1px solid rgba(255,90,0,0.45)",
+      }}
+    >
+      <span className="spicy-flame" aria-hidden="true">
+        🔥
+      </span>
+      Spicy
+    </span>
+  );
+}
+
 export function ClosedTag({ label = "Deadline passed" }: { label?: string }) {
   return (
     <span

@@ -26,6 +26,7 @@ type ArticleSpec = {
   severity: "low" | "medium" | "high" | "critical";
   sources: string[];
   links: string[];
+  spicy?: boolean;
 };
 
 const ARTICLES: ArticleSpec[] = [
@@ -36,6 +37,7 @@ const ARTICLES: ArticleSpec[] = [
     dek: "How a $54 user-research interview became the most expensive Zoom call of one crypto founder's life — and exposed an active drainer ring.",
     category: "Drainer-as-a-service",
     severity: "critical",
+    spicy: true,
     sources: [
       "https://www.mesh.xyz/post/despark",
       "https://consensysmesh.medium.com/despark-5d769b08b830",
@@ -129,6 +131,7 @@ async function ship(spec: ArticleSpec) {
     personas: ["founder", "developer", "investor", "investigator", "journalist"],
     sources: spec.sources,
     links: spec.links,
+    spicy: spec.spicy,
   };
 
   const now = new Date();

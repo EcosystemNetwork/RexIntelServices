@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
+    "@magic-sdk/admin": "^2.8.2",
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
@@ -28,6 +29,7 @@
     "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.8.0",
     "iron-session": "^8.0.3",
+    "magic-sdk": "^33.7.1",
     "nanoid": "^5.0.7",
     "next": "^14.2.0",
     "papaparse": "^5.4.1",

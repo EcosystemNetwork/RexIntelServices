@@ -15,6 +15,7 @@ import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 import { VoteButton } from "@/components/vote-button";
 import { VOTER_COOKIE_NAME, verifyVoterCookie } from "@/lib/voter-cookie";
 import { PrizePoolBanner } from "@/app/intel/_lanes/signals";
+import { SpicyTag } from "@/app/intel/_lanes/_shared";
 import { getCircleSession } from "@/lib/circle-auth";
 import { meetsTier } from "@/lib/clearance";
 import { ClearanceWall } from "@/components/clearance-wall";
@@ -402,6 +403,7 @@ export default async function IntelDetailPage({
                 ★ Featured
               </span>
             )}
+            {payload.spicy && <SpicyTag />}
             {payload.kind === "original" && (
               <span
                 className="px-2 py-0.5 rounded-sm"

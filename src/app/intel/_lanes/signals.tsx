@@ -11,7 +11,7 @@ import {
   monthBounds,
 } from "@/lib/prize-pool";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
-import { Chip, EmptyState, FilterBar } from "./_shared";
+import { Chip, EmptyState, FilterBar, SpicyTag } from "./_shared";
 
 const SEVERITY_TONE: Record<
   NonNullable<IntelPayload["severity"]>,
@@ -338,6 +338,7 @@ function IntelCard({
             ★ Featured
           </span>
         )}
+        {payload.spicy && <SpicyTag />}
         {payload.kind === "original" && (
           <span
             className="px-1.5 py-0.5 rounded-sm"
