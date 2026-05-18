@@ -50,7 +50,7 @@ Three patterns matter:
 
 The participant did not initially recognize what he was seeing. Most cryptocurrency users, when funds disappear from a wallet, suspect themselves first: did I sign something I shouldn't have, did I use a phishing site, did I authorize a malicious approval. The pattern of "Crypto.com deposit → instant sweep, every single time, to a different address" only becomes legible when laid out as a chronology. It is, in retrospect, the classic and unambiguous signature of a **compromised-private-key sweeper** — an attacker who possesses the wallet's signing authority and is monitoring it continuously for any inbound value.
 
-The most common vector for such a compromise, in 2025–2026, is a **private key inadvertently committed to a public GitHub repository** and subsequently harvested by an automated scraper. We will return to that in a moment.
+The vector in this case, confirmed by the participant, was a **private key inadvertently committed and pushed to GitHub** and subsequently harvested by an automated scraper. The specific commit and repository remain under investigation by the participant at the time of publication; the on-chain pattern is consistent with the well-documented behavior of public-Git-event firehose harvesters of the kind described below.
 
 ---
 
@@ -113,7 +113,7 @@ The participant in this case file is, by these counts, approximately the **196th
 
 We are not asserting that this operator is identical to any specific previously-documented drainer-as-a-service crew (Pink Drainer, Inferno Drainer, Angel Drainer, Drainware, others). The infrastructure pattern — per-victim forwarder, vanity-branded aggregation sink, immediate cash-out fanout — is shared across the named families and any number of unnamed ones. RexIntel's evidence at this stage is sufficient to identify the operator wallet as drainer-aggregation infrastructure but not, by itself, sufficient to attribute it to a named family.
 
-We are not asserting the identity of the harvesting tool, the originating repository, or the moment of compromise. Those details require source-side forensics that the participant is still in the process of conducting at the time of this publication.
+We are not asserting the identity of the harvesting tool, the specific GitHub repository, or the exact commit at which the key was first pushed. The participant has confirmed GitHub as the leak surface but the specific source-side artifact remains under investigation at the time of publication.
 
 We are saying:
 
