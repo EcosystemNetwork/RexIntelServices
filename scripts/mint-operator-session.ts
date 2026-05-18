@@ -11,6 +11,12 @@ import { sealData } from "iron-session";
 import { findOrCreateOperatorUser, isOperatorEmail } from "../src/lib/auth";
 
 async function main() {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    console.error(
+      "✕ refuse to run in production — this script bypasses Magic OTP",
+    );
+    process.exit(1);
+  }
   const email = (process.argv[2] ?? "rexintelservices@proton.me").trim().toLowerCase();
   if (!isOperatorEmail(email)) {
     console.error(`✕ ${email} not in OPERATOR_EMAILS allowlist`);

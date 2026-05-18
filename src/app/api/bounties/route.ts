@@ -102,6 +102,23 @@ export async function GET(req: NextRequest) {
 // =====================================================================
 
 export async function POST(req: NextRequest) {
+  // Custody-rail kill switch. Circle DCW was ripped 2026-05-18; the
+  // replacement rail isn't picked yet, so accepting new bounties would
+  // create dead rows the victim can never fund. Flip the env to "true"
+  // once the new escrow rail (Privy / self-custody EOA / on-chain
+  // escrow contract) ships.
+  if (process.env.BOUNTY_CUSTODY_RAIL_ENABLED !== "true") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "custody_rail_disabled",
+        message:
+          "Bounty creation is temporarily paused while the escrow rail is rebuilt.",
+      },
+      { status: 503 },
+    );
+  }
+
   const ip = clientIp(req);
 
   // 5 draft bounty creates per IP per hour — bounties are economically

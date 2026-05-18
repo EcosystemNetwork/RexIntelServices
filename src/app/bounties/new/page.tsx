@@ -17,6 +17,48 @@ export default async function PostBountyPage({
 }: {
   searchParams: { trace?: string };
 }) {
+  // Custody-rail kill switch — see /api/bounties POST handler. We render
+  // a "paused" notice instead of the form so victims aren't filling out
+  // 12 fields that 503 on submit.
+  if (process.env.BOUNTY_CUSTODY_RAIL_ENABLED !== "true") {
+    return (
+      <PublicShell
+        classification={[
+          { text: "● Public · Bounties paused" },
+        ]}
+      >
+        <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-6">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-warning)]">
+            ● Bounty intake temporarily paused
+          </div>
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+            Custody rail is being rebuilt.
+          </h1>
+          <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
+            RexIntel is rebuilding the bounty escrow rail. New bounty
+            submissions are paused until the replacement custody answer ships.
+            Existing bounties remain visible at{" "}
+            <a
+              href="/bounties"
+              className="text-[var(--rex-accent)] hover:underline"
+            >
+              /bounties
+            </a>
+            . If you&apos;re a victim with an active trace, you can still
+            file the trace at{" "}
+            <a
+              href="/trace"
+              className="text-[var(--rex-accent)] hover:underline"
+            >
+              /trace
+            </a>{" "}
+            and we&apos;ll surface it once intake reopens.
+          </p>
+        </main>
+      </PublicShell>
+    );
+  }
+
   // Optional anchor to an existing trace. If supplied we display the trace
   // summary so the victim sees they're posting against the right wallet.
   let trace: {

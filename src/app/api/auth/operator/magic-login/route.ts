@@ -78,6 +78,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Second limiter, keyed on the verified email. IP-only is bypassable
+  // from a proxy pool — without this an attacker can churn DIDs for a
+  // known operator address. 3 / email / 15min sits below the IP budget
+  // so it kicks in even when each request comes from a fresh IP.
+  const emailLimit = await rateLimit(
+    `operator-magic-login-email:${meta.email.toLowerCase()}`,
+    3,
+    15 * 60 * 1000,
+  );
+  if (!emailLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts. Try again later." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(emailLimit.retryAfterSec) },
+      },
+    );
+  }
+
   // Identical generic 401 whether the email is allowlisted or not — an
   // operator portal that distinguished "wrong email" from "wrong code"
   // would leak which addresses are admins.

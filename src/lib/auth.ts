@@ -113,13 +113,20 @@ export function isOperatorEmail(email: string): boolean {
  * schema, so new operator rows get an unusable placeholder — password
  * login is no longer wired up, so this hash will never be compared.
  *
- * Caller MUST have already verified the email via Magic DID token AND
- * confirmed `isOperatorEmail(email)` before calling.
+ * Caller MUST have already verified the email via Magic DID token.
+ * The allowlist check is re-asserted here as defense-in-depth so a
+ * future caller that forgets the precondition cannot silently
+ * provision an operator row.
  */
 export async function findOrCreateOperatorUser(
   email: string,
 ): Promise<{ id: string; email: string }> {
   const lower = email.trim().toLowerCase();
+  if (!isOperatorEmail(lower)) {
+    throw new Error(
+      `findOrCreateOperatorUser: refusing to provision non-allowlisted email ${lower}`,
+    );
+  }
   const [existing] = await db
     .select({ id: users.id, email: users.email })
     .from(users)

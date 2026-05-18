@@ -38,7 +38,10 @@ const PENDING_CLAIM_ABI = [
 export async function GET() {
   const session = await getMagicSession();
   if (!session) {
-    return NextResponse.json({ contributor: null, prizes: [] }, { status: 200 });
+    return NextResponse.json(
+      { error: "unauthenticated", contributor: null, prizes: [] },
+      { status: 401 },
+    );
   }
   const wallet = session.walletAddress.toLowerCase();
 
