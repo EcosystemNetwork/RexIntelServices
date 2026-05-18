@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronSecret } from "@/lib/cron-auth";
 import { and, asc, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { db, submissions, campaigns, tags } from "@/lib/db";
 import type {
@@ -39,16 +40,8 @@ const PRIORITY_PERSONAS: readonly PersonaSlug[] = [
  * draft is left untouched while missing personas are filled in.
  */
 export async function GET(req: Request) {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured on server" },
-      { status: 500 },
-    );
-  }
-  if (req.headers.get("authorization") !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const fail = verifyCronSecret(req);
+  if (fail) return NextResponse.json(fail.body, { status: fail.status });
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

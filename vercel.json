@@ -52,6 +52,10 @@
     {
       "path": "/api/cron/backfill-program-images",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/settle-monthly-prizes",
+      "schedule": "0 1 * * *"
     }
   ]
 }

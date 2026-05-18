@@ -188,12 +188,15 @@ const BLOCKED_HOST_PATTERNS = [
   /^10\./,
   /^192\.168\./,
   /^172\.(1[6-9]|2\d|3[01])\./,
-  /^169\.254\./,
-  /^0\./,
+  /^169\.254\./, // AWS IMDS, link-local
+  /^0\./, // 0.0.0.0/8
   /^::1$/,
   /^fc00:/i,
   /^fe80:/i,
+  /^100\.(6[4-9]|[789]\d|1[01]\d|12[0-7])\./, // CG-NAT
 ];
+
+const MAX_REDIRECTS = 5;
 
 function validateUrl(
   raw: string,
@@ -235,18 +238,68 @@ async function fetchHtml(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+  // SSRF defense: follow redirects manually and re-run validateUrl on each
+  // hop. `redirect: "follow"` would let an attacker bypass the initial
+  // hostname check by 302-ing into 169.254.169.254 (AWS IMDS) or any
+  // RFC1918 service. Cap at MAX_REDIRECTS to prevent loops.
+  let currentUrl = url;
+  let res: Response | null = null;
   try {
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
-
+    for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
+      res = await fetch(currentUrl.toString(), {
+        method: "GET",
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) break;
+        let next: URL;
+        try {
+          next = new URL(loc, currentUrl);
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: "fetch_failed",
+              message: "Redirect target was malformed.",
+            },
+          };
+        }
+        if (next.protocol !== "https:" && next.protocol !== "http:") {
+          return {
+            ok: false,
+            error: {
+              code: "blocked_host",
+              message: "Redirect target used a non-http protocol.",
+            },
+          };
+        }
+        if (BLOCKED_HOST_PATTERNS.some((re) => re.test(next.hostname))) {
+          return {
+            ok: false,
+            error: {
+              code: "blocked_host",
+              message: "Redirect target is on a blocked host.",
+            },
+          };
+        }
+        currentUrl = next;
+        continue;
+      }
+      break;
+    }
+    if (!res) {
+      return {
+        ok: false,
+        error: { code: "fetch_failed", message: "No response." },
+      };
+    }
     if (!res.ok) {
       return {
         ok: false,

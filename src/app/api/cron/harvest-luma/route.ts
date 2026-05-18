@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronSecret } from "@/lib/cron-auth";
 import { runLumaHarvest } from "@/lib/luma-harvest";
 
 /**
@@ -20,16 +21,8 @@ import { runLumaHarvest } from "@/lib/luma-harvest";
 export const maxDuration = 300; // ~40 calendars × ~2s = ~80s, leave headroom
 
 export async function GET(req: Request) {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured on server" },
-      { status: 500 },
-    );
-  }
-  if (req.headers.get("authorization") !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const fail = verifyCronSecret(req);
+  if (fail) return NextResponse.json(fail.body, { status: fail.status });
 
   const startedAt = Date.now();
   const summary = await runLumaHarvest({

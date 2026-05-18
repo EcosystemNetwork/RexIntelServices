@@ -60,6 +60,19 @@ export class CircleAuthGateError extends Error {
 
 const SESSION_COOKIE = "rex_circle_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
+// Short-lived sealed cookie set at the end of /init that proves the same
+// browser just completed the OTP gate for this email. Required by /complete
+// — without it, anyone who knew a victim's email could POST and walk away
+// as them. 30-minute TTL covers a slow user finishing the Circle PIN flow.
+const CIRCLE_HANDOFF_COOKIE = "rex_circle_handoff";
+const CIRCLE_HANDOFF_TTL_SECONDS = 60 * 30;
+
+interface CircleHandoffPayload {
+  email: string;
+  submitterId: string;
+  mintedAt: number;
+}
 // Circle W3S uses ONE base URL for both TEST_API_KEY (testnet) and
 // LIVE_API_KEY (mainnet) — the key prefix is the toggle, not the URL.
 // CIRCLE_BASE_URL override exists only for future region endpoints.
@@ -437,6 +450,15 @@ export async function beginCircleAuth(email: string): Promise<InitResult> {
     }
   }
 
+  // Email-ownership handoff for /complete. The OTP cookie was consumed
+  // above, so /complete needs its own proof that this same browser just
+  // passed the OTP gate for this email. Single-use, 30-min TTL.
+  await setCircleHandoffCookie({
+    email: email.toLowerCase(),
+    submitterId: sub.id,
+    mintedAt: Date.now(),
+  });
+
   return {
     submitterId: sub.id,
     circleUserId,
@@ -447,15 +469,59 @@ export async function beginCircleAuth(email: string): Promise<InitResult> {
   };
 }
 
+async function setCircleHandoffCookie(payload: CircleHandoffPayload) {
+  const sealed = await sealData(payload, { password: getSessionPassword() });
+  cookies().set(CIRCLE_HANDOFF_COOKIE, sealed, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: CIRCLE_HANDOFF_TTL_SECONDS,
+  });
+}
+
+async function consumeCircleHandoffCookie(email: string): Promise<boolean> {
+  const raw = cookies().get(CIRCLE_HANDOFF_COOKIE)?.value;
+  if (!raw) return false;
+  // Single-use: delete first so a failed verification can't be retried.
+  cookies().delete(CIRCLE_HANDOFF_COOKIE);
+  let payload: CircleHandoffPayload;
+  try {
+    payload = await unsealData<CircleHandoffPayload>(raw, {
+      password: getSessionPassword(),
+    });
+  } catch {
+    return false;
+  }
+  if (payload.email.toLowerCase() !== email.toLowerCase()) return false;
+  if (Date.now() - payload.mintedAt > CIRCLE_HANDOFF_TTL_SECONDS * 1000) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Complete the auth flow after the client SDK has finished the PIN
  * challenge. Re-mints a fresh userToken (the one returned by /init may
  * have expired) and fetches the wallet that Circle just provisioned.
  * Persists the wallet on the submitter row and mints our session cookie.
+ *
+ * Email-ownership proof: consumes the rex_circle_handoff cookie set at
+ * the end of beginCircleAuth and verifies its email matches the request.
+ * Without this gate, /complete would mint a session for any email a
+ * stranger POSTed — a full account takeover. The cookie has a 30-min TTL
+ * and is single-use.
  */
 export async function completeCircleAuth(args: {
   email: string;
 }): Promise<Submitter> {
+  const handoffOk = await consumeCircleHandoffCookie(args.email);
+  if (!handoffOk) {
+    throw new CircleAuthGateError(
+      "email_not_verified",
+      "Circle handoff missing or expired. Restart the sign-in flow.",
+    );
+  }
   const sub = await upsertSubmitterByEmail(args.email);
   if (!sub.circleUserId) {
     throw new Error("circle: missing circleUserId on submitter at complete");

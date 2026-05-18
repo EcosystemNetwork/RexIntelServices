@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronSecret } from "@/lib/cron-auth";
 import { runProgramImageBackfill } from "@/lib/backfill-program-images";
 
 /**
@@ -24,16 +25,8 @@ import { runProgramImageBackfill } from "@/lib/backfill-program-images";
 export const maxDuration = 300;
 
 export async function GET(req: Request) {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured on server" },
-      { status: 500 },
-    );
-  }
-  if (req.headers.get("authorization") !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const fail = verifyCronSecret(req);
+  if (fail) return NextResponse.json(fail.body, { status: fail.status });
 
   const summary = await runProgramImageBackfill({
     limit: 80,

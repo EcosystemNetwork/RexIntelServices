@@ -314,6 +314,11 @@ export async function getMonthlyTopIntel(opts: {
   const coolingInterval = sql.raw(
     `INTERVAL '${VOTE_COOLING_HOURS} hours'`,
   );
+  // Self-vote exclusion: a voter whose subscriber email matches the
+  // submission's submitter email is dropped from the count. Defense in
+  // depth — the /vote/cast and /vote/confirm routes also reject these,
+  // but the leaderboard is the surface that pays money, so it owns the
+  // last word. Comparison is lower-cased on both sides.
   const rows = await db
     .select({
       publicId: submissions.publicId,
@@ -340,6 +345,7 @@ export async function getMonthlyTopIntel(opts: {
       and(
         eq(subscribers.id, intelVotes.subscriberId),
         sql`${subscribers.createdAt} <= ${intelVotes.votedAt} - ${coolingInterval}`,
+        sql`lower(${subscribers.email}) <> lower(${submissions.submitterEmail})`,
       ),
     )
     .where(

@@ -420,12 +420,17 @@ async function linkAddressesToSubmission(
 
     let addressId = existing?.id;
     if (!addressId) {
+      // Defamation guard: a submission is "pending" at this point — no
+      // curator approval. Free-form user `label` must NOT land on
+      // addresses.label (which renders as the H1 on the address detail
+      // page) before review. Labels are only promoted via curator-side
+      // tooling or harvester-driven attribution rows.
       const [inserted] = await db
         .insert(addresses)
         .values({
           chain: input.chain,
           address: input.address,
-          label: input.label || null,
+          label: null,
         })
         .onConflictDoNothing()
         .returning({ id: addresses.id });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { unsealData } from "iron-session";
+import { siteUrl } from "@/lib/site-url";
 
 // Admin pages and API routes that require authentication
 const PROTECTED_PREFIXES = [
@@ -198,7 +199,56 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // CSRF guard on every state-changing admin API call. Defense in depth on
+  // top of the newsletter_session cookie's SameSite=Lax — Lax blocks
+  // classic cross-site POSTs in modern browsers but not (a) top-level form
+  // POSTs across origins or (b) requests from another path on the same
+  // Vercel project. Without this, an admin browsing evil.com could trigger
+  // a state-changing POST that carries the session cookie. The
+  // /api/campaigns/[id]/send route is the worst case — one form post =
+  // entire newsletter blast.
+  if (
+    isProtectedApi &&
+    (req.method === "POST" ||
+      req.method === "PATCH" ||
+      req.method === "PUT" ||
+      req.method === "DELETE")
+  ) {
+    if (!isAcceptableOrigin(req)) {
+      return NextResponse.json({ error: "bad_origin" }, { status: 403 });
+    }
+  }
+
   return publicResponse(req);
+}
+
+function isAcceptableOrigin(req: NextRequest): boolean {
+  let expectedHost: string;
+  try {
+    expectedHost = new URL(siteUrl()).host;
+  } catch {
+    return false;
+  }
+  const origin = req.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).host === expectedHost;
+    } catch {
+      return false;
+    }
+  }
+  const referer = req.headers.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).host === expectedHost;
+    } catch {
+      return false;
+    }
+  }
+  // No Origin and no Referer — browsers always send at least one on a
+  // state-changing request. Curl/bot traffic without either is exactly the
+  // shape we want to reject here.
+  return false;
 }
 
 export const config = {

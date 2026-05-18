@@ -184,6 +184,11 @@ export async function runTrace(traceId: string): Promise<{
           // Write a victim-trace attribution row so the counterparty enters
           // the moat layer. label is null so harvester-curated labels aren't
           // clobbered; notes records the originating trace for provenance.
+          //
+          // Category is null for non-terminal hops — a hop into Uniswap or
+          // Lido is just provenance, not a "hack-destination" claim. Only
+          // terminal hits (exchange/mixer/bridge/sanctioned/government-
+          // seized/scam) inherit their existing authoritative category.
           try {
             await upsertAttribution({
               chain: trace.chain,
@@ -191,7 +196,7 @@ export async function runTrace(traceId: string): Promise<{
               source: "victim-trace",
               sourceRef: `trace:${trace.publicId}`,
               sourceUrl: null,
-              category: terminalReason === "attribution_match" ? toCat : "hack-destination",
+              category: terminalReason === "attribution_match" ? toCat : null,
               confidence: 25,
               notes: `Reached via victim-trace ${trace.publicId} at depth ${depth}`,
               reportedAt: e.timestamp,

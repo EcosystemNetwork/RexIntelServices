@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { and, eq } from "drizzle-orm";
-import { db, submissions, subscribers, intelVotes } from "@/lib/db";
+import { and, eq, sql } from "drizzle-orm";
+import { db, submissions, subscribers, intelVotes, submitters } from "@/lib/db";
 import { verifyVoterCookie, VOTER_COOKIE_NAME } from "@/lib/voter-cookie";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
@@ -56,21 +56,34 @@ export async function POST(req: NextRequest) {
   // Defense in depth — the cookie is signed, but if a subscriber row was
   // deleted (e.g. GDPR erasure) the FK would 500. Verify they still exist
   // and are not bounced/unsubscribed in a way that should block voting.
+  // Collapse all rejection reasons to a single 401 so an attacker with a
+  // leaked cookie can't infer the deliverability/ban status of the bound
+  // subscriber. The ban join is intentional: bounty-bad-faith bans
+  // identity-wide; serial bad-actor submitters can't vote either.
   const [sub] = await db
-    .select({ id: subscribers.id, status: subscribers.status })
+    .select({
+      id: subscribers.id,
+      email: subscribers.email,
+      status: subscribers.status,
+      submitterBannedAt: submitters.bountyBannedAt,
+    })
     .from(subscribers)
+    .leftJoin(
+      submitters,
+      sql`lower(${submitters.email}) = lower(${subscribers.email})`,
+    )
     .where(eq(subscribers.id, subscriberId))
     .limit(1);
-  if (!sub) {
+  if (
+    !sub ||
+    sub.status === "bounced" ||
+    sub.status === "complained" ||
+    sub.status === "unsubscribed" ||
+    sub.submitterBannedAt
+  ) {
     return NextResponse.json(
-      { error: "Voter not found." },
+      { error: "Voter not eligible." },
       { status: 401 },
-    );
-  }
-  if (sub.status === "bounced" || sub.status === "complained") {
-    return NextResponse.json(
-      { error: "This voter account is not in good standing." },
-      { status: 403 },
     );
   }
 
@@ -87,7 +100,10 @@ export async function POST(req: NextRequest) {
   }
 
   const [intel] = await db
-    .select({ id: submissions.id })
+    .select({
+      id: submissions.id,
+      submitterEmail: submissions.submitterEmail,
+    })
     .from(submissions)
     .where(
       and(
@@ -102,6 +118,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "That intel doesn't exist or isn't live." },
       { status: 404 },
+    );
+  }
+
+  // Self-voting block — submitters cannot vote on their own intel. Match
+  // on lower-cased email since submissions stores user-typed casing and
+  // subscribers stores lower-cased. Returning a generic 403 (not "you
+  // can't self-vote") so the failure mode doesn't help an attacker map
+  // submitter ↔ subscriber identities across a leaderboard.
+  if (
+    intel.submitterEmail &&
+    sub.email &&
+    intel.submitterEmail.toLowerCase() === sub.email.toLowerCase()
+  ) {
+    return NextResponse.json(
+      { error: "Vote not eligible." },
+      { status: 403 },
     );
   }
 

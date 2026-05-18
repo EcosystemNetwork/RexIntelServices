@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronSecret } from "@/lib/cron-auth";
 import { and, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
@@ -206,16 +207,8 @@ function isNameHandled(title: string): boolean {
 }
 
 export async function GET(req: Request) {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured on server" },
-      { status: 500 },
-    );
-  }
-  if (req.headers.get("authorization") !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const fail = verifyCronSecret(req);
+  if (fail) return NextResponse.json(fail.body, { status: fail.status });
 
   let entries: RektEntry[];
   try {

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createHash } from "node:crypto";
-import { and, eq, isNull, gt } from "drizzle-orm";
+import { and, eq, isNull, gt, sql } from "drizzle-orm";
 import {
   db,
   voteTokens,
   subscribers,
   intelVotes,
   submissions,
+  submitters,
 } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import { detailHref } from "@/lib/slug";
@@ -78,12 +79,32 @@ export async function GET(
       publicId: submissions.publicId,
       payload: submissions.payload,
       status: submissions.status,
+      submitterEmail: submissions.submitterEmail,
     })
     .from(submissions)
     .where(eq(submissions.id, claimed.submissionId))
     .limit(1);
 
   if (!intel || intel.status !== "approved") {
+    return redirectToHome("invalid");
+  }
+
+  // Self-voting block — same as /vote/cast. Compare on lower-cased email.
+  if (
+    intel.submitterEmail &&
+    intel.submitterEmail.toLowerCase() === claimed.email.toLowerCase()
+  ) {
+    return redirectToHome("invalid");
+  }
+
+  // Ban gate — if the email belongs to a bounty-banned submitter, refuse
+  // to record the vote. The token is already consumed, by design.
+  const [bannedSubmitter] = await db
+    .select({ bannedAt: submitters.bountyBannedAt })
+    .from(submitters)
+    .where(sql`lower(${submitters.email}) = lower(${claimed.email})`)
+    .limit(1);
+  if (bannedSubmitter?.bannedAt) {
     return redirectToHome("invalid");
   }
 

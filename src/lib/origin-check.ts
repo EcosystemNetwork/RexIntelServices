@@ -42,13 +42,18 @@ export function isSameOrigin(req: NextRequest | Request): boolean {
 function acceptableOrigins(): Set<string> {
   const out = new Set<string>();
   out.add(originOnly(siteUrl()));
-  const vercel = process.env.VERCEL_URL;
-  if (vercel) {
-    out.add(originOnly(`https://${vercel}`));
-  }
-  // Localhost is acceptable in development for local browser testing of
-  // protected POST routes.
+  // VERCEL_URL is the per-deploy preview URL. In production we DO NOT
+  // accept it: an admin browsing a preview deployment would otherwise be
+  // CSRF-vulnerable to anything served from another path on the same
+  // Vercel project (subdomain XSS, accidental public preview). Restrict
+  // to the canonical apex in prod.
   if (process.env.NODE_ENV !== "production") {
+    const vercel = process.env.VERCEL_URL;
+    if (vercel) {
+      out.add(originOnly(`https://${vercel}`));
+    }
+    // Localhost is acceptable in development for local browser testing of
+    // protected POST routes.
     out.add("http://localhost:3000");
     out.add("http://127.0.0.1:3000");
   }
