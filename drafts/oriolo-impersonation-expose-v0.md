@@ -171,6 +171,8 @@ The participant remains anonymous at his request. Verification of his identity, 
 ## What we are asking
 
 > **Recovery reward.** An undisclosed reward is being offered for information leading to the recovery of the assets described in this article, provided by **[orangepills.xyz](https://orangepills.xyz)**. Tips, leads, and successful trace work all qualify. Email **rexintelservices@proton.me** with the subject line "Oriolo recovery" to claim.
+>
+> **Disclosure.** orangepills.xyz is operated by the same individual who operates RexIntel Investigations Desk. The reward is funded from that individual's personal resources, not from third-party sponsorship. We disclose this relationship in full so readers can weigh the editorial independence of this offer.
 
 **If you were approached on Telegram in the past 12 months by the handle `@oriollo_alessio`** — especially in or around ETH Denver, ETH Global, or similar pitch communities — and you have any unexplained on-chain activity in the hours or days that followed: email **rexintelservices@proton.me**. For end-to-end encrypted source protection, write to us from your own ProtonMail account.
 

@@ -3,7 +3,7 @@
  *
  * Ships the three 2026-05-18 investigative pieces:
  *   1. Despark / Consensys-Mesh drainer expose
- *   2. Oriolo / Orange Pills Telegram VC impersonation
+ *   2. Oriolo / ETH Denver Telegram VC impersonation
  *   3. Pink Drainer / NiftyDegen #5504 NFT scam (Blur.io vector)
  *
  * Each is inserted (or updated if already present) as kind=original,
