@@ -97,9 +97,7 @@ const ARTICLES: ArticleSpec[] = [
       "https://cryptopotato.com/pink-drainer-hackers-drain-4-4-million-in-link/",
     ],
     links: [
-      "https://etherscan.io/address/0x0f45C1d3275ABbd94DFD79dDE8e29990AB539c81",
       "https://etherscan.io/address/0x557896aa3e0d98268ace847576273d5575c24ee6",
-      "https://etherscan.io/tx/0x27fe443c920d6b4c2f21a229416b3254295c9f274b2cf614650eaacce47737ec",
     ],
   },
 ];

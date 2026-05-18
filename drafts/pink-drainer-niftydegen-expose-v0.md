@@ -32,16 +32,18 @@ The transfer history of token #5504 from the public Ethereum chain:
 |------|--------|-----------|
 | 2021-09-30 13:24 UTC | Mint | `0x0000000000...` → `0xf99c5ca37e52...` |
 | 2021-12-10 11:41 UTC | Sale | `0xf99c5ca37e52...` → `0x56340c11d6f5...` |
-| **2022-08-21 06:32 UTC** | **Purchase by participant (2.4 ETH)** | `0x56340c11d6f5...` → **`0x0f45C1d3275a...`** |
-| 2023-11-24 07:32 UTC | OpenSea listing | `0x0f45C1d3275a...` → `0x0000000000ad...` (OpenSea Seaport Conduit) |
-| 2023-12-04 09:48 UTC | OpenSea listing returned (unsold) | `0x0000000000ad...` → `0x0f45C1d3275a...` |
-| **2024-01-20 05:45:23 UTC** | **DRAIN — signed to phishing address** | `0x0f45C1d3275a...` → `0x0000db5c8b03...` |
+| **2022-08-21 06:32 UTC** | **Purchase by participant (2.4 ETH)** | `0x56340c11d6f5...` → **participant's wallet** |
+| 2023-11-24 07:32 UTC | OpenSea listing | participant's wallet → `0x0000000000ad...` (OpenSea Seaport Conduit) |
+| 2023-12-04 09:48 UTC | OpenSea listing returned (unsold) | `0x0000000000ad...` → participant's wallet |
+| **2024-01-20 05:45:23 UTC** | **DRAIN — signed to phishing address** | participant's wallet → `0x0000db5c8b03...` |
 | 2024-01-20 05:45:35 UTC | First downstream forward (12 sec later) | `0x0000db5c8b03...` → `0x557896aa3e0d...` |
 | 2024-07-02 22:27 UTC | Re-sale / forward | `0x557896aa3e0d...` → `0x90bba4d60f8d...` |
 | 2024-07-02 22:31 UTC | Re-sale / forward (3 min later) | `0x90bba4d60f8d...` → `0xcef4690b0976...` |
 | 2024-07-09 23:30 UTC | Final acquisition by current holder | `0xcef4690b0976...` → `0x07db09b7a346...` |
 
 The current holder of token #5504, as of this writing, is `0x07db09b7a346772b5c3134e74ee339b0beb6d682`. They acquired it on July 9, 2024 — almost six months after the drain. Their wallet's prior NFT activity (selling several other NiftyDegens in February 2024) is consistent with a marketplace re-seller; we are not asserting that this holder was knowingly party to the drain.
+
+The participant's wallet address and the specific drain transaction hash are withheld from public copy for source protection; credentialed legal, journalistic, or blockchain-forensics counterparties can request both via the contact email at the bottom of this article and we will share them under standard verification protocol.
 
 ---
 
