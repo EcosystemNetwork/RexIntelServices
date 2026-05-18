@@ -168,7 +168,7 @@ export const addressAttributionSourceEnum = pgEnum(
 );
 
 // Clearance tier gates which intel surfaces a contributor can read. Earned,
-// not bought — see lib/clearance.ts for thresholds and lib/circle-auth.ts for
+// not bought — see lib/clearance.ts for thresholds and lib/magic-auth.ts for
 // session-bound checks. Ordering matters: tier comparisons rely on ordinal
 // position (open < contributor < trusted < inner_circle).
 export const clearanceTierEnum = pgEnum("clearance_tier", [
@@ -1056,7 +1056,7 @@ export const submitters = pgTable(
       .notNull()
       .default("open"),
     // Lifetime count of successful Circle-PIN auth completions. Bumped in
-    // createCircleSession so legacy SIWE-era rows stay at 0 until next
+    // createMagicSession so legacy SIWE/Circle-era rows stay at 0 until next
     // sign-in. Powers the admin Contributors analytics view.
     loginCount: integer("login_count").notNull().default(0),
     lastLoginAt: timestamp("last_login_at"),

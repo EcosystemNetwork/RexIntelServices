@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db, intelAddresses, submissions } from "./db";
-import { awardContributionPoints } from "./circle-auth";
+import { awardContributionPoints } from "./magic-auth";
 
 /**
  * Award `intel_cited` credit when a newly-approved submission references

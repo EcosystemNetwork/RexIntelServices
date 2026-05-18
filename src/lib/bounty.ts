@@ -17,7 +17,7 @@ import {
   type ClearanceTier,
 } from "./db";
 import { CHAIN_SLUG_SET } from "./chains";
-import { awardContributionPoints } from "./circle-auth";
+import { awardContributionPoints } from "./magic-auth";
 import { upsertAttributionsBatch } from "./address-attribution";
 
 // Address categories that are guaranteed false positives for a "this address

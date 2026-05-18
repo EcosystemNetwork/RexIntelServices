@@ -3,7 +3,7 @@ import { revalidateTag } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { awardContributionPoints } from "@/lib/circle-auth";
+import { awardContributionPoints } from "@/lib/magic-auth";
 import { pointsKindForSubmission } from "@/lib/clearance";
 import { awardCitationCredit } from "@/lib/citation-awards";
 import { processLossReportApproval } from "@/lib/loss-report-attribution";

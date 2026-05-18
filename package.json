@@ -11,12 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "create-admin": "tsx scripts/create-admin.ts",
-    "provision-bounty-escrow": "tsx scripts/provision-bounty-escrow.ts",
-    "simulate-bounty-funding": "tsx scripts/simulate-bounty-funding.ts"
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
-    "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@magic-sdk/admin": "^2.8.2",
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/ratelimit": "^2.0.8",

@@ -16,7 +16,7 @@ import { VoteButton } from "@/components/vote-button";
 import { VOTER_COOKIE_NAME, verifyVoterCookie } from "@/lib/voter-cookie";
 import { PrizePoolBanner } from "@/app/intel/_lanes/signals";
 import { SpicyTag } from "@/app/intel/_lanes/_shared";
-import { getCircleSession } from "@/lib/circle-auth";
+import { getMagicSession } from "@/lib/magic-auth";
 import { meetsTier } from "@/lib/clearance";
 import { ClearanceWall } from "@/components/clearance-wall";
 import { IntelHero } from "@/components/intel-hero";
@@ -269,7 +269,7 @@ export default async function IntelDetailPage({
   // and a teaser; the full body sits behind a connect-wallet wall. Original
   // and tip kinds stay fully public — those drive the audience funnel.
   const isIncident = payload.kind === "incident";
-  const session = isIncident ? await getCircleSession() : null;
+  const session = isIncident ? await getMagicSession() : null;
   const currentTier = session?.clearanceTier ?? "open";
   const isGated = isIncident && !meetsTier(currentTier, "contributor");
   // ~280 chars is enough to set the hook (one solid paragraph of context)

@@ -23,7 +23,7 @@ import {
   sanitizeSingleUrl,
 } from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
-import { getCircleSession } from "@/lib/circle-auth";
+import { getMagicSession } from "@/lib/magic-auth";
 import { CHAIN_SLUG_SET } from "@/lib/chains";
 import { sendEditLinkEmail } from "@/lib/email/edit-link-email";
 import { sendAdminAlertEmail } from "@/lib/email/admin-alert-email";
@@ -267,7 +267,7 @@ export async function POST(req: NextRequest) {
     (validation.payload as { anonymous?: boolean }).anonymous === true;
   let submitterId: string | null = null;
   if (!isAnonymousIntel) {
-    const session = await getCircleSession();
+    const session = await getMagicSession();
     if (session) {
       submitterId = session.submitterId;
       if (submitterHandle) {

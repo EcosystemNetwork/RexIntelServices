@@ -9,9 +9,8 @@ import {
   type BountyStatus,
 } from "@/lib/db";
 import { mintVictimAccessToken, validateCreateBounty } from "@/lib/bounty";
-import { provisionBountyWallet } from "@/lib/bounty-payout";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
-import { getCircleSession } from "@/lib/circle-auth";
+import { getMagicSession } from "@/lib/magic-auth";
 import { consumeEmailVerifiedCookie } from "@/lib/email-otp";
 import {
   bountyAccessUrl,
@@ -211,7 +210,7 @@ export async function POST(req: NextRequest) {
   // refuses to flip it to `open`. The creator can complete OTP later via
   // /verify-victim using the access token.
   let victimVerifiedAt: Date | null = null;
-  const session = await getCircleSession();
+  const session = await getMagicSession();
   if (session && matched?.email?.toLowerCase() === victimEmail) {
     victimVerifiedAt = new Date();
   } else if (await consumeEmailVerifiedCookie(victimEmail)) {
@@ -264,31 +263,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Provision a per-bounty Circle DCW wallet. Failure is non-fatal: the
-  // bounty stays without an escrow wallet, the create response carries a
-  // flag the client can surface, and an admin can re-provision later via
-  // a manual script. Skipped silently in dev (no Circle creds set).
-  let escrowAddress: string | null = null;
-  let walletProvisionWarning: string | null = null;
-  const provision = await provisionBountyWallet({ refId: created.publicId });
-  if (provision.kind === "provisioned") {
-    escrowAddress = provision.address;
-    await db
-      .update(bounties)
-      .set({
-        circleWalletId: provision.walletId,
-        circleWalletAddress: provision.address,
-        updatedAt: new Date(),
-      })
-      .where(eq(bounties.id, created.id));
-  } else if (provision.kind === "failed") {
-    walletProvisionWarning = `wallet_provision_failed: ${provision.reason}`;
-    console.warn(
-      `[bounty-create] wallet provisioning failed for ${created.publicId}: ${provision.reason}`,
-    );
-  } else {
-    walletProvisionWarning = `wallet_skipped: ${provision.reason}`;
-  }
+  // Escrow rail is currently un-wired. Circle DCW was removed when we moved
+  // off Circle entirely; a replacement custody answer (Privy server wallets,
+  // self-custody EOA, or an on-chain escrow contract) hasn't been picked
+  // yet. Bounty rows still create — the public listing renders the offer —
+  // but no on-chain escrow exists for them, so payouts cannot fire. The
+  // create response carries a warning flag the client can surface to the
+  // victim. See project_recovery_bounties_v1 memory for the v1.1 plan.
+  const escrowAddress: string | null = null;
+  const walletProvisionWarning =
+    "custody_rail_pending: bounty escrow rail is being rebuilt; payouts not available yet";
 
   // Send funding-instructions email. Non-fatal: if Resend is down or env
   // isn't set we still return the access token in the response so the UI

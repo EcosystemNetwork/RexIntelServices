@@ -6,7 +6,7 @@ import {
   bountyClaims,
   submitters,
 } from "@/lib/db";
-import { getCircleSession, requireCircleTier } from "@/lib/circle-auth";
+import { getMagicSession, requireMagicTier } from "@/lib/magic-auth";
 import {
   BOUNTY_CLAIM_MIN_TIER,
   bountyClaimBondUsdc,
@@ -50,12 +50,12 @@ export async function GET(
     );
   }
 
-  const session = await getCircleSession();
+  const session = await getMagicSession();
   const isVictim =
     session?.submitterId &&
     bounty.victimSubmitterId &&
     session.submitterId === bounty.victimSubmitterId;
-  const isTrusted = !!(await requireCircleTier(BOUNTY_CLAIM_MIN_TIER));
+  const isTrusted = !!(await requireMagicTier(BOUNTY_CLAIM_MIN_TIER));
 
   const rows = await db
     .select({
@@ -160,7 +160,7 @@ export async function POST(
     );
   }
 
-  const session = await requireCircleTier(BOUNTY_CLAIM_MIN_TIER);
+  const session = await requireMagicTier(BOUNTY_CLAIM_MIN_TIER);
   if (!session) {
     return NextResponse.json(
       {

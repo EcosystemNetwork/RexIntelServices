@@ -262,7 +262,10 @@ export default function ConnectWalletButton({
         className={`flex items-center gap-1 ${className ?? ""}`}
       >
         <input
+          id="rex-connect-email-compact"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@email"
@@ -297,7 +300,10 @@ export default function ConnectWalletButton({
         className="flex gap-2"
       >
         <input
+          id="rex-connect-email"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="your email"

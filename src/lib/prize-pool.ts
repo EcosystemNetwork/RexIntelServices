@@ -269,7 +269,7 @@ function formatUnits(raw: bigint, decimals: number): string {
  *
  * NOTE for future settlement code: when the monthly settlement is wired
  * (writing a row to `monthly_prizes`), it must also call `awardPrizeWin`
- * from `circle-auth.ts` for each of the top-3 submitter ids so the
+ * from `magic-auth.ts` for each of the top-3 submitter ids so the
  * `prize_win_first/second/third` contribution events land in the ledger.
  * Without that call the payout still pays out USDC, but the recipient's
  * Trust score doesn't reflect the win.
@@ -304,6 +304,52 @@ export function computePayouts(poolAmount: string): {
     place1: formatCents(place1),
     place2: formatCents(place2),
     place3: formatCents(place3),
+    rollover: formatCents(rollover),
+  };
+}
+
+/**
+ * Top-5 waterfall split — the on-chain contract version. Splits 80% of
+ * pool across 5 places at 50/25/15/7/3, leaves 20% rolling over as the
+ * contract's residual balance. Math is exact bigint cents; the per-place
+ * sum + rollover === poolAmount to the cent.
+ *
+ * Used by /api/cron/settle-monthly-prizes to compute the amounts passed
+ * to IntelPrizePool.distribute() on-chain. The off-chain math is the
+ * source of truth — the contract just records what it's told.
+ */
+export function computePayouts5(poolAmount: string): {
+  place1: string;
+  place2: string;
+  place3: string;
+  place4: string;
+  place5: string;
+  rollover: string;
+} {
+  const cents = parseDecimalToCents(poolAmount);
+  if (cents === null || cents <= 0n) {
+    return {
+      place1: "0.00",
+      place2: "0.00",
+      place3: "0.00",
+      place4: "0.00",
+      place5: "0.00",
+      rollover: "0.00",
+    };
+  }
+  const payable = (cents * 80n) / 100n;
+  const place1 = (payable * 50n) / 100n;
+  const place2 = (payable * 25n) / 100n;
+  const place3 = (payable * 15n) / 100n;
+  const place4 = (payable * 7n) / 100n;
+  const place5 = (payable * 3n) / 100n;
+  const rollover = cents - place1 - place2 - place3 - place4 - place5;
+  return {
+    place1: formatCents(place1),
+    place2: formatCents(place2),
+    place3: formatCents(place3),
+    place4: formatCents(place4),
+    place5: formatCents(place5),
     rollover: formatCents(rollover),
   };
 }

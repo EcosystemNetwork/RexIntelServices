@@ -11,7 +11,7 @@ import {
   type BountyClaimRejectionReason,
 } from "@/lib/db";
 import { PublicShell } from "@/components/public-shell";
-import { getCircleSession } from "@/lib/circle-auth";
+import { getMagicSession } from "@/lib/magic-auth";
 import { meetsTier } from "@/lib/clearance";
 import {
   BOUNTY_CLAIM_MIN_TIER,
@@ -98,7 +98,7 @@ export default async function BountyDetailPage({
   if (!data) notFound();
   const { bounty: b, trace, claims } = data;
 
-  const session = await getCircleSession();
+  const session = await getMagicSession();
   const isVictimSession =
     !!session?.submitterId &&
     !!b.victimSubmitterId &&

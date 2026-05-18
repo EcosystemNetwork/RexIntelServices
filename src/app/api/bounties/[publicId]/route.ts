@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, bounties, hackTraces } from "@/lib/db";
-import { getCircleSession } from "@/lib/circle-auth";
+import { getMagicSession } from "@/lib/magic-auth";
 import { meetsTier } from "@/lib/clearance";
 import { BOUNTY_CLAIM_MIN_TIER, checkVictimAccessToken } from "@/lib/bounty";
 import { isPubliclyVisible } from "@/lib/bounty-visibility";
@@ -37,11 +37,11 @@ export async function GET(
   }
 
   // Three viewer modes for draft/funded/refunded/expired bounties:
-  //   - victim via Circle session (matches victimSubmitterId)
+  //   - victim via Magic session (matches victimSubmitterId)
   //   - victim via raw access token presented as ?token=… (works for
-  //     anon victims with no Circle account — audit finding #6)
+  //     anon victims with no contributor account — audit finding #6)
   //   - public — falls through to the "not visible" 404 below
-  const session = await getCircleSession();
+  const session = await getMagicSession();
   const isVictimSession =
     !!session?.submitterId &&
     !!bounty.victimSubmitterId &&

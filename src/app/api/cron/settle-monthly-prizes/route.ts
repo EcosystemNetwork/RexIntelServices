@@ -9,12 +9,12 @@ import {
 } from "@/lib/db";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import {
-  computePayouts,
+  computePayouts5,
   currentYearMonth,
   fetchPoolBalance,
   getMonthlyTopIntel,
 } from "@/lib/prize-pool";
-import { awardPrizeWin } from "@/lib/circle-auth";
+import { awardPrizeWin } from "@/lib/magic-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,33 +100,33 @@ export async function GET(req: Request) {
     // pin to a stale value when settlement fires after a long idle window.
     const balance = await fetchPoolBalance({ bypassCache: true });
     const poolAmount = balance.amount;
-    const payouts = computePayouts(poolAmount);
+    const payouts = computePayouts5(poolAmount);
 
-    // Snapshot top-3. Even if there are <3 voted intels we still write the
-    // row so the month is marked settled (rollover advances to next month).
-    const top = await getMonthlyTopIntel({ yearMonth: ym, limit: 3 });
+    // Snapshot top-5. The waterfall is 50/25/15/7/3 of 80% — see
+    // computePayouts5 + the IntelPrizePool contract. Even if there are
+    // <5 voted intels we still write the row so the month is marked
+    // settled (the unfilled places contribute to rollover).
+    const top = await getMonthlyTopIntel({ yearMonth: ym, limit: 5 });
 
+    const placeAmounts = [
+      payouts.place1,
+      payouts.place2,
+      payouts.place3,
+      payouts.place4,
+      payouts.place5,
+    ];
     const payoutRows: MonthlyPrizePayout[] = top
       .filter((row) => row.voteCount > 0)
-      .slice(0, 3)
-      .map((row, idx) => {
-        const place = idx + 1;
-        const amount =
-          place === 1
-            ? payouts.place1
-            : place === 2
-              ? payouts.place2
-              : payouts.place3;
-        return {
-          place,
-          submissionId: row.publicId,
-          amount,
-          notes:
-            row.submitterEmail == null
-              ? "anonymous_intel_no_payout"
-              : undefined,
-        };
-      });
+      .slice(0, 5)
+      .map((row, idx) => ({
+        place: idx + 1,
+        submissionId: row.publicId,
+        amount: placeAmounts[idx]!,
+        notes:
+          row.submitterEmail == null
+            ? "anonymous_intel_no_payout"
+            : undefined,
+      }));
 
     // Resolve submission DB ids and submitter ids for the awardPrizeWin
     // calls. We selected publicId in payoutRows; map back to (id,
