@@ -19,6 +19,7 @@ import {
   yearMonthToYYYYMM,
 } from "@/lib/prize-pool-onchain";
 import { awardPrizeWin } from "@/lib/magic-auth";
+import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -259,10 +260,20 @@ export async function GET(req: Request) {
       }
     } catch (err) {
       onchainStatus = "errored";
+      const reason = err instanceof Error ? err.message : String(err);
       console.warn(
         `[settle-monthly-prizes] distribute() failed for ${ym}:`,
-        err instanceof Error ? err.message : err,
+        reason,
       );
+      // This is the cron that moves USDC monthly. A silent fail here
+      // costs a month of prize-pool distribution; without on-call we
+      // need email-on-error. Rate-limited so a persistent misconfig
+      // doesn't bury the admin inbox.
+      await sendOpsAlert({
+        key: `settle-monthly-prizes:errored:${ym}`,
+        subject: `[Ops] Monthly prize distribute() failed: ${ym}`,
+        message: `IntelPrizePool.distribute() threw for month ${ym}.\n\nReason: ${reason}\n\nThe monthly_prizes row was written off-chain; on-chain payout has NOT fired. Re-runs are safe (the contract pre-flights against distributed[month]).\n\nCheck: PRIZE_POOL_ADDRESS, SETTLER_PRIVATE_KEY, Base mainnet RPC, settler EOA balance for gas.`,
+      });
     }
 
     // Award contribution-event points for each placement. Anonymous-intel
@@ -287,10 +298,16 @@ export async function GET(req: Request) {
         // Best-effort — a failed points award doesn't unwind the
         // monthly_prizes row. Recovered by re-running awardPrizeWin from
         // an admin tool against the same submission.
+        const reason = err instanceof Error ? err.message : String(err);
         console.warn(
           `[settle-monthly-prizes] awardPrizeWin failed for ${ym} place ${payout.place}:`,
-          err instanceof Error ? err.message : err,
+          reason,
         );
+        await sendOpsAlert({
+          key: `settle-monthly-prizes:award-failed:${ym}`,
+          subject: `[Ops] Prize-win points award failed: ${ym} place ${payout.place}`,
+          message: `awardPrizeWin threw for ${ym} place ${payout.place}.\n\nSubmitter: ${submitter.id}\nSubmission: ${submissionRow.id}\nReason: ${reason}`,
+        });
       }
     }
 

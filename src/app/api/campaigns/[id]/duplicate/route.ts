@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 /**
  * POST /api/campaigns/[id]/duplicate
@@ -8,9 +9,12 @@ import { db, campaigns } from "@/lib/db";
  * reset and "(copy)" appended to the internal name.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [src] = await db
     .select()
     .from(campaigns)

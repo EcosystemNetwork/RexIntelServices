@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db, subscribers, subscriberTags, tags } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim();
   const status = sp.get("status");
@@ -84,6 +88,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json();
   const email = body.email?.toLowerCase().trim();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

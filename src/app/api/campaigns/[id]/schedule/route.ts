@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 /**
  * POST /api/campaigns/[id]/schedule
@@ -15,6 +16,9 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = (await req.json().catch(() => ({}))) as {
     scheduledFor?: string | null;
   };

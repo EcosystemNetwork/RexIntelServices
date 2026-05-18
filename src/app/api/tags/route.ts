@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { asc, eq, sql } from "drizzle-orm";
 import { db, tags, subscriberTags } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 /**
  * GET /api/tags
  * Returns every tag with a denormalized subscriber count. Cheap because
  * the subscriber_tags table is small and indexed.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const rows = await db
     .select({
       id: tags.id,
@@ -25,6 +29,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json().catch(() => ({}));
   const name = body.name?.toString().trim();
   if (!name) {

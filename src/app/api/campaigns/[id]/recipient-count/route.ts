@@ -8,6 +8,7 @@ import {
   suppressions,
   subscriberTags,
 } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 /**
  * GET /api/campaigns/[id]/recipient-count
@@ -16,9 +17,12 @@ import {
  * so the number you see here is the number that will be queued.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [campaign] = await db
     .select()
     .from(campaigns)

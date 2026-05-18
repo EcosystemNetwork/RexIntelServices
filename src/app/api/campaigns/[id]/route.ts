@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [row] = await db
     .select()
     .from(campaigns)
@@ -24,6 +28,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json().catch(() => ({}));
 
   const [existing] = await db
@@ -70,9 +77,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [existing] = await db
     .select()
     .from(campaigns)

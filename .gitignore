@@ -43,3 +43,10 @@ next-env.d.ts
 # investigations — raw forensic output (voter dumps, etc.). Don't commit
 # the data itself; the script is committed so we can re-run on demand.
 scripts/.casper-forensics-output/
+
+# Secret-bearing recovery / plaintext files. These should never live on
+# the tracked tree. Caught Circle's entity-secret-recovery.dat once —
+# don't catch the next one.
+*-secret-recovery.dat
+*.secret.plaintext.txt
+*-entity-secret-*.dat

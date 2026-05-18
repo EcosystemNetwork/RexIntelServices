@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { inArray, and, eq } from "drizzle-orm";
 import { db, subscribers, suppressions, subscriberTags } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 const VALID_STATUSES = [
   "pending",
@@ -20,6 +21,9 @@ const VALID_STATUSES = [
  *   { action: "untag", ids: string[], tagId: string }
  */
 export async function POST(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json().catch(() => ({}));
   const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
   if (!ids.length) {

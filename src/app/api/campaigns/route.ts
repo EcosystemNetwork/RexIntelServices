@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc, sql } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   // Pagination: cap each page at 100 and require explicit offset for older
   // pages. Without this, the dashboard query selects every campaign ever
   // and serializes ~200KB of HTML per row — the admin list grinds as the
@@ -24,6 +28,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json();
   const required = ["name", "subject", "fromName", "fromEmail", "htmlBody"];
   for (const field of required) {

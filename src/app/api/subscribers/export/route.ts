@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { desc, eq, ilike, or, sql, and } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 /**
  * GET /api/subscribers/export?status=active&q=foo
@@ -8,6 +9,9 @@ import { db, subscribers } from "@/lib/db";
  * is what you export.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim();
   const status = sp.get("status");

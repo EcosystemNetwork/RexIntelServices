@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { eq } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,6 +28,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json().catch(() => ({}));
   const raw = body.to;
   const recipients: string[] = Array.isArray(raw) ? raw : raw ? [raw] : [];

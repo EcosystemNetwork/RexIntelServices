@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc, ilike, sql } from "drizzle-orm";
 import { db, suppressions } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 const VALID_REASONS = [
   "hard_bounce",
@@ -16,6 +17,9 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * imports will skip it, and webhooks add to it on hard bounce / complaint.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim();
   const limit = Math.min(parseInt(sp.get("limit") ?? "200"), 1000);
@@ -39,6 +43,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json().catch(() => ({}));
   const email = body.email?.toString().toLowerCase().trim();
   if (!email || !EMAIL_REGEX.test(email)) {

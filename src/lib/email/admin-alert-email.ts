@@ -148,3 +148,67 @@ function escape(s: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+// In-process throttle for ops alerts so a sustained failure (e.g. Resend
+// API key revoked, settler key wrong) doesn't self-DoS the admin inbox.
+// Per-instance; an N-warm-lambda burst sends at most N alerts per key per
+// window. Acceptable for solo operator.
+const _opsAlertLastSent = new Map<string, number>();
+
+/**
+ * Generic ops alert — fire when a silent-failure surface trips
+ * (settle-monthly-prizes errors, OTP/Resend outage, etc.). Best-effort;
+ * never throws. Rate-limited per-key so a sustained outage doesn't bury
+ * the admin inbox.
+ *
+ *   await sendOpsAlert({
+ *     key: "settle-monthly-prizes:errored",  // de-dup key (1 alert / window)
+ *     windowMs: 60 * 60 * 1000,              // default 1 hour
+ *     subject: "[Ops] Monthly prize settlement failed",
+ *     message: `${ym}: ${errorReason}`,
+ *   });
+ */
+export async function sendOpsAlert(args: {
+  key: string;
+  windowMs?: number;
+  subject: string;
+  message: string;
+}): Promise<{ sent: boolean; reason?: string }> {
+  const windowMs = args.windowMs ?? 60 * 60 * 1000;
+  const last = _opsAlertLastSent.get(args.key) ?? 0;
+  const now = Date.now();
+  if (now - last < windowMs) {
+    return { sent: false, reason: "rate_limited" };
+  }
+  _opsAlertLastSent.set(args.key, now);
+
+  const recipient = process.env.ADMIN_ALERT_EMAIL;
+  if (!recipient) {
+    return { sent: false, reason: "ADMIN_ALERT_EMAIL not configured" };
+  }
+  const resend = getResend();
+  if (!resend) {
+    return { sent: false, reason: "RESEND_API_KEY not configured" };
+  }
+  const fromEmail = process.env.DIGEST_FROM_EMAIL;
+  if (!fromEmail) {
+    return { sent: false, reason: "DIGEST_FROM_EMAIL not configured" };
+  }
+
+  try {
+    await resend.emails.send({
+      from: `RexIntel Ops <${fromEmail}>`,
+      to: [recipient],
+      subject: args.subject,
+      html: `<pre style="font:13px/1.5 ui-monospace,monospace;color:#c8c8d0;background:#0a0a0f;padding:16px;border-radius:6px;white-space:pre-wrap;word-break:break-word;">${escape(args.message)}</pre>`,
+      text: args.message,
+    });
+    return { sent: true };
+  } catch (e) {
+    console.warn("[ops-alert] send failed:", e);
+    return {
+      sent: false,
+      reason: e instanceof Error ? e.message : "unknown error",
+    };
+  }
+}

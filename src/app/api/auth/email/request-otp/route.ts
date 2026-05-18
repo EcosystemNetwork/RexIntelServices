@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requestEmailOtp } from "@/lib/email-otp";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 // POST /api/auth/email/request-otp
 // Body: { email: string }
@@ -37,9 +38,28 @@ export async function POST(req: NextRequest) {
     const result = await requestEmailOtp({ email, ipAddress: ip === "unknown" ? null : ip });
     if (!result.ok) {
       console.error("[otp request]", email, result.reason);
+      // Send-side failures (Resend API key revoked, DNS suspended,
+      // bounced sender) leave every login attempt looking successful
+      // but no code arrives. Without alerting this surface is silently
+      // broken for days. Rate-limited so a sustained outage doesn't
+      // self-DoS the admin inbox.
+      if (process.env.NODE_ENV === "production") {
+        await sendOpsAlert({
+          key: "otp-request:send-failed",
+          subject: "[Ops] OTP send failure — auth surface broken",
+          message: `requestEmailOtp returned not-ok.\n\nReason: ${result.reason}\n\nThis means at least one auth attempt got "check your inbox" with no actual code delivery. Likely causes: RESEND_API_KEY revoked or rate-limited, sender domain suspended/blocked, Magic Link bounce.`,
+        });
+      }
     }
   } catch (err) {
     console.error("[otp request] threw:", email, err);
+    if (process.env.NODE_ENV === "production") {
+      await sendOpsAlert({
+        key: "otp-request:threw",
+        subject: "[Ops] OTP request handler threw",
+        message: `requestEmailOtp threw an exception.\n\nError: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
   }
   return NextResponse.json({ ok: true, message: "If that address is valid, a code is on the way." });
 }

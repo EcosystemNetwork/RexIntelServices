@@ -52,6 +52,7 @@ export async function verifyTurnstileToken(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),
+      signal: AbortSignal.timeout(3000),
     });
     const data = (await res.json()) as {
       success: boolean;
@@ -65,9 +66,16 @@ export async function verifyTurnstileToken(
     }
     return { ok: true };
   } catch (e) {
-    // Network/transport failure — don't block legit submissions on a
-    // Cloudflare blip. Log and pass.
-    console.warn("[turnstile] verification network error, allowing through:", e);
-    return { ok: true };
+    // Network/transport failure or timeout. Default = fail CLOSED: a
+    // silent fail-open here would disable the captcha gate on every
+    // budget-burning endpoint (submit, trace, vote/start, subscribe)
+    // during any Cloudflare blip or targeted egress block. Set
+    // TURNSTILE_FAIL_OPEN=true to opt into the legacy "allow through"
+    // behaviour (e.g. for a planned Cloudflare maintenance window).
+    console.warn("[turnstile] verification failed:", e);
+    if (process.env.TURNSTILE_FAIL_OPEN === "true") {
+      return { ok: true };
+    }
+    return { ok: false, error: "Captcha temporarily unavailable. Try again." };
   }
 }

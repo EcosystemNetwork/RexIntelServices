@@ -1,8 +1,11 @@
 import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { sealData, unsealData } from "iron-session";
 import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 import { db, users } from "./db";
+import { isSameOrigin } from "./origin-check";
 
 // =====================================================================
 // Operator (admin) authentication. Email-only sign-in via Magic Link —
@@ -151,4 +154,35 @@ export async function findOrCreateOperatorUser(
     })
     .returning({ id: users.id, email: users.email });
   return inserted;
+}
+
+/**
+ * Operator-only auth guard for /api/* route handlers. Returns the session
+ * payload when the caller is a same-origin operator request; returns a
+ * NextResponse to short-circuit otherwise. Middleware already enforces
+ * cookie auth on /api/{campaigns,subscribers,tags,suppressions}/*, but
+ * an in-handler check is defense-in-depth against a future matcher
+ * regression and adds an explicit CSRF gate on state-changing methods.
+ *
+ *   const auth = await requireOperator(req);
+ *   if (auth instanceof NextResponse) return auth;
+ *   // `auth.userId` / `auth.email` is the verified operator
+ *
+ * Safe methods (GET/HEAD/OPTIONS) skip the origin check — browsers may
+ * omit Origin on cross-origin reads (bookmark loads, file-download
+ * anchors). Session presence is still required for those.
+ */
+export async function requireOperator(
+  req: NextRequest | Request,
+): Promise<NextResponse | SessionData> {
+  const method = req.method.toUpperCase();
+  const isMutation = !["GET", "HEAD", "OPTIONS"].includes(method);
+  if (isMutation && !isSameOrigin(req)) {
+    return NextResponse.json({ error: "bad_origin" }, { status: 403 });
+  }
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  return session;
 }

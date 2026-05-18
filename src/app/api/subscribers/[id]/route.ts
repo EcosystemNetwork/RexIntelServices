@@ -8,6 +8,7 @@ import {
   subscriberTags,
   tags,
 } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 const VALID_STATUSES = [
   "pending",
@@ -19,9 +20,12 @@ const VALID_STATUSES = [
 type Status = (typeof VALID_STATUSES)[number];
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [sub] = await db
     .select()
     .from(subscribers)
@@ -65,6 +69,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json().catch(() => ({}));
   const update: Record<string, unknown> = { updatedAt: new Date() };
 
@@ -90,9 +97,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [row] = await db
     .delete(subscribers)
     .where(eq(subscribers.id, params.id))

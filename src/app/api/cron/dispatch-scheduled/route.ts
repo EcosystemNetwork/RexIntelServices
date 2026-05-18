@@ -76,6 +76,26 @@ export async function GET(req: Request) {
   }> = [];
 
   for (const c of due) {
+    // Atomic claim — only the cron tick that wins the CAS proceeds to
+    // sendCampaign. Without this, two overlapping cron invocations both
+    // pass the SELECT above, both run sendCampaign, and both blast the
+    // entire recipient list. sendCampaign itself does a non-atomic
+    // SELECT-then-UPDATE so the race window is real.
+    const claimed = await db
+      .update(campaigns)
+      .set({ status: "sending", updatedAt: new Date() })
+      .where(and(eq(campaigns.id, c.id), eq(campaigns.status, "scheduled")))
+      .returning({ id: campaigns.id });
+    if (claimed.length === 0) {
+      results.push({
+        id: c.id,
+        name: c.name,
+        ok: false,
+        error: "raced_by_concurrent_tick",
+      });
+      continue;
+    }
+
     try {
       const r = await sendCampaign(c.id);
       results.push({

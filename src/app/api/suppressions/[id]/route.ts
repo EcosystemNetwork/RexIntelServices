@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, suppressions } from "@/lib/db";
+import { requireOperator } from "@/lib/auth";
 
 /**
  * DELETE /api/suppressions/[id]
@@ -8,9 +9,12 @@ import { db, suppressions } from "@/lib/db";
  * to active sending damages sender reputation.
  */
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const [row] = await db
     .delete(suppressions)
     .where(eq(suppressions.id, params.id))

@@ -3,6 +3,11 @@ import Papa from "papaparse";
 import ExcelJS from "exceljs";
 import { db, subscribers, suppressions } from "@/lib/db";
 import { inArray } from "drizzle-orm";
+import { requireOperator } from "@/lib/auth";
+
+// 10MB cap on the uploaded file. Vercel functions OOM on multi-hundred-MB
+// uploads and the parsers (Papa / ExcelJS) hold the whole thing in memory.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 interface Row {
   email: string;
@@ -105,12 +110,21 @@ async function parseXlsx(buffer: ArrayBuffer): Promise<{ rows: Row[]; parseError
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireOperator(req);
+  if (auth instanceof NextResponse) return auth;
+
   const formData = await req.formData();
   const file = formData.get("file");
   const source = (formData.get("source") as string) || "import";
 
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ error: "file required" }, { status: 400 });
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: "file too large (max 10MB)" },
+      { status: 413 },
+    );
   }
 
   const filename = file.name.toLowerCase();
