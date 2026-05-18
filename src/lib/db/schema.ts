@@ -154,6 +154,11 @@ export const addressAttributionSourceEnum = pgEnum(
     // sanctions/curated/incident attribution; hidden by default on /graph
     // behind the "Include user-reported" toggle.
     "community-loss-report",
+    // Automated outbound trace from a victim-submitted root address. On-chain
+    // evidence (tx hashes recorded in hack_trace_hops), so slightly higher
+    // confidence than a self-reported story — but still community-class and
+    // hidden behind the same toggle.
+    "victim-trace",
   ],
 );
 
@@ -1303,6 +1308,118 @@ export const contributionEventsRelations = relations(
   }),
 );
 
+// =====================================================================
+// HACK TRACES — automated victim-driven outbound flow traces. User
+// submits a drained wallet; the runner walks outbound ETH+ERC-20 transfers
+// up to `max_hops` deep, terminating at known-attributed addresses,
+// dust thresholds, or depth. Each hop is a row in hack_trace_hops so
+// the result page can render the flow without re-hitting Etherscan.
+// Counterparty addresses get written into address_attributions as
+// `victim-trace`, joining the community-class moat layer.
+// =====================================================================
+
+export const hackTraces = pgTable(
+  "hack_traces",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicId: text("public_id")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(8), 'hex')`),
+    chain: text("chain").notNull(),
+    rootAddress: text("root_address").notNull(),
+    victimLabel: text("victim_label"),
+    lossUsd: numeric("loss_usd", { precision: 18, scale: 2 }),
+    lossTokenSymbol: text("loss_token_symbol"),
+    submitterEmail: text("submitter_email"),
+    submitterIp: text("submitter_ip"),
+    // pending → running → complete | failed
+    status: text("status").notNull().default("pending"),
+    failureReason: text("failure_reason"),
+    maxHops: integer("max_hops").notNull().default(3),
+    hopsExplored: integer("hops_explored").notNull().default(0),
+    terminalCount: integer("terminal_count").notNull().default(0),
+    totalOutflowNative: numeric("total_outflow_native", {
+      precision: 38,
+      scale: 0,
+    }),
+    totalOutflowTokenSymbol: text("total_outflow_token_symbol"),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    publicIdIdx: uniqueIndex("hack_traces_public_id_idx").on(t.publicId),
+    statusIdx: index("hack_traces_status_idx").on(t.status),
+    chainRootIdx: index("hack_traces_chain_root_idx").on(t.chain, t.rootAddress),
+  }),
+);
+
+export const hackTraceHops = pgTable(
+  "hack_trace_hops",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    traceId: uuid("trace_id")
+      .notNull()
+      .references(() => hackTraces.id, { onDelete: "cascade" }),
+    // 1 = direct outflow from root. Capped at trace.maxHops.
+    depth: integer("depth").notNull(),
+    fromAddressId: uuid("from_address_id")
+      .notNull()
+      .references(() => addresses.id, { onDelete: "cascade" }),
+    toAddressId: uuid("to_address_id")
+      .notNull()
+      .references(() => addresses.id, { onDelete: "cascade" }),
+    txHash: text("tx_hash").notNull(),
+    blockNumber: numeric("block_number", { precision: 20, scale: 0 }),
+    // Smallest-unit amount (wei for ETH, base units for ERC-20). Stored as
+    // numeric(78,0) so we never truncate a wei value at display time.
+    amountRaw: numeric("amount_raw", { precision: 78, scale: 0 }),
+    tokenSymbol: text("token_symbol"),
+    tokenAddress: text("token_address"),
+    tokenDecimals: integer("token_decimals"),
+    // USD valuation at the time of the tx (when available). Populated for
+    // terminal "where is it today" snapshots using current spot price;
+    // historical hop pricing is a v2 enhancement.
+    amountUsd: numeric("amount_usd", { precision: 18, scale: 2 }),
+    txTimestamp: timestamp("tx_timestamp"),
+    // null = transit hop; else one of 'attribution_match' | 'dust' | 'depth'
+    // | 'still_moving'. Renders as a chip on the results page.
+    terminalReason: text("terminal_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    traceIdx: index("hack_trace_hops_trace_idx").on(t.traceId, t.depth),
+    fromIdx: index("hack_trace_hops_from_idx").on(t.fromAddressId),
+    toIdx: index("hack_trace_hops_to_idx").on(t.toAddressId),
+    dedupeIdx: uniqueIndex("hack_trace_hops_dedupe_idx").on(
+      t.traceId,
+      t.txHash,
+      t.fromAddressId,
+      t.toAddressId,
+    ),
+  }),
+);
+
+export const hackTracesRelations = relations(hackTraces, ({ many }) => ({
+  hops: many(hackTraceHops),
+}));
+
+export const hackTraceHopsRelations = relations(hackTraceHops, ({ one }) => ({
+  trace: one(hackTraces, {
+    fields: [hackTraceHops.traceId],
+    references: [hackTraces.id],
+  }),
+  fromAddress: one(addresses, {
+    fields: [hackTraceHops.fromAddressId],
+    references: [addresses.id],
+  }),
+  toAddress: one(addresses, {
+    fields: [hackTraceHops.toAddressId],
+    references: [addresses.id],
+  }),
+}));
+
 // Type exports for use in app code
 export type Subscriber = typeof subscribers.$inferSelect;
 export type NewSubscriber = typeof subscribers.$inferInsert;
@@ -1336,6 +1453,16 @@ export type NewContributionEvent = typeof contributionEvents.$inferInsert;
 export type ClearanceTier = (typeof clearanceTierEnum.enumValues)[number];
 export type ContributionEventKind =
   (typeof contributionEventKindEnum.enumValues)[number];
+export type HackTrace = typeof hackTraces.$inferSelect;
+export type NewHackTrace = typeof hackTraces.$inferInsert;
+export type HackTraceHop = typeof hackTraceHops.$inferSelect;
+export type NewHackTraceHop = typeof hackTraceHops.$inferInsert;
+export type HackTraceStatus = "pending" | "running" | "complete" | "failed";
+export type HackTraceTerminalReason =
+  | "attribution_match"
+  | "dust"
+  | "depth"
+  | "still_moving";
 
 // Persona tag slugs / labels live in /src/lib/personas.ts so client
 // components (e.g. the landing-page signup form) can import them without

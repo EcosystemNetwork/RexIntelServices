@@ -182,6 +182,11 @@ async function writeAttributionsForSubmission(
   const reportedAt = parseLossDate(payload.lossDate);
   const sourceRef = `loss-report:${submissionId}`;
   const labelFromHeadline = payload.headline.slice(0, 120);
+  // Render a *summary* in the public notes — the full story stays in the
+  // submission row (admin-only) and never goes to the address detail page.
+  // Victims should be able to tell us "I was drained" without their full
+  // narrative becoming SEO-indexable text under the attacker's wallet.
+  const publicNotes = buildPublicNotes(payload);
 
   for (const link of links) {
     const category = ROLE_TO_CATEGORY[link.role];
@@ -196,10 +201,30 @@ async function writeAttributionsForSubmission(
       confidence: 30,
       category,
       label: link.label ?? labelFromHeadline,
-      notes: payload.story.slice(0, 500),
+      notes: publicNotes(link.role),
       reportedAt,
     });
   }
+}
+
+function buildPublicNotes(payload: LossReportPayload) {
+  const dateStr = payload.lossDate
+    ? new Date(payload.lossDate).toISOString().slice(0, 10)
+    : null;
+  const claimed =
+    typeof payload.claimedUsd === "number" && payload.claimedUsd > 0
+      ? ` Claimed value: $${payload.claimedUsd.toLocaleString()}.`
+      : "";
+  return (role: AddressRole) => {
+    const dateClause = dateStr ? ` on ${dateStr}` : "";
+    if (role === "subject") {
+      return `User-reported loss via ${payload.lossType}${dateClause}.${claimed}`;
+    }
+    if (role === "counterparty") {
+      return `Named as recipient of a user-reported ${payload.lossType} loss${dateClause}.`;
+    }
+    return `Mentioned in a user-reported ${payload.lossType} loss${dateClause}.`;
+  };
 }
 
 function parseLossDate(raw: string | undefined): Date | null {

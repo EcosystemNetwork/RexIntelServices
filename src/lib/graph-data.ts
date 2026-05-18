@@ -155,11 +155,31 @@ export type ValueStats = {
  * and category='government-seized' (Bitfinex DOJ custody, ~$9B), but as the
  * seed expands to cover more institutional/seized addresses, this counter
  * will reflect the growing "money on chain RexIntel has eyes on" surface.
+ *
+ * The `includeUserReported` toggle drives the moat-visibility pitch on /graph:
+ * with it off, the totals reflect only what every other free service has
+ * (sanctions lists, curated entries, incident-derived); with it on, the
+ * community-loss-report layer is included so users can compare the delta.
+ * Default FALSE (exclude) — this is the trust-bearing headline, and silently
+ * mixing in self-reported claims would corrupt the "$X tracked" pitch every
+ * caller (including Hermes/admin) is showing somewhere.
  */
-export async function fetchValueStats(): Promise<ValueStats> {
+export async function fetchValueStats(
+  opts: { includeUserReported?: boolean } = {},
+): Promise<ValueStats> {
+  const includeUserReported = opts.includeUserReported === true;
+  // `IS NULL OR NOT IN`: addresses without any attribution yet have
+  // primary_source NULL and aren't "community-reported" — they should still
+  // count in industry-only mode. Plain `NOT IN` against NULL returns UNKNOWN
+  // and silently drops them. Both `community-loss-report` (self-reported
+  // story) and `victim-trace` (on-chain-evidenced auto-trace) are community
+  // class — the toggle hides both.
+  const notCommunity = sql`(${addresses.primarySource} IS NULL OR ${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace'))`;
+
   const totalCountRow = await db
     .select({ n: sql<number>`count(*)::int` })
-    .from(addresses);
+    .from(addresses)
+    .where(includeUserReported ? undefined : notCommunity);
   const addressCount = totalCountRow[0]?.n ?? 0;
 
   const valued = await db
@@ -168,7 +188,11 @@ export async function fetchValueStats(): Promise<ValueStats> {
       balanceEstimateUsd: addresses.balanceEstimateUsd,
     })
     .from(addresses)
-    .where(isNotNull(addresses.balanceEstimateUsd));
+    .where(
+      includeUserReported
+        ? isNotNull(addresses.balanceEstimateUsd)
+        : and(isNotNull(addresses.balanceEstimateUsd), notCommunity),
+    );
 
   let totalUsd = 0;
   const buckets = new Map<string, { walletCount: number; totalUsd: number }>();
@@ -198,7 +222,11 @@ export async function fetchValueStats(): Promise<ValueStats> {
       usd: addresses.balanceEstimateUsd,
     })
     .from(addresses)
-    .where(isNotNull(addresses.nativeAmount));
+    .where(
+      includeUserReported
+        ? isNotNull(addresses.nativeAmount)
+        : and(isNotNull(addresses.nativeAmount), notCommunity),
+    );
 
   const tokenBuckets = new Map<
     string,
@@ -238,10 +266,19 @@ export async function fetchValueStats(): Promise<ValueStats> {
  * balance_estimate_usd across every address tagged category='lost'. Famous
  * cases without published addresses (Howells HDD, Stefan Thomas IronKey)
  * contribute intel pieces but no row here — note the gap on the UI.
+ *
+ * Honors the same `includeUserReported` toggle as fetchValueStats so the
+ * stat block changes alongside the graph viz when the user flips it. Default
+ * FALSE — same trust-bearing reasoning as fetchValueStats; callers that want
+ * the merged view must opt in explicitly.
  */
 export async function fetchLostCryptoStats(
   topN = 5,
+  opts: { includeUserReported?: boolean } = {},
 ): Promise<LostCryptoStats> {
+  const includeUserReported = opts.includeUserReported === true;
+  const notCommunity = sql`(${addresses.primarySource} IS NULL OR ${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace'))`;
+
   const rows = await db
     .select({
       chain: addresses.chain,
@@ -251,7 +288,11 @@ export async function fetchLostCryptoStats(
       balanceEstimateUsd: addresses.balanceEstimateUsd,
     })
     .from(addresses)
-    .where(eq(addresses.category, "lost"));
+    .where(
+      includeUserReported
+        ? eq(addresses.category, "lost")
+        : and(eq(addresses.category, "lost"), notCommunity),
+    );
 
   const parsed: LostWalletRow[] = rows.map((r) => ({
     chain: r.chain,
@@ -522,16 +563,18 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
             ...(chain ? [eq(addresses.chain, chain)] : []),
             ...(category ? [eq(addresses.category, category)] : []),
             // When the toggle is off, exclude addresses whose ONLY attribution
-            // is a community-loss-report (their primary_source equals that
-            // value). Sanctions/curated/incident-anchored addresses always
-            // pass through because recomputeDenormalization picks the
-            // highest-precedence source, and community-loss-report is the
-            // lowest. Safe to use `ne` directly: any row with
-            // category != null also has primary_source != null (the denorm
-            // step writes them together).
+            // is community-class (community-loss-report = self-reported story,
+            // victim-trace = on-chain-evidenced auto-trace). Sanctions/curated/
+            // incident-anchored addresses always pass through because
+            // recomputeDenormalization picks the highest-precedence source.
+            // Safe to use `inArray` directly: any row with category != null
+            // also has primary_source != null (the denorm step writes them
+            // together).
             ...(includeUserReported
               ? []
-              : [ne(addresses.primarySource, "community-loss-report")]),
+              : [
+                  sql`${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace')`,
+                ]),
           ),
         )
         // Highest-confidence first; ties broken by most-recently-verified.

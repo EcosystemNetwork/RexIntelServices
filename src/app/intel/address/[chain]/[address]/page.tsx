@@ -189,6 +189,7 @@ const SOURCE_LABEL: Record<AddressAttributionSource, string> = {
   etherscan: "Etherscan label",
   incident: "Intel incident",
   "community-loss-report": "User-reported loss",
+  "victim-trace": "Victim trace (on-chain)",
 };
 
 const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> = {
@@ -212,6 +213,12 @@ const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> 
   "community-loss-report": {
     bg: "rgba(251,191,36,0.06)",
     fg: "#fbbf24aa",
+  },
+  // Slightly brighter than the self-report variant because victim-trace
+  // carries an on-chain receipt (tx hash recorded in hack_trace_hops).
+  "victim-trace": {
+    bg: "rgba(251,191,36,0.10)",
+    fg: "#fbbf24",
   },
 };
 

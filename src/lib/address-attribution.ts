@@ -29,10 +29,12 @@ export const SOURCE_PRECEDENCE: AddressAttributionSource[] = [
   "defillama",
   "incident",
   "rexintel-community",
-  // Lowest precedence. A community-loss-report attribution should never beat
-  // a sanctions-list / curated / incident-derived claim on the same address.
-  // /graph hides addresses whose *primary* source is this one behind the
-  // "Include user-reported" toggle.
+  // Community-class moat. `victim-trace` ranks above `community-loss-report`
+  // because it carries on-chain evidence (recorded hop tx hashes) rather
+  // than a self-reported story alone. Both are filtered out of /graph by
+  // the "Include user-reported" toggle — same trust class for industry
+  // comparison.
+  "victim-trace",
   "community-loss-report",
 ];
 

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { Submission, IntelPayload, EventPayload } from "@/lib/db/schema";
+import type {
+  Submission,
+  IntelPayload,
+  EventPayload,
+  LossReportPayload,
+} from "@/lib/db/schema";
 
 type StatusFilter = "pending" | "approved" | "rejected" | "spam";
 type TypeFilter =
@@ -13,13 +18,15 @@ type TypeFilter =
   | "grant"
   | "accelerator"
   | "perks"
-  | "job";
+  | "job"
+  | "loss_report";
 
 // Order + display labels for the type filter row. Keep this list aligned
 // with the submission_type enum + public surface routes.
 const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "intel", label: "Intel" },
+  { key: "loss_report", label: "Losses" },
   { key: "event", label: "Events" },
   { key: "hackathon", label: "Hacks" },
   { key: "popup_city", label: "Cities" },
@@ -534,6 +541,10 @@ function SubmissionRow({
             <IntelDetail payload={submission.payload as IntelPayload} />
           ) : submission.type === "event" ? (
             <EventDetail payload={submission.payload as EventPayload} />
+          ) : submission.type === "loss_report" ? (
+            <LossReportDetail
+              payload={submission.payload as LossReportPayload}
+            />
           ) : (
             <GenericPayloadDetail
               payload={submission.payload as Record<string, unknown>}
@@ -726,6 +737,64 @@ function EventDetail({ payload }: { payload: EventPayload }) {
           <p className="text-[var(--rex-text-muted)]">{payload.description}</p>
         </Field>
       )}
+    </div>
+  );
+}
+
+function LossReportDetail({ payload }: { payload: LossReportPayload }) {
+  const lossDate = payload.lossDate
+    ? new Date(payload.lossDate).toLocaleDateString()
+    : null;
+  const claimed =
+    typeof payload.claimedUsd === "number"
+      ? `$${payload.claimedUsd.toLocaleString()}`
+      : null;
+  return (
+    <div className="space-y-3 text-sm">
+      <Field label="Headline">{payload.headline}</Field>
+      <div className="flex gap-6 flex-wrap">
+        <Field label="Loss type">{payload.lossType}</Field>
+        {lossDate && <Field label="Loss date">{lossDate}</Field>}
+        {claimed && <Field label="Claimed value">{claimed}</Field>}
+        <Field label="Anon">{payload.anonymous ? "yes" : "no"}</Field>
+      </div>
+      <Field label="Story">
+        <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--rex-text-muted)]">
+          {payload.story}
+        </pre>
+      </Field>
+      {payload.evidenceLinks && payload.evidenceLinks.length > 0 && (
+        <Field label="Evidence">
+          <ul className="space-y-1 text-xs">
+            {payload.evidenceLinks.map((link, i) => (
+              <li key={i}>
+                <a
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--rex-accent)] hover:underline font-mono break-all"
+                >
+                  {link}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Field>
+      )}
+      <div
+        className="mt-2 rounded-sm border p-3 text-[11px] leading-relaxed"
+        style={{
+          borderColor: "rgba(251,191,36,0.30)",
+          background: "rgba(251,191,36,0.04)",
+          color: "var(--rex-text-muted)",
+        }}
+      >
+        Approving writes community-loss-report attributions to the linked
+        addresses (subject = lost, counterparty = hack-destination, observed
+        = no category). Open-tier submitters with no other accepted
+        contributions are queued — their attributions will write only after
+        they earn an approval on a different surface.
+      </div>
     </div>
   );
 }

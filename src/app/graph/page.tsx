@@ -78,10 +78,11 @@ export default async function GraphPage({
     category: searchParams.category ?? null,
     includeUserReported: searchParams.user_reported === "1",
   };
+  const includeUserReported = filters.includeUserReported === true;
   const [data, lostStats, valueStats] = await Promise.all([
     fetchGraphData(filters),
-    fetchLostCryptoStats(5),
-    fetchValueStats(),
+    fetchLostCryptoStats(5, { includeUserReported }),
+    fetchValueStats({ includeUserReported }),
   ]);
 
   return (
@@ -109,6 +110,11 @@ export default async function GraphPage({
             any node to open the source.
           </p>
         </header>
+
+        <SourceModeBanner
+          includeUserReported={includeUserReported}
+          searchParams={searchParams}
+        />
 
         <ValueCounterBlock stats={valueStats} />
 
@@ -139,6 +145,69 @@ export default async function GraphPage({
         </div>
       </main>
     </PublicShell>
+  );
+}
+
+function SourceModeBanner({
+  includeUserReported,
+  searchParams,
+}: {
+  includeUserReported: boolean;
+  searchParams: Record<string, string | undefined>;
+}) {
+  // Build the toggle-target URL by mirroring the rest of the search params and
+  // flipping just user_reported. Preserves window/kind/chain/view/category so
+  // a deep-linked view stays where the user left it after toggling.
+  const next = new URLSearchParams();
+  for (const [k, v] of Object.entries(searchParams)) {
+    if (!v) continue;
+    if (k === "user_reported") continue;
+    next.set(k, v);
+  }
+  if (!includeUserReported) next.set("user_reported", "1");
+  const toggleHref = `/graph${next.toString() ? `?${next}` : ""}`;
+
+  return (
+    <div
+      className="rex-card px-4 py-2.5 flex flex-wrap items-center gap-3 text-[11px] font-mono"
+      style={{
+        background: includeUserReported
+          ? "rgba(95,185,31,0.05)"
+          : "rgba(255,255,255,0.02)",
+        borderColor: includeUserReported
+          ? "rgba(95,185,31,0.35)"
+          : "var(--rex-border-subtle)",
+      }}
+    >
+      <span
+        className="uppercase tracking-widest"
+        style={{
+          color: includeUserReported
+            ? "var(--rex-accent)"
+            : "var(--rex-text-dim)",
+        }}
+      >
+        {includeUserReported ? "● Industry + community" : "○ Industry only"}
+      </span>
+      <span
+        className="text-[10px]"
+        style={{ color: "var(--rex-text-dim)" }}
+      >
+        {includeUserReported
+          ? "Sanctions lists + curated + incidents + RexIntel community-reported losses."
+          : "Sanctions lists + curated + incidents. No community-reported data."}
+      </span>
+      <a
+        href={toggleHref}
+        className="ml-auto px-2.5 py-1 rounded-sm border text-[10px] uppercase tracking-widest transition-colors"
+        style={{
+          color: "var(--rex-accent)",
+          borderColor: "var(--rex-accent)",
+        }}
+      >
+        {includeUserReported ? "Industry only ▸" : "+ Community ▸"}
+      </a>
+    </div>
   );
 }
 
@@ -237,7 +306,7 @@ function FilterBar({
         <label
           className="flex items-center gap-2 cursor-pointer text-[11px]"
           style={{ color: "var(--rex-text-muted)" }}
-          title="User-reported losses are firsthand victim claims, not verified by sanctions lists or curators. Off by default."
+          title="Off: only authoritative industry sources (OFAC, OFSI, EU sanctions, DefiLlama, RexIntel curated, incident-derived). On: also include community-reported losses from victims and curated witnesses — the RexIntel moat. Compare the totals with this on vs off."
         >
           <input
             type="checkbox"
@@ -246,7 +315,7 @@ function FilterBar({
             defaultChecked={includeUserReported}
             className="accent-[var(--rex-accent)]"
           />
-          Include user-reported
+          + Community sources
         </label>
       </FilterGroup>
 
