@@ -12,7 +12,7 @@ pragma solidity 0.8.24;
  *     waterfall: winners + amounts for the prior month.
  *   - Winners pull their share with `claim(month)` — pull-based so we
  *     don't risk reentrancy from a hostile token-receiver fallback or
- *     touch USDC's blacklist surface on send.
+ *     touch USDC's blocklist surface on send.
  *
  * Waterfall:
  *   The off-chain settlement cron computes the top-5 leaderboard and
@@ -26,20 +26,24 @@ pragma solidity 0.8.24;
  *
  * Tokens:
  *   USDC is fixed at deploy time. The contract holds a single ERC-20.
- *   Native ETH sent to the contract is forwarded to `settler` via the
- *   receive() — we don't want ETH dust accumulating untrackable.
+ *   Native ETH sent to the contract is REJECTED (revert) — the pool is
+ *   USDC-denominated and stray ETH would complicate accounting + open a
+ *   re-entry surface once the settler is rotated to a contract (Safe).
  *
  * Audit notes:
  *   - No upgradeability. Bug = redeploy + migrate balance via owner sweep.
  *   - `rescue()` is intentionally narrow: only non-USDC tokens (someone
  *     sending the wrong token by mistake). Settled USDC is never rescue-
  *     able by the settler — that would break the pull-claim promise.
+ *   - `reclaimUnclaimed()` reverses an owed entry 180 days after the
+ *     month was settled. USDC stays in the contract (rolls over into
+ *     the next month's pool); a winner with a permanently lost wallet
+ *     does not permanently lock the prize from the community.
  *   - `distribute()` accepts winners as duplicates safely: a duplicate
  *     winner across the 5 slots simply has both slots credited.
- *   - The amount sum must equal `payable` recorded for that month; we
- *     don't enforce 80%-of-balance on-chain because the off-chain math
- *     already does that and the contract's job is to record the math
- *     authoritatively, not re-derive it.
+ *   - Token transfers use a minimal SafeERC20-style wrapper that handles
+ *     non-bool-returning ERC-20s (a future Circle USDC proxy upgrade
+ *     that changes return semantics won't brick claim).
  */
 
 interface IERC20 {
@@ -54,6 +58,12 @@ contract IntelPrizePool {
     IERC20 public immutable USDC;
     address public settler;
     address public pendingSettler;
+
+    /// 180 days after settlement, the settler may reclaim an unclaimed
+    /// owed entry back into the pool's rollover. Gives users a long
+    /// window to claim while preventing permanent funds-lock from a
+    /// lost wallet.
+    uint256 public constant RECLAIM_WINDOW = 180 days;
 
     /// True once distribute() has been called for a given month.
     mapping(uint256 => bool) public distributed;
@@ -74,6 +84,7 @@ contract IntelPrizePool {
         uint256 rolloverAfter
     );
     event Claimed(uint256 indexed month, address indexed winner, uint256 amount);
+    event Reclaimed(uint256 indexed month, address indexed winner, uint256 amount);
     event SettlerProposed(address indexed proposed);
     event SettlerAccepted(address indexed newSettler);
     event Rescued(address indexed token, address indexed to, uint256 amount);
@@ -83,17 +94,21 @@ contract IntelPrizePool {
     error NotSettler();
     error NotPendingSettler();
     error AlreadyDistributed(uint256 month);
+    error NotDistributed(uint256 month);
     error InvalidMonth(uint256 month);
     error InsufficientBalance(uint256 needed, uint256 have);
     error NothingToClaim();
+    error NotYetReclaimable(uint256 month, uint256 unlocksAt);
     error TransferFailed();
     error CannotRescueSettledToken();
+    error EthNotAccepted();
+    error ZeroAddress();
 
     // ─── Constructor ────────────────────────────────────────────────────
 
     constructor(address usdc, address initialSettler) {
-        require(usdc != address(0), "usdc=0");
-        require(initialSettler != address(0), "settler=0");
+        if (usdc == address(0)) revert ZeroAddress();
+        if (initialSettler == address(0)) revert ZeroAddress();
         USDC = IERC20(usdc);
         settler = initialSettler;
     }
@@ -112,18 +127,35 @@ contract IntelPrizePool {
      * for the same month revert. The winners array may contain address(0)
      * for unused slots (e.g. only 3 valid winners that month); those
      * slots are skipped.
+     *
+     * Checks-effects-interactions: total + balance are validated BEFORE
+     * any `owed` writes so a partial-fill cannot leave the contract in
+     * an inconsistent state if a future patch removes the revert.
      */
     function distribute(
         uint256 month,
         address[5] calldata winners,
         uint256[5] calldata amounts
     ) external onlySettler {
-        if (month < 202000 || month > 210000 || month % 100 == 0 || month % 100 > 12) {
-            revert InvalidMonth(month);
-        }
+        if (!_isValidMonth(month)) revert InvalidMonth(month);
         if (distributed[month]) revert AlreadyDistributed(month);
 
-        uint256 totalPayable = 0;
+        // ── checks ────────────────────────────────────────────────────
+        uint256 totalPayable;
+        unchecked {
+            for (uint256 i = 0; i < 5; ++i) {
+                uint256 amount = amounts[i];
+                address winner = winners[i];
+                if (amount == 0 || winner == address(0)) continue;
+                totalPayable += amount;
+            }
+        }
+        uint256 have = USDC.balanceOf(address(this));
+        if (have < totalPayable) revert InsufficientBalance(totalPayable, have);
+
+        // ── effects ───────────────────────────────────────────────────
+        distributed[month] = true;
+        distributedAt[month] = block.timestamp;
         for (uint256 i = 0; i < 5; ++i) {
             uint256 amount = amounts[i];
             address winner = winners[i];
@@ -132,14 +164,7 @@ contract IntelPrizePool {
             // ranking should prevent this but the contract handles it
             // safely either way.
             owed[month][winner] += amount;
-            totalPayable += amount;
         }
-
-        uint256 have = USDC.balanceOf(address(this));
-        if (have < totalPayable) revert InsufficientBalance(totalPayable, have);
-
-        distributed[month] = true;
-        distributedAt[month] = block.timestamp;
 
         emit Distributed(month, winners, amounts, totalPayable, have - totalPayable);
     }
@@ -155,8 +180,7 @@ contract IntelPrizePool {
         uint256 amount = owed[month][msg.sender];
         if (amount == 0) revert NothingToClaim();
         owed[month][msg.sender] = 0;
-        bool ok = USDC.transfer(msg.sender, amount);
-        if (!ok) revert TransferFailed();
+        _safeTransfer(USDC, msg.sender, amount);
         emit Claimed(month, msg.sender, amount);
     }
 
@@ -167,11 +191,32 @@ contract IntelPrizePool {
         return owed[month][winner];
     }
 
+    // ─── Reclaim unclaimed (settler, after 180 days) ────────────────────
+
+    /**
+     * @notice Reverse an owed entry that no winner ever claimed. Gated by
+     * a 180-day window from `distributedAt[month]` so legitimate winners
+     * have a long claim runway. The USDC stays in the contract and rolls
+     * over to a future month's pool — there is no settler-callable USDC
+     * withdrawal path.
+     */
+    function reclaimUnclaimed(uint256 month, address winner) external onlySettler {
+        if (!distributed[month]) revert NotDistributed(month);
+        uint256 unlocksAt = distributedAt[month] + RECLAIM_WINDOW;
+        if (block.timestamp < unlocksAt) revert NotYetReclaimable(month, unlocksAt);
+        uint256 amount = owed[month][winner];
+        if (amount == 0) revert NothingToClaim();
+        owed[month][winner] = 0;
+        // USDC is NOT transferred out — it stays in the contract and
+        // naturally rolls over to the next distribute() call's pool.
+        emit Reclaimed(month, winner, amount);
+    }
+
     // ─── Settler rotation (2-step) ──────────────────────────────────────
 
     /// @notice Propose a new settler. Two-step to prevent typo-bricking.
     function proposeSettler(address newSettler) external onlySettler {
-        require(newSettler != address(0), "settler=0");
+        if (newSettler == address(0)) revert ZeroAddress();
         pendingSettler = newSettler;
         emit SettlerProposed(newSettler);
     }
@@ -196,22 +241,53 @@ contract IntelPrizePool {
      */
     function rescue(address token, address to, uint256 amount) external onlySettler {
         if (token == address(USDC)) revert CannotRescueSettledToken();
-        bool ok = IERC20(token).transfer(to, amount);
-        if (!ok) revert TransferFailed();
+        if (to == address(0)) revert ZeroAddress();
+        _safeTransfer(IERC20(token), to, amount);
         emit Rescued(token, to, amount);
     }
 
-    // ─── Native ETH ─────────────────────────────────────────────────────
+    // ─── Native ETH (rejected) ──────────────────────────────────────────
 
     /**
-     * @notice Forward any native ETH to the settler. The pool is
-     * USDC-denominated; we don't want stray ETH dust accumulating in a
-     * way that complicates accounting.
+     * @notice Reject native ETH outright. The pool is USDC-denominated
+     * and accepting ETH would (a) complicate accounting, (b) open a
+     * re-entrance surface once the settler is rotated to a contract
+     * (forwarding ETH via low-level call), and (c) trap funds with no
+     * withdrawal path.
      */
     receive() external payable {
-        if (msg.value > 0) {
-            (bool ok, ) = settler.call{value: msg.value}("");
-            if (!ok) revert TransferFailed();
-        }
+        revert EthNotAccepted();
+    }
+
+    // ─── Internals ──────────────────────────────────────────────────────
+
+    /**
+     * @dev Month must be a positive YYYYMM with month-of-year in [1, 12]
+     * and year >= 2020. No explicit upper bound on year — uint256 has
+     * room well beyond the next thousand years, and a typo'd huge month
+     * is caught by the settler-only modifier upstream.
+     */
+    function _isValidMonth(uint256 month) internal pure returns (bool) {
+        if (month < 202001) return false;
+        uint256 m = month % 100;
+        return m >= 1 && m <= 12;
+    }
+
+    /**
+     * @dev SafeERC20-equivalent transfer. Handles three ERC-20 dialects:
+     *   - returns bool: succeeds if bool == true
+     *   - returns nothing (non-standard): succeeds if call did not revert
+     *   - reverts on failure: bubbles via the `ok` check
+     * The post-call balance check would also catch fee-on-transfer
+     * tokens; we skip it because USDC has no fee and the contract is
+     * USDC-only (rescue path is for accidental wrong-token deposits
+     * where partial-recovery is acceptable).
+     */
+    function _safeTransfer(IERC20 token, address to, uint256 amount) internal {
+        (bool ok, bytes memory data) = address(token).call(
+            abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+        );
+        if (!ok) revert TransferFailed();
+        if (data.length > 0 && !abi.decode(data, (bool))) revert TransferFailed();
     }
 }

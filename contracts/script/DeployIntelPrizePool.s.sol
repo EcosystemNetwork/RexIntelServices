@@ -7,33 +7,39 @@ import {IntelPrizePool} from "../src/IntelPrizePool.sol";
 /**
  * @notice Deploy IntelPrizePool to Base mainnet (or any EVM chain).
  *
- * Env vars:
- *   USDC_ADDRESS      — ERC-20 the pool denominates in. Defaults to Base
- *                       mainnet USDC if unset. Must be set explicitly on
- *                       any other chain.
- *   SETTLER           — initial settler address. Defaults to msg.sender
- *                       (broadcaster) if unset, which is the simplest v1
- *                       setup: the deployer EOA also runs distribute().
+ * Env vars (BOTH REQUIRED — no fallbacks on mainnet):
+ *   USDC_ADDRESS  — ERC-20 the pool denominates in. For Base mainnet
+ *                   this is 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.
+ *   SETTLER       — initial settler address. SHOULD be a Safe multisig.
+ *                   If you must launch with an EOA, rotate to a multisig
+ *                   via proposeSettler() / acceptSettler() before the
+ *                   first distribute() call.
+ *
+ * The previous version of this script defaulted SETTLER to the
+ * broadcasting EOA, which made deploy-key = settler-key the path of
+ * least resistance and concentrated full pool control in one key.
+ * That fallback was removed — a missing SETTLER env now hard-fails.
  *
  * Usage (Base mainnet):
+ *   USDC_ADDRESS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+ *   SETTLER=0xYourSafeMultisigOrFreshEOA \
  *   forge script contracts/script/DeployIntelPrizePool.s.sol \
  *     --rpc-url $BASE_RPC_URL \
- *     --private-key $PRIVATE_KEY \
+ *     --private-key $DEPLOYER_PRIVATE_KEY \
  *     --broadcast \
  *     --verify \
  *     --etherscan-api-key $BASESCAN_API_KEY \
  *     -vvv
  *
- * The script prints the deployed contract address as its final log line so
- * the caller can grep it out into the Vercel env update.
+ * The script prints the deployed contract address as its final log line
+ * and asserts the constructor args read back correctly before exiting.
  */
 contract DeployIntelPrizePool is Script {
-    // Base mainnet bridged USDC (Circle).
-    address constant DEFAULT_USDC_BASE = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
-
     function run() external returns (IntelPrizePool pool) {
-        address usdc = _envAddressOr("USDC_ADDRESS", DEFAULT_USDC_BASE);
-        address settler = _envAddressOr("SETTLER", msg.sender);
+        // vm.envAddress reverts when the env var is unset — that's the
+        // behavior we want. NO fallback: explicit SETTLER is mandatory.
+        address usdc = vm.envAddress("USDC_ADDRESS");
+        address settler = vm.envAddress("SETTLER");
 
         require(usdc != address(0), "USDC_ADDRESS=0");
         require(settler != address(0), "SETTLER=0");
@@ -46,18 +52,13 @@ contract DeployIntelPrizePool is Script {
         pool = new IntelPrizePool(usdc, settler);
         vm.stopBroadcast();
 
-        console2.log("IntelPrizePool deployed at:", address(pool));
-    }
+        // Sanity: constructor args round-trip. Catches a fat-finger in
+        // the deploy bytecode before the operator pastes the address
+        // into Vercel and the cron starts hitting it.
+        require(address(pool.USDC()) == usdc, "USDC mismatch");
+        require(pool.settler() == settler, "settler mismatch");
+        require(pool.pendingSettler() == address(0), "pendingSettler not zero");
 
-    function _envAddressOr(string memory key, address fallbackValue)
-        internal
-        view
-        returns (address)
-    {
-        try vm.envAddress(key) returns (address v) {
-            return v;
-        } catch {
-            return fallbackValue;
-        }
+        console2.log("IntelPrizePool deployed at:", address(pool));
     }
 }

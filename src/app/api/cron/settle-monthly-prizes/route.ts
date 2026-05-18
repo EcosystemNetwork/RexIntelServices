@@ -23,7 +23,11 @@ import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// 300s gives waitForTransactionReceipt (90s) + DB writes (~1s) +
+// up-to-6-months backfill loop plenty of headroom. The prior 60s cap
+// guaranteed lambda kill mid-await on the first slow Base inclusion,
+// leaving the monthly_prizes row written but the txHash never patched.
+export const maxDuration = 300;
 
 /**
  * GET /api/cron/settle-monthly-prizes
@@ -129,6 +133,14 @@ export async function GET(req: Request) {
     // Resolve submission ids (for the awardPrizeWin call) and submitter
     // wallet addresses (for the on-chain distribute() call) in a single
     // pair of bulk lookups, then enrich payoutRows accordingly.
+    //
+    // Drop zero-amount slots BEFORE persisting. When the pool is tiny
+    // (~$0.42 or less), the 3%-of-80% place-5 share rounds to "0.00";
+    // without this filter we'd write a row with paidTo set + amount
+    // "0.00", then `submitDistribute` strips the on-chain slot, and
+    // the claim UI reports `claimed:true` for a never-paid winner
+    // (pendingClaim==0 + txHash!=null = claimed branch in /api/intel/
+    // prizes/me).
     const initial = top
       .filter((row) => row.voteCount > 0)
       .slice(0, 5)
@@ -137,7 +149,8 @@ export async function GET(req: Request) {
         publicId: row.publicId,
         submitterEmail: row.submitterEmail,
         amount: placeAmounts[idx]!,
-      }));
+      }))
+      .filter((r) => Number(r.amount) > 0);
     const publicIds = initial.map((r) => r.publicId);
     const submissionRows = publicIds.length
       ? await db

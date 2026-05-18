@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {Test, console2} from "forge-std/Test.sol";
 import {IntelPrizePool} from "../src/IntelPrizePool.sol";
 
-/// @dev Minimal ERC-20 stand-in for USDC. Not a faithful USDC (no blacklist,
+/// @dev Minimal ERC-20 stand-in for USDC. Not a faithful USDC (no blocklist,
 ///      no permit) — we just need transfer/transferFrom/balanceOf semantics.
 contract MockUSDC {
     mapping(address => uint256) public balanceOf;
@@ -37,6 +37,23 @@ contract MockUSDC {
     }
 }
 
+/// @dev ERC-20 that returns no bytes from `transfer` (non-standard like USDT
+///      on Ethereum mainnet). The pool's safe-transfer wrapper must accept it.
+contract NonReturningToken {
+    mapping(address => uint256) public balanceOf;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function transfer(address to, uint256 amount) external {
+        require(balanceOf[msg.sender] >= amount, "balance");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        // Intentionally returns nothing.
+    }
+}
+
 contract IntelPrizePoolTest is Test {
     IntelPrizePool pool;
     MockUSDC usdc;
@@ -64,12 +81,12 @@ contract IntelPrizePoolTest is Test {
     }
 
     function test_constructor_rejectsZeroUsdc() public {
-        vm.expectRevert(bytes("usdc=0"));
+        vm.expectRevert(IntelPrizePool.ZeroAddress.selector);
         new IntelPrizePool(address(0), settler);
     }
 
     function test_constructor_rejectsZeroSettler() public {
-        vm.expectRevert(bytes("settler=0"));
+        vm.expectRevert(IntelPrizePool.ZeroAddress.selector);
         new IntelPrizePool(address(usdc), address(0));
     }
 
@@ -147,7 +164,7 @@ contract IntelPrizePoolTest is Test {
         uint256[5] memory amounts = [uint256(1e6), uint256(0), uint256(0), uint256(0), uint256(0)];
         address[5] memory winners = [w1, address(0), address(0), address(0), address(0)];
 
-        // Month 0 within encoded year → invalid
+        // Month 0 within encoded year → invalid (month % 100 == 0)
         vm.prank(settler);
         vm.expectRevert(abi.encodeWithSelector(IntelPrizePool.InvalidMonth.selector, 202600));
         pool.distribute(202600, winners, amounts);
@@ -157,10 +174,38 @@ contract IntelPrizePoolTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IntelPrizePool.InvalidMonth.selector, 202613));
         pool.distribute(202613, winners, amounts);
 
-        // Year out of range → invalid
+        // Year out of range (pre-2020) → invalid
         vm.prank(settler);
         vm.expectRevert(abi.encodeWithSelector(IntelPrizePool.InvalidMonth.selector, 199912));
         pool.distribute(199912, winners, amounts);
+
+        // Year 0 → invalid
+        vm.prank(settler);
+        vm.expectRevert(abi.encodeWithSelector(IntelPrizePool.InvalidMonth.selector, 0));
+        pool.distribute(0, winners, amounts);
+    }
+
+    function test_distribute_acceptsBoundaryMonths() public {
+        // 2020-01: lower bound — accepted
+        uint256[5] memory amounts = [uint256(1e6), uint256(0), uint256(0), uint256(0), uint256(0)];
+        address[5] memory winners = [w1, address(0), address(0), address(0), address(0)];
+        vm.prank(settler);
+        pool.distribute(202001, winners, amounts);
+        assertTrue(pool.distributed(202001));
+
+        // 2099-12, 2100-01, 2100-12: upper-bound regression (the old
+        // contract rejected anything > 210000 which broke at year 2100).
+        vm.prank(settler);
+        pool.distribute(209912, winners, amounts);
+        assertTrue(pool.distributed(209912));
+
+        vm.prank(settler);
+        pool.distribute(210001, winners, amounts);
+        assertTrue(pool.distributed(210001));
+
+        vm.prank(settler);
+        pool.distribute(210012, winners, amounts);
+        assertTrue(pool.distributed(210012));
     }
 
     function test_distribute_revertsOnInsufficientBalance() public {
@@ -177,6 +222,13 @@ contract IntelPrizePoolTest is Test {
             abi.encodeWithSelector(IntelPrizePool.InsufficientBalance.selector, 100 * 1e6, 1e6)
         );
         pool.distribute(202605, winners, amounts);
+
+        // Insufficient-balance revert must NOT have written `owed` for w1.
+        // Regression test for the CEI ordering fix (pre-patch the loop
+        // wrote owed BEFORE balance check; an EVM revert rolled it back
+        // but the ordering was a footgun).
+        assertFalse(pool.distributed(202605));
+        assertEq(pool.pendingClaim(202605, w1), 0);
     }
 
     function test_distribute_revertsForNonSettler() public {
@@ -228,6 +280,80 @@ contract IntelPrizePoolTest is Test {
         pool.claim(202605);
     }
 
+    // ─── reclaim unclaimed ────────────────────────────────────────────────
+
+    function test_reclaim_revertsBeforeWindow() public {
+        _distributeOneWinner(w1, 100 * 1e6);
+        // Immediately try to reclaim — window is 180 days
+        uint256 unlocksAt = block.timestamp + 180 days;
+        vm.prank(settler);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IntelPrizePool.NotYetReclaimable.selector, 202605, unlocksAt
+            )
+        );
+        pool.reclaimUnclaimed(202605, w1);
+    }
+
+    function test_reclaim_afterWindow_zerosOwed() public {
+        _distributeOneWinner(w1, 100 * 1e6);
+
+        // Fast-forward past the reclaim window
+        vm.warp(block.timestamp + 180 days + 1);
+
+        vm.prank(settler);
+        pool.reclaimUnclaimed(202605, w1);
+
+        assertEq(pool.pendingClaim(202605, w1), 0);
+        // USDC stays in the contract — no transfer out.
+        assertEq(usdc.balanceOf(address(pool)), 1_000 * 1e6);
+        assertEq(usdc.balanceOf(w1), 0);
+    }
+
+    function test_reclaim_revertsOnUnsettledMonth() public {
+        vm.prank(settler);
+        vm.expectRevert(
+            abi.encodeWithSelector(IntelPrizePool.NotDistributed.selector, 202605)
+        );
+        pool.reclaimUnclaimed(202605, w1);
+    }
+
+    function test_reclaim_revertsOnAlreadyClaimed() public {
+        _distributeOneWinner(w1, 100 * 1e6);
+
+        vm.prank(w1);
+        pool.claim(202605);
+
+        vm.warp(block.timestamp + 180 days + 1);
+
+        vm.prank(settler);
+        vm.expectRevert(IntelPrizePool.NothingToClaim.selector);
+        pool.reclaimUnclaimed(202605, w1);
+    }
+
+    function test_reclaim_revertsForNonSettler() public {
+        _distributeOneWinner(w1, 100 * 1e6);
+        vm.warp(block.timestamp + 180 days + 1);
+
+        vm.prank(w1);
+        vm.expectRevert(IntelPrizePool.NotSettler.selector);
+        pool.reclaimUnclaimed(202605, w1);
+    }
+
+    // ─── safe transfer (non-standard ERC-20) ──────────────────────────────
+
+    function test_rescue_acceptsNonReturningErc20() public {
+        // USDT-style token that returns no bytes from transfer. The pool's
+        // _safeTransfer wrapper must treat "no return data" as success.
+        NonReturningToken weird = new NonReturningToken();
+        weird.mint(address(pool), 50 * 1e6);
+
+        vm.prank(settler);
+        pool.rescue(address(weird), settler, 50 * 1e6);
+
+        assertEq(weird.balanceOf(settler), 50 * 1e6);
+    }
+
     // ─── rescue ───────────────────────────────────────────────────────────
 
     function test_rescue_nonUsdcOk() public {
@@ -244,6 +370,14 @@ contract IntelPrizePoolTest is Test {
         vm.prank(settler);
         vm.expectRevert(IntelPrizePool.CannotRescueSettledToken.selector);
         pool.rescue(address(usdc), settler, 1);
+    }
+
+    function test_rescue_revertsOnZeroRecipient() public {
+        MockUSDC other = new MockUSDC();
+        other.mint(address(pool), 1);
+        vm.prank(settler);
+        vm.expectRevert(IntelPrizePool.ZeroAddress.selector);
+        pool.rescue(address(other), address(0), 1);
     }
 
     function test_rescue_revertsForNonSettler() public {
@@ -282,20 +416,19 @@ contract IntelPrizePoolTest is Test {
 
     function test_proposeSettler_rejectsZero() public {
         vm.prank(settler);
-        vm.expectRevert(bytes("settler=0"));
+        vm.expectRevert(IntelPrizePool.ZeroAddress.selector);
         pool.proposeSettler(address(0));
     }
 
-    // ─── native ETH ───────────────────────────────────────────────────────
+    // ─── native ETH (rejected) ────────────────────────────────────────────
 
-    function test_receiveEth_forwardsToSettler() public {
+    function test_receiveEth_reverts() public {
         vm.deal(address(this), 1 ether);
-        uint256 before = settler.balance;
 
+        vm.expectRevert(IntelPrizePool.EthNotAccepted.selector);
         (bool ok,) = address(pool).call{value: 0.5 ether}("");
-        assertTrue(ok);
-
-        assertEq(settler.balance, before + 0.5 ether);
+        // ok will be false due to revert
+        assertFalse(ok);
         assertEq(address(pool).balance, 0);
     }
 

@@ -109,9 +109,15 @@ export function getOnchainPoolConfig(): OnchainPoolConfig {
     (chainId === 84532
       ? "https://sepolia.base.org"
       : "https://mainnet.base.org");
-  const contractAddress = parseAddress(process.env.PRIZE_POOL_ADDRESS);
+  const contractAddress = parseAddress(
+    process.env.PRIZE_POOL_ADDRESS,
+    "PRIZE_POOL_ADDRESS",
+  );
   const tokenContract =
-    parseAddress(process.env.PRIZE_POOL_TOKEN_CONTRACT) || DEFAULT_USDC_BASE;
+    parseAddress(
+      process.env.PRIZE_POOL_TOKEN_CONTRACT,
+      "PRIZE_POOL_TOKEN_CONTRACT",
+    ) || DEFAULT_USDC_BASE;
   return {
     contractAddress,
     tokenContract,
@@ -120,10 +126,23 @@ export function getOnchainPoolConfig(): OnchainPoolConfig {
   };
 }
 
-function parseAddress(v: string | undefined): Address | null {
+/**
+ * Parse an env-var address. Returns null when the env var is unset.
+ * Throws when the env var is set but malformed — silent fallback to
+ * null would let a typo'd PRIZE_POOL_ADDRESS skip every monthly
+ * settle forever with no alert (the submitDistribute path emits a
+ * `skipped_no_contract` status which is treated as a success state
+ * by the cron, so the silent skip is invisible).
+ */
+function parseAddress(v: string | undefined, envName: string): Address | null {
   if (!v) return null;
   const trimmed = v.trim();
-  if (!/^0x[0-9a-fA-F]{40}$/.test(trimmed)) return null;
+  if (!trimmed) return null;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
+    throw new Error(
+      `${envName}: malformed address '${trimmed}', expected 0x-prefixed 40-hex`,
+    );
+  }
   return trimmed as Address;
 }
 
@@ -294,9 +313,14 @@ export async function submitDistribute(args: {
   // and then have the tx revert silently. A revert here propagates to the
   // cron, which leaves the DB row's payouts entries without a txHash so a
   // re-run can retry.
+  //
+  // Timeout is 90s — must stay well under the cron's `maxDuration=300`
+  // so the lambda has time to also write the txHash back to the DB row
+  // after this returns. Base block time is ~2s; 90s is ~45 blocks of
+  // headroom for pending-pool variance under load.
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash,
-    timeout: 120_000,
+    timeout: 90_000,
   });
   if (receipt.status !== "success") {
     throw new Error(
@@ -316,14 +340,20 @@ function parseUsdc(amount: string): bigint {
 
 function isValidYYYYMM(n: number): boolean {
   if (!Number.isInteger(n)) return false;
-  if (n < 202000 || n > 210000) return false;
+  if (n < 202001) return false;
   const m = n % 100;
   return m >= 1 && m <= 12;
 }
 
-/** YYYY-MM ("2026-05") → 202605. Mirrors the contract's month encoding. */
+/** YYYY-MM ("2026-05") → 202605. Mirrors the contract's month encoding.
+ *  Validates the month-of-year at source so a malformed "2026-13" never
+ *  reaches the contract (where it would revert via InvalidMonth). */
 export function yearMonthToYYYYMM(yearMonth: string): number {
   const m = /^(\d{4})-(\d{2})$/.exec(yearMonth);
   if (!m) throw new Error(`yearMonthToYYYYMM: bad input "${yearMonth}"`);
-  return Number(m[1]) * 100 + Number(m[2]);
+  const monthOfYear = Number(m[2]);
+  if (monthOfYear < 1 || monthOfYear > 12) {
+    throw new Error(`yearMonthToYYYYMM: invalid month "${yearMonth}"`);
+  }
+  return Number(m[1]) * 100 + monthOfYear;
 }
