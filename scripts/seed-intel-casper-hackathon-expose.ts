@@ -409,12 +409,12 @@ const payload: IntelPayload = {
   // the og:image, the listing thumbnail, the RSS media:content enclosure,
   // and the article hero. Anonymous-source convention: credit is RexIntel,
   // not the contributor.
-  heroImageUrl: "/casper.png",
+  heroImageUrl: "/intel-heroes/casper-hackathon-expose.svg",
   heroAlt:
-    "Casper Hackathon 2026 Final Round official marketing banner: $40,000 prize, co-sponsored by Halborn, NOWNodes, NodeOps, and ChainGPT.",
+    "Casper Hackathon 2026 — 96 percent of the voter pool was fed by 15 apex wallets. The announced 3rd-place winner's documented deployer wallet was the apex bot-funder behind 106 of the votes.",
   heroCaption:
-    "Casper's own Final Round marketing — $40K total prize, four named security and infrastructure co-sponsors lending the contest the appearance of credibility. The on-chain record we present here is incompatible with the contest's \"Sybil-resistant and fully transparent\" framing.",
-  heroCredit: "Casper Association · Final Round marketing banner",
+    "96% of the voter pool traces back to 15 apex wallets. The announced 3rd-place winner's documented deployer wallet was the apex bot-funder behind 106 of the votes.",
+  heroCredit: "Rex Intel Services · Investigations Desk",
   // Evidence gallery — direct links to the primary on-chain receipts so any
   // reader can re-run the verification without leaving the article. The
   // gallery renders below the body as a stacked "Evidence" block.
