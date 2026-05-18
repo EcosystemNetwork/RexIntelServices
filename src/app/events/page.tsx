@@ -157,7 +157,7 @@ export default async function EventsPage({
             >
               ▸ Field Calendar
             </p>
-            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
+            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-[var(--rex-text)] mb-3">
               Events worth tracking.
             </h1>
             <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">
@@ -192,7 +192,7 @@ export default async function EventsPage({
           event?{" "}
           <Link
             href="/submit?type=event"
-            className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+            className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors underline decoration-dotted underline-offset-2"
           >
             Paste a lu.ma URL
           </Link>{" "}
@@ -350,7 +350,7 @@ function EventCard({
         >
           {monthLabel}
         </div>
-        <div className="text-xl font-display text-white leading-none">
+        <div className="text-xl font-display text-[var(--rex-text)] leading-none">
           {dayLabel}
         </div>
       </div>
@@ -408,7 +408,7 @@ function EventCard({
             </span>
           )}
         </div>
-        <div className="text-white text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
+        <div className="text-[var(--rex-text)] text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
           {payload.name}
         </div>
         <div

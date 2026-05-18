@@ -119,7 +119,7 @@ function BriefDemo() {
         <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
           Demo · Gemini investigator brief
         </div>
-        <h2 className="font-display text-2xl font-semibold text-white">
+        <h2 className="font-display text-2xl font-semibold text-[var(--rex-text)]">
           Paste an address. Get a brief.
         </h2>
         <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
@@ -169,7 +169,7 @@ function BriefDemo() {
               setChain(ex.chain);
               setAddress(ex.address);
             }}
-            className="font-mono px-2 py-1 rounded-sm border border-dashed border-[var(--rex-border-subtle)] text-[var(--rex-text-muted)] hover:text-white hover:border-[var(--rex-accent)] transition-colors"
+            className="font-mono px-2 py-1 rounded-sm border border-dashed border-[var(--rex-border-subtle)] text-[var(--rex-text-muted)] hover:text-[var(--rex-text)] hover:border-[var(--rex-accent)] transition-colors"
             title={ex.address}
           >
             {ex.hint} ▸
@@ -209,7 +209,7 @@ function BriefResult({ result }: { result: BriefResponse }) {
         </span>
       </div>
 
-      <pre className="text-sm text-white whitespace-pre-wrap font-sans leading-relaxed">
+      <pre className="text-sm text-[var(--rex-text)] whitespace-pre-wrap font-sans leading-relaxed">
         {result.brief}
       </pre>
 
@@ -284,7 +284,7 @@ function BriefResult({ result }: { result: BriefResponse }) {
                       >
                         [{i.publicId}]
                       </a>{" "}
-                      <span className="text-white">{i.headline}</span>{" "}
+                      <span className="text-[var(--rex-text)]">{i.headline}</span>{" "}
                       <span className="text-[var(--rex-text-dim)]">
                         · role={i.role}
                       </span>
@@ -349,7 +349,7 @@ function QueryDemo() {
         <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
           Demo · Natural-language Q&A
         </div>
-        <h2 className="font-display text-2xl font-semibold text-white">
+        <h2 className="font-display text-2xl font-semibold text-[var(--rex-text)]">
           Ask the corpus anything.
         </h2>
         <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
@@ -377,7 +377,7 @@ function QueryDemo() {
               key={p}
               type="button"
               onClick={() => setQuestion(p)}
-              className="text-[10px] font-mono px-2 py-1 rounded-sm border border-dashed border-[var(--rex-border-subtle)] text-[var(--rex-text-muted)] hover:text-white hover:border-[var(--rex-accent)] transition-colors"
+              className="text-[10px] font-mono px-2 py-1 rounded-sm border border-dashed border-[var(--rex-border-subtle)] text-[var(--rex-text-muted)] hover:text-[var(--rex-text)] hover:border-[var(--rex-accent)] transition-colors"
             >
               {p}
             </button>
@@ -403,7 +403,7 @@ function QueryDemo() {
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
             {result.meta.model} · {result.meta.latencyMs}ms · {result.meta.contextSize} snippets
           </div>
-          <pre className="text-sm text-white whitespace-pre-wrap font-sans leading-relaxed">
+          <pre className="text-sm text-[var(--rex-text)] whitespace-pre-wrap font-sans leading-relaxed">
             {result.answer}
           </pre>
           {result.citations.length ? (
@@ -441,7 +441,7 @@ function SourcesBlock({
         <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
           Under the hood
         </div>
-        <h2 className="font-display text-2xl font-semibold text-white mt-1">
+        <h2 className="font-display text-2xl font-semibold text-[var(--rex-text)] mt-1">
           The graph Gemini reads from.
         </h2>
       </div>
@@ -459,7 +459,7 @@ function SourcesBlock({
                 <span className="text-[var(--rex-accent)] w-12 shrink-0 text-right">
                   {s.count.toLocaleString()}
                 </span>
-                <span className="text-white">{s.source}</span>
+                <span className="text-[var(--rex-text)]">{s.source}</span>
               </li>
             ))}
           </ul>
@@ -477,7 +477,7 @@ function SourcesBlock({
                 <span className="text-[var(--rex-accent)] w-12 shrink-0 text-right">
                   {c.count.toLocaleString()}
                 </span>
-                <span className="text-white">{c.category}</span>
+                <span className="text-[var(--rex-text)]">{c.category}</span>
               </li>
             ))}
           </ul>

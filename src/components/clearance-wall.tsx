@@ -46,7 +46,7 @@ export function ClearanceWall({ required, current, reason }: Props) {
       >
         ▸ Clearance required · {TIER_LABEL[required]}
       </div>
-      <h3 className="font-display text-lg text-white mb-2 leading-tight">
+      <h3 className="font-display text-lg text-[var(--rex-text)] mb-2 leading-tight">
         {reason ?? "Connect a wallet to unlock the full investigation."}
       </h3>
       <p

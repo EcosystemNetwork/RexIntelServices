@@ -220,7 +220,7 @@ export default async function IntelHubPage({
             >
               {copy.kicker}
             </p>
-            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
+            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-[var(--rex-text)] mb-3">
               {copy.title}
             </h1>
             <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-xl leading-relaxed">

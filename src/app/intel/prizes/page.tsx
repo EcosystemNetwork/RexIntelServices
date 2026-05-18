@@ -23,7 +23,7 @@ export default function PrizeClaimPage() {
           >
             Monthly settlement
           </p>
-          <h1 className="font-display text-3xl text-white mt-1">
+          <h1 className="font-display text-3xl text-[var(--rex-text)] mt-1">
             Your prize pool wins
           </h1>
           <p

@@ -111,7 +111,7 @@ export default function LoginPage() {
     >
       <main className="max-w-md mx-auto px-6 pt-12 md:pt-20 pb-24">
         <div className="rex-card p-8 animate-fade-in">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-white mb-1">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--rex-text)] mb-1">
             Welcome back
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--rex-text-muted)" }}>

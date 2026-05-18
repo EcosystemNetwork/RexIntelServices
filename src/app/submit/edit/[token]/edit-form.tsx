@@ -147,7 +147,7 @@ export default function EditForm({ token }: { token: string }) {
         classification={[{ text: "● No Signal // Edit Link Invalid" }]}
       >
         <main className="max-w-xl mx-auto px-6 pt-16 md:pt-24 pb-24 text-center">
-          <h1 className="font-display text-3xl text-white mb-3">
+          <h1 className="font-display text-3xl text-[var(--rex-text)] mb-3">
             Edit link not valid.
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] mb-6">{loadError}</p>
@@ -198,7 +198,7 @@ export default function EditForm({ token }: { token: string }) {
           >
             ▸ Editing your {label}
           </p>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-2">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-2">
             {String(loaded.payload.name ?? loaded.payload.title ?? loaded.payload.headline ?? "Submission")}
           </h1>
           <p className="text-xs font-mono" style={{ color: "var(--rex-text-dim)" }}>
@@ -502,7 +502,7 @@ function PersonaPicker({
               onClick={() => onToggle(slug)}
               className={`text-[11px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
                 active
-                  ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-white"
+                  ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-[var(--rex-text)]"
                   : "border-[var(--rex-border-subtle)] text-[var(--rex-text-dim)] hover:border-[var(--rex-border)]"
               }`}
             >

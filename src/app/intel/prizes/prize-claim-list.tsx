@@ -159,7 +159,7 @@ export function PrizeClaimList() {
   if (!data?.contributor) {
     return (
       <div className="rex-card p-5">
-        <p className="text-sm text-white">
+        <p className="text-sm text-[var(--rex-text)]">
           Sign in to see your prize history. Use the Sign in button in the
           header — same email you submitted intel with.
         </p>
@@ -170,7 +170,7 @@ export function PrizeClaimList() {
   if (!data.contract) {
     return (
       <div className="rex-card p-5">
-        <p className="text-sm text-white">
+        <p className="text-sm text-[var(--rex-text)]">
           The prize pool contract isn&apos;t configured on this environment yet.
         </p>
       </div>
@@ -191,7 +191,7 @@ export function PrizeClaimList() {
               <li key={p.monthYYYYMM} className="rex-card p-4 flex flex-col gap-2">
                 <div className="flex items-baseline justify-between gap-4">
                   <div>
-                    <div className="font-display text-xl text-white">
+                    <div className="font-display text-xl text-[var(--rex-text)]">
                       ${p.amount} USDC
                     </div>
                     <div
@@ -244,7 +244,7 @@ export function PrizeClaimList() {
                 key={p.monthYYYYMM}
                 className="rex-card p-4 text-sm flex items-baseline justify-between"
               >
-                <span className="text-white">
+                <span className="text-[var(--rex-text)]">
                   ${p.amount} USDC — {PLACE_LABEL[p.place - 1] ?? `#${p.place}`}, {formatYearMonth(p.yearMonth)}
                 </span>
                 <span
@@ -280,7 +280,7 @@ export function PrizeClaimList() {
                     href={explorerTxUrl(data.chainId, p.txHash)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] font-mono text-[var(--rex-text-dim)] hover:text-white"
+                    className="text-[11px] font-mono text-[var(--rex-text-dim)] hover:text-[var(--rex-text)]"
                   >
                     settlement tx ▸
                   </a>
@@ -293,7 +293,7 @@ export function PrizeClaimList() {
 
       {claimable.length === 0 && pending.length === 0 && claimed.length === 0 && (
         <div className="rex-card p-5">
-          <p className="text-sm text-white">No prize wins yet.</p>
+          <p className="text-sm text-[var(--rex-text)]">No prize wins yet.</p>
           <p
             className="text-sm mt-2"
             style={{ color: "var(--rex-text-dim)" }}

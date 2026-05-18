@@ -326,7 +326,7 @@ export default async function EntityPage({
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/intel"
-          className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
+          className="mono-label hover:text-[var(--rex-text)] transition-colors inline-flex items-center gap-1.5 mb-6"
         >
           <span>←</span>
           <span>All intel</span>
@@ -350,7 +350,7 @@ export default async function EntityPage({
             </span>
           </div>
 
-          <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-white mb-3 leading-tight break-all">
+          <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-[var(--rex-text)] mb-3 leading-tight break-all">
             {entity.label ?? truncateAddress(entity.address, 12, 10)}
           </h1>
 
@@ -414,7 +414,7 @@ export default async function EntityPage({
             {entity.balanceEstimateUsd && (
               <span style={{ color: "var(--rex-text-muted)" }}>
                 Balance est.{" "}
-                <span className="text-white">
+                <span className="text-[var(--rex-text)]">
                   {formatUsdShort(Number(entity.balanceEstimateUsd))}
                 </span>
               </span>
@@ -490,7 +490,7 @@ export default async function EntityPage({
                       </span>
                     </div>
                     {a.ownerName && (
-                      <div className="text-sm text-white font-semibold mb-1">
+                      <div className="text-sm text-[var(--rex-text)] font-semibold mb-1">
                         {a.ownerName}
                         {a.ownerKind && (
                           <span
@@ -517,7 +517,7 @@ export default async function EntityPage({
                         href={a.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block mt-2 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent-2)] hover:text-white transition-colors"
+                        className="inline-block mt-2 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent-2)] hover:text-[var(--rex-text)] transition-colors"
                       >
                         Source ▸
                       </a>
@@ -589,7 +589,7 @@ export default async function EntityPage({
                           </span>
                         )}
                       </div>
-                      <div className="font-display text-base text-white group-hover:text-[var(--rex-accent)] transition-colors mb-1">
+                      <div className="font-display text-base text-[var(--rex-text)] group-hover:text-[var(--rex-accent)] transition-colors mb-1">
                         {r.payload.headline}
                       </div>
                       <p className="text-xs text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">

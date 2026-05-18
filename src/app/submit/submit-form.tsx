@@ -95,7 +95,7 @@ function DuplicateBanner({
         <button
           type="button"
           onClick={onDismiss}
-          className="text-xs font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-white transition-colors"
+          className="text-xs font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] transition-colors"
         >
           Cancel
         </button>
@@ -195,7 +195,7 @@ export default function SubmitForm() {
           >
             ▸ Source Intake
           </p>
-          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
+          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-[var(--rex-text)] mb-3">
             Drop the intel.
           </h1>
           <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-md mx-auto leading-relaxed">
@@ -551,7 +551,7 @@ function IntelForm() {
           <button
             type="button"
             onClick={addMediaRow}
-            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
           >
             + Add media
           </button>
@@ -661,7 +661,7 @@ function IntelForm() {
                   : "border-[var(--rex-border-subtle)] hover:border-[var(--rex-border)]"
               }`}
             >
-              <div className="text-sm font-medium text-white">{k.title}</div>
+              <div className="text-sm font-medium text-[var(--rex-text)]">{k.title}</div>
               <div
                 className="text-[11px] mt-0.5"
                 style={{ color: "var(--rex-text-dim)" }}
@@ -788,7 +788,7 @@ function IntelForm() {
                 }
                 className={`text-[11px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
                   active
-                    ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-white"
+                    ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-[var(--rex-text)]"
                     : "border-[var(--rex-border-subtle)] text-[var(--rex-text-dim)] hover:border-[var(--rex-border)]"
                 }`}
               >
@@ -809,7 +809,7 @@ function IntelForm() {
           <button
             type="button"
             onClick={addAddressRow}
-            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
           >
             + Add address
           </button>
@@ -1157,7 +1157,7 @@ function LossReportForm() {
                   : "border-[var(--rex-border-subtle)] hover:border-[var(--rex-border)]"
               }`}
             >
-              <div className="text-sm font-medium text-white">{k.title}</div>
+              <div className="text-sm font-medium text-[var(--rex-text)]">{k.title}</div>
               <div
                 className="text-[11px] mt-0.5"
                 style={{ color: "var(--rex-text-dim)" }}
@@ -1214,7 +1214,7 @@ function LossReportForm() {
           <button
             type="button"
             onClick={addAddressRow}
-            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
           >
             + Add address
           </button>
@@ -3344,7 +3344,7 @@ function SuccessPanel({
           />
         </svg>
       </div>
-      <h2 className="font-display text-xl text-white mb-2">Transmission received.</h2>
+      <h2 className="font-display text-xl text-[var(--rex-text)] mb-2">Transmission received.</h2>
       <p className="text-sm text-[var(--rex-text-muted)] max-w-sm mx-auto">
         {message}
       </p>
@@ -3368,7 +3368,7 @@ function SuccessPanel({
           </p>
           <a
             href={editUrl}
-            className="block text-[11px] font-mono break-all text-[var(--rex-accent)] hover:text-white transition-colors"
+            className="block text-[11px] font-mono break-all text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
           >
             {editUrl}
           </a>
@@ -3376,7 +3376,7 @@ function SuccessPanel({
       )}
       <Link
         href="/"
-        className="inline-block mt-6 mono-label-accent hover:text-white transition-colors"
+        className="inline-block mt-6 mono-label-accent hover:text-[var(--rex-text)] transition-colors"
       >
         ← Return to Briefing Room
       </Link>

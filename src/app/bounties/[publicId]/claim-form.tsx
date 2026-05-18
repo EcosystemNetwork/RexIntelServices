@@ -111,7 +111,7 @@ export function BountyClaimForm({
           onChange={(e) => setNarrative(e.target.value)}
           rows={6}
           placeholder="What did you find? How did you find it? What addresses, exchanges, on-chain artifacts do you have? Cite tx hashes."
-          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
         />
       </label>
 
@@ -125,7 +125,7 @@ export function BountyClaimForm({
           onChange={(e) => setTargets(e.target.value)}
           rows={3}
           placeholder="0xabc...&#10;0xdef..."
-          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
         />
       </label>
 
@@ -140,7 +140,7 @@ export function BountyClaimForm({
             onChange={(e) => setSuspectedEntity(e.target.value)}
             maxLength={200}
             placeholder="e.g., known drainer-as-a-service operator"
-            className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+            className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
           />
         </label>
         <label className="block space-y-1">
@@ -150,7 +150,7 @@ export function BountyClaimForm({
           <select
             value={chain}
             onChange={(e) => setChain(e.target.value)}
-            className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+            className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
           >
             <option value="ethereum">ethereum</option>
             <option value="base">base</option>

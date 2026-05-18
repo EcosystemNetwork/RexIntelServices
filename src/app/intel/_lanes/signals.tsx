@@ -132,7 +132,7 @@ export async function HackedCryptoCounter() {
           >
             ▸ Hacked crypto tracked
           </div>
-          <div className="font-display text-2xl sm:text-3xl text-white tabular-nums">
+          <div className="font-display text-2xl sm:text-3xl text-[var(--rex-text)] tabular-nums">
             {formatUsdShort(totalUsd)}{" "}
             <span
               className="text-xs font-mono"
@@ -202,7 +202,7 @@ export async function PrizePoolBanner() {
           >
             ▸ {monthLabel} prize pool
           </div>
-          <div className="font-display text-xl text-white tabular-nums">
+          <div className="font-display text-xl text-[var(--rex-text)] tabular-nums">
             {poolStr}{" "}
             <span
               className="text-xs font-mono"
@@ -221,7 +221,7 @@ export async function PrizePoolBanner() {
               Leading · {leaderRow.voteCount}{" "}
               {leaderRow.voteCount === 1 ? "vote" : "votes"}
             </div>
-            <div className="text-sm text-white truncate">{leaderHead}</div>
+            <div className="text-sm text-[var(--rex-text)] truncate">{leaderHead}</div>
           </div>
         )}
         <div
@@ -553,7 +553,7 @@ function IntelCard({
         )}
       </div>
 
-      <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+      <h3 className="font-display text-lg text-[var(--rex-text)] mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
         {payload.headline}
       </h3>
 
@@ -654,7 +654,7 @@ function IntelRow({
               {dateLabel}
             </span>
           </div>
-          <h3 className="font-display text-sm text-white truncate group-hover:text-[var(--rex-accent)] transition-colors">
+          <h3 className="font-display text-sm text-[var(--rex-text)] truncate group-hover:text-[var(--rex-accent)] transition-colors">
             {payload.headline}
           </h3>
           {dek && (

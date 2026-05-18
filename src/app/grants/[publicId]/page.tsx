@@ -98,7 +98,7 @@ export default async function GrantDetailPage({
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/intel?lane=grants"
-          className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
+          className="mono-label hover:text-[var(--rex-text)] transition-colors inline-flex items-center gap-1.5 mb-6"
         >
           <span>←</span>
           <span>All grants</span>
@@ -117,7 +117,7 @@ export default async function GrantDetailPage({
             )}
           </div>
 
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-4 leading-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-4 leading-tight">
             {p.name}
           </h1>
 

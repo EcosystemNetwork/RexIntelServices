@@ -135,12 +135,12 @@ const INTEL_MD_COMPONENTS: Components = {
     );
   },
   h2: ({ children }) => (
-    <h2 className="font-display text-2xl text-white mt-10 mb-3 tracking-tight">
+    <h2 className="font-display text-2xl text-[var(--rex-text)] mt-10 mb-3 tracking-tight">
       {children}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="font-display text-xl text-white mt-8 mb-2 tracking-tight">
+    <h3 className="font-display text-xl text-[var(--rex-text)] mt-8 mb-2 tracking-tight">
       {children}
     </h3>
   ),
@@ -265,6 +265,6 @@ const INTEL_MD_COMPONENTS: Components = {
     </td>
   ),
   strong: ({ children }) => (
-    <strong className="text-white font-semibold">{children}</strong>
+    <strong className="text-[var(--rex-text)] font-semibold">{children}</strong>
   ),
 };

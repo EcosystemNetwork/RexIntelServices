@@ -387,7 +387,7 @@ export default async function IntelDetailPage({
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/intel"
-          className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
+          className="mono-label hover:text-[var(--rex-text)] transition-colors inline-flex items-center gap-1.5 mb-6"
         >
           <span>←</span>
           <span>All intel</span>
@@ -467,7 +467,7 @@ export default async function IntelDetailPage({
             )}
           </div>
 
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-3 leading-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-3 leading-tight">
             {payload.headline}
           </h1>
 
@@ -628,7 +628,7 @@ export default async function IntelDetailPage({
             </span>
             <Link
               href="/submit"
-              className="text-[11px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+              className="text-[11px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
             >
               Drop your own intel ▸
             </Link>
@@ -743,7 +743,7 @@ function RelatedIntel({ items }: { items: RelatedIntel[] }) {
                     </span>
                   )}
                 </div>
-                <div className="text-sm text-white leading-snug line-clamp-3">
+                <div className="text-sm text-[var(--rex-text)] leading-snug line-clamp-3">
                   {item.payload.headline}
                 </div>
               </Link>

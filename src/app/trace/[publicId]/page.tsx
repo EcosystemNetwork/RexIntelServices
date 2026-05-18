@@ -144,7 +144,7 @@ export default async function TraceResultPage({
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Victim trace · {trace.publicId}
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--rex-text)]">
             {trace.victimLabel ?? `Outbound flow from ${shortRoot}`}
           </h1>
           <div className="text-[12px] font-mono text-[var(--rex-text-muted)]">
@@ -288,7 +288,7 @@ function Stat({
       <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
         {label}
       </div>
-      <div className="text-base font-display text-white mt-0.5">{value}</div>
+      <div className="text-base font-display text-[var(--rex-text)] mt-0.5">{value}</div>
       {sub ? (
         <div className="text-[10px] font-mono text-[var(--rex-text-dim)] mt-0.5">
           {sub}
@@ -364,7 +364,7 @@ function HopRow({ hop, chain }: { hop: TraceHop; chain: string }) {
         href={`https://etherscan.io/tx/${hop.txHash}`}
         target="_blank"
         rel="noreferrer"
-        className="text-[var(--rex-text-dim)] hover:text-white ml-auto"
+        className="text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] ml-auto"
       >
         tx ↗
       </a>

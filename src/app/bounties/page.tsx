@@ -138,7 +138,7 @@ export default async function BountiesIndexPage() {
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Recovery bounties
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--rex-text)]">
             Pay white-hats to find your stolen funds.
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
@@ -157,7 +157,7 @@ export default async function BountiesIndexPage() {
             </Link>
             <Link
               href="/trace"
-              className="text-[11px] font-mono uppercase tracking-widest px-3 py-2 rounded border border-[var(--rex-border-subtle)] text-[var(--rex-text-muted)] hover:text-white transition"
+              className="text-[11px] font-mono uppercase tracking-widest px-3 py-2 rounded border border-[var(--rex-border-subtle)] text-[var(--rex-text-muted)] hover:text-[var(--rex-text)] transition"
             >
               Trace your wallet first →
             </Link>
@@ -198,7 +198,7 @@ export default async function BountiesIndexPage() {
                           </span>
                         ) : null}
                       </div>
-                      <div className="font-display text-lg text-white">
+                      <div className="font-display text-lg text-[var(--rex-text)]">
                         {formatAmount(b)}
                       </div>
                       {b.traceRoot ? (
@@ -211,7 +211,7 @@ export default async function BountiesIndexPage() {
                       <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
                         Escrow
                       </div>
-                      <div className="text-sm font-mono text-white">
+                      <div className="text-sm font-mono text-[var(--rex-text)]">
                         ${Number(b.escrowedAmountUsdc).toFixed(0)}
                       </div>
                       <div className="text-[10px] font-mono text-[var(--rex-text-dim)] mt-1">

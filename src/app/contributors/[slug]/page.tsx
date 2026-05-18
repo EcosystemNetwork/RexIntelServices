@@ -233,7 +233,7 @@ export default async function ContributorPage({
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/intel"
-          className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
+          className="mono-label hover:text-[var(--rex-text)] transition-colors inline-flex items-center gap-1.5 mb-6"
         >
           <span>←</span>
           <span>All intel</span>
@@ -250,7 +250,7 @@ export default async function ContributorPage({
               ◆ {tierLabel}
             </span>
           </div>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-4 leading-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-4 leading-tight">
             @{name}
           </h1>
 
@@ -337,7 +337,7 @@ export default async function ContributorPage({
                           </span>
                         )}
                       </div>
-                      <div className="font-display text-base text-white group-hover:text-[var(--rex-accent)] transition-colors">
+                      <div className="font-display text-base text-[var(--rex-text)] group-hover:text-[var(--rex-accent)] transition-colors">
                         {title}
                       </div>
                     </Link>
@@ -369,7 +369,7 @@ function Stat({
       >
         {label}
       </div>
-      <div className="font-display text-2xl text-white tabular-nums">
+      <div className="font-display text-2xl text-[var(--rex-text)] tabular-nums">
         {value}
       </div>
       {hint && (

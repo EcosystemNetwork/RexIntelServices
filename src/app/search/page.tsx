@@ -214,7 +214,7 @@ export default async function SearchPage({
           >
             ▸ Search
           </p>
-          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-white mb-3">
+          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-[var(--rex-text)] mb-3">
             {hasQuery ? "Results" : "Search across the field."}
           </h1>
           {hasQuery ? (
@@ -298,7 +298,7 @@ export default async function SearchPage({
             <div className="mb-3">No matches for {summary || "that query"}.</div>
             <Link
               href="/submit"
-              className="text-[var(--rex-accent)] hover:text-white transition-colors text-sm font-mono uppercase tracking-widest"
+              className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors text-sm font-mono uppercase tracking-widest"
             >
               + Submit something ▸
             </Link>
@@ -444,7 +444,7 @@ function ResultCard({
             <span style={{ color: "var(--rex-text-muted)" }}>· {where}</span>
           )}
         </div>
-        <div className="text-white text-base font-medium group-hover:text-[var(--rex-accent)] transition-colors">
+        <div className="text-[var(--rex-text)] text-base font-medium group-hover:text-[var(--rex-accent)] transition-colors">
           {title}
         </div>
         {"description" in payload && payload.description && (

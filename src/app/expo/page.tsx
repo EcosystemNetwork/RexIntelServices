@@ -33,7 +33,7 @@ export default async function ExpoPage() {
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             Hackathon submission · Live demo
           </div>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-[var(--rex-text)]">
             Crypto investigations for the AI era.
           </h1>
           <p className="text-base text-[var(--rex-text-muted)] leading-relaxed">
@@ -58,7 +58,7 @@ export default async function ExpoPage() {
         />
 
         <section className="rex-card p-5 sm:p-6 space-y-4">
-          <h2 className="font-display text-xl font-semibold text-white">
+          <h2 className="font-display text-xl font-semibold text-[var(--rex-text)]">
             What we built for the expo
           </h2>
           <div className="grid md:grid-cols-2 gap-4 text-sm text-[var(--rex-text-muted)] leading-relaxed">
@@ -82,27 +82,27 @@ export default async function ExpoPage() {
         </section>
 
         <section className="rex-card p-5 sm:p-6 space-y-3">
-          <h2 className="font-display text-xl font-semibold text-white">
+          <h2 className="font-display text-xl font-semibold text-[var(--rex-text)]">
             Why this fits Track 4
           </h2>
           <ul className="space-y-2 text-sm text-[var(--rex-text-muted)] leading-relaxed list-disc pl-5">
             <li>
-              <strong className="text-white">RAG over multi-source data:</strong>{" "}
+              <strong className="text-[var(--rex-text)]">RAG over multi-source data:</strong>{" "}
               Five public + two community attribution sources unified into one
               graph; Gemini does retrieval-augmented synthesis at query time.
             </li>
             <li>
-              <strong className="text-white">AI-powered data pipelines:</strong>{" "}
+              <strong className="text-[var(--rex-text)]">AI-powered data pipelines:</strong>{" "}
               Cron harvesters (OFAC SDN, OFSI consolidated list, EU sanctions,
               L2Beat bridges/exchanges) re-ingest and dedupe nightly.
             </li>
             <li>
-              <strong className="text-white">Analytics agent for NL querying:</strong>{" "}
+              <strong className="text-[var(--rex-text)]">Analytics agent for NL querying:</strong>{" "}
               Plain-English questions against the indexed intel corpus with
               forced citations.
             </li>
             <li>
-              <strong className="text-white">Anomaly detection:</strong> The{" "}
+              <strong className="text-[var(--rex-text)]">Anomaly detection:</strong> The{" "}
               <a className="text-[var(--rex-accent)] underline decoration-dotted" href="/trace">
                 /trace
               </a>{" "}
@@ -111,7 +111,7 @@ export default async function ExpoPage() {
               back into the graph as community-class attributions.
             </li>
             <li>
-              <strong className="text-white">Knowledge graph extraction:</strong>{" "}
+              <strong className="text-[var(--rex-text)]">Knowledge graph extraction:</strong>{" "}
               Address ↔ incident edges, owner-cluster edges, and co-occurrence
               edges all derived from approved community intel.
             </li>
@@ -120,8 +120,8 @@ export default async function ExpoPage() {
 
         <footer className="border-t border-[var(--rex-border-subtle)] pt-5 text-[11px] text-[var(--rex-text-dim)] font-mono leading-relaxed">
           Hackathon repo: production deployment.
-          Models: <span className="text-white">gemini-2.5-flash</span> for live
-          synthesis, <span className="text-white">gemini-2.5-pro</span>{" "}
+          Models: <span className="text-[var(--rex-text)]">gemini-2.5-flash</span> for live
+          synthesis, <span className="text-[var(--rex-text)]">gemini-2.5-pro</span>{" "}
           available for deeper analysis paths. API keys: free Google AI Studio
           tier — no billing required.
         </footer>
@@ -142,14 +142,14 @@ function AgentLoopBlock({
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Live agent loop
           </div>
-          <h2 className="font-display text-2xl font-semibold text-white mt-1">
+          <h2 className="font-display text-2xl font-semibold text-[var(--rex-text)] mt-1">
             Gemini drafts the briefing while you sleep.
           </h2>
           <p className="text-sm text-[var(--rex-text-muted)] mt-2 max-w-2xl leading-relaxed">
             Every day at 16:00 UTC, a cron pulls fresh ≥$1M hacks from the
             DefiLlama feed, dedupes against the corpus, and asks Gemini Pro
             to draft up to 5 editorial-grade incident briefs. Drafts land as{" "}
-            <span className="text-white">status=&apos;pending&apos;</span> — a
+            <span className="text-[var(--rex-text)]">status=&apos;pending&apos;</span> — a
             curator approves before publish. The agent never auto-publishes
             scraped content.
           </p>

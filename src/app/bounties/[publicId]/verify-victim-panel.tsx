@@ -138,7 +138,7 @@ export function VerifyVictimPanel({
       </div>
       <div className="text-sm text-[var(--rex-text-muted)] leading-relaxed">
         Your bounty stays private until you prove control of{" "}
-        <span className="font-mono text-white">{victimEmail}</span>. This
+        <span className="font-mono text-[var(--rex-text)]">{victimEmail}</span>. This
         protects victims from someone else posting a bounty in their name.
       </div>
 
@@ -165,7 +165,7 @@ export function VerifyVictimPanel({
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             placeholder="6-digit code"
-            className="text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white w-32 tracking-widest"
+            className="text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)] w-32 tracking-widest"
           />
           <button
             onClick={verifyOtpAndClaim}

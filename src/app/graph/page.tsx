@@ -98,12 +98,12 @@ export default async function GraphPage({
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             Public · Read-only · No fees
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--rex-text)]">
             Address Graph
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
             Every incident-tagged intel piece, plus the addresses it names.
-            Toggle <strong className="text-white">Institutional</strong> to
+            Toggle <strong className="text-[var(--rex-text)]">Institutional</strong> to
             overlay sanctioned wallets (OFAC, OFSI, EU), exchanges,
             foundations, mixers, bridges, market-makers, and famous
             lost/dormant coins. Co-occurrence edges show clusters. Click
@@ -138,7 +138,7 @@ export default async function GraphPage({
           built from approved community intel. See something missing?{" "}
           <a
             href="/submit"
-            className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:text-white transition-colors"
+            className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:text-[var(--rex-text)] transition-colors"
           >
             Drop it on the wire ▸
           </a>
@@ -328,7 +328,7 @@ function FilterBar({
         </button>
         <a
           href="/graph"
-          className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-white transition-colors"
+          className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] transition-colors"
         >
           Reset
         </a>
@@ -376,7 +376,7 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Total value tracked on-chain
           </div>
-          <div className="font-display text-3xl sm:text-4xl font-semibold text-white mt-1 tracking-tight">
+          <div className="font-display text-3xl sm:text-4xl font-semibold text-[var(--rex-text)] mt-1 tracking-tight">
             {formatUsdShort(stats.totalUsd)}
           </div>
           <div className="text-xs text-[var(--rex-text-muted)] mt-1 max-w-xl">
@@ -396,7 +396,7 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
               <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
                 {CATEGORY_LABEL[b.category] ?? b.category}
               </div>
-              <div className="text-sm font-mono text-white">
+              <div className="text-sm font-mono text-[var(--rex-text)]">
                 {formatUsdShort(b.totalUsd)}
               </div>
               <div className="text-[10px] font-mono text-[var(--rex-text-dim)]">
@@ -409,7 +409,7 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
               <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
                 Other
               </div>
-              <div className="text-sm font-mono text-white">
+              <div className="text-sm font-mono text-[var(--rex-text)]">
                 {formatUsdShort(restUsd)}
               </div>
               <div className="text-[10px] font-mono text-[var(--rex-text-dim)]">
@@ -434,7 +434,7 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
                 <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
                   {t.symbol}
                 </div>
-                <div className="text-sm font-mono text-white">
+                <div className="text-sm font-mono text-[var(--rex-text)]">
                   {formatTokenAmount(t.totalAmount)}
                 </div>
                 <div className="text-[10px] font-mono text-[var(--rex-text-dim)]">
@@ -464,7 +464,7 @@ function LostCryptoStatBlock({ stats }: { stats: LostCryptoStats }) {
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ◯ Reported lost crypto
           </div>
-          <div className="font-display text-2xl sm:text-3xl font-semibold text-white mt-1">
+          <div className="font-display text-2xl sm:text-3xl font-semibold text-[var(--rex-text)] mt-1">
             {formatUsdShort(stats.totalUsd)}{" "}
             <span className="text-sm font-mono font-normal text-[var(--rex-text-muted)]">
               across {stats.walletCount} wallet
@@ -487,7 +487,7 @@ function LostCryptoStatBlock({ stats }: { stats: LostCryptoStats }) {
               <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
                 {c.chain}
               </div>
-              <div className="text-sm font-mono text-white">
+              <div className="text-sm font-mono text-[var(--rex-text)]">
                 {formatUsdShort(c.totalUsd)}
               </div>
               <div className="text-[10px] font-mono text-[var(--rex-text-dim)]">
@@ -510,7 +510,7 @@ function LostCryptoStatBlock({ stats }: { stats: LostCryptoStats }) {
               <span className="font-mono text-[var(--rex-accent)] w-20 shrink-0 text-right">
                 {formatUsdShort(w.balanceEstimateUsd)}
               </span>
-              <span className="text-white truncate">
+              <span className="text-[var(--rex-text)] truncate">
                 {w.label ??
                   w.ownerName ??
                   `${w.chain}:${w.address.slice(0, 12)}…`}
@@ -520,7 +520,7 @@ function LostCryptoStatBlock({ stats }: { stats: LostCryptoStats }) {
         </ul>
         <a
           href="/graph?view=institutional&category=lost"
-          className="inline-block mt-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+          className="inline-block mt-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
         >
           Open lost-coin overlay ▸
         </a>
@@ -568,7 +568,7 @@ function RadioPill({
     <label
       className={`cursor-pointer text-[10px] font-mono uppercase tracking-widest px-2.5 py-1.5 rounded-sm border transition-colors ${
         active
-          ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-white"
+          ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.08)] text-[var(--rex-text)]"
           : "border-[var(--rex-border-subtle)] text-[var(--rex-text-dim)] hover:border-[var(--rex-border)]"
       }`}
     >

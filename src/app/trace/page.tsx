@@ -22,7 +22,7 @@ export default function TraceLandingPage() {
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Victim trace
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--rex-text)]">
             Where did the funds go?
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">

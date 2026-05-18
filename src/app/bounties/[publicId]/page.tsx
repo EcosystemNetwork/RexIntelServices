@@ -137,7 +137,7 @@ export default async function BountyDetailPage({
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Recovery bounty · {b.publicId}
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--rex-text)]">
             {b.kind === "recovery"
               ? `${((b.recoveryPercentBps ?? 0) / 100).toFixed(0)}% of recovered funds`
               : `$${Number(b.flatAmountUsdc ?? 0).toLocaleString()} USDC`}{" "}
@@ -269,7 +269,7 @@ function Stat({
       <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
         {label}
       </div>
-      <div className="text-base font-display text-white mt-0.5 capitalize">
+      <div className="text-base font-display text-[var(--rex-text)] mt-0.5 capitalize">
         {value}
       </div>
       {sub ? (

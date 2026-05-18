@@ -42,7 +42,7 @@ export function UniversalSearch() {
       <Link
         href="/search"
         aria-label="Search"
-        className="md:hidden hover:text-white transition-colors"
+        className="md:hidden hover:text-[var(--rex-text)] transition-colors"
         style={{ color: "var(--rex-text-dim)" }}
       >
         ⌕

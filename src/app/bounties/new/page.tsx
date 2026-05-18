@@ -31,7 +31,7 @@ export default async function PostBountyPage({
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-warning)]">
             ● Bounty intake temporarily paused
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--rex-text)]">
             Custody rail is being rebuilt.
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
@@ -95,7 +95,7 @@ export default async function PostBountyPage({
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
             ● Post a recovery bounty
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--rex-text)]">
             Put money on the table.
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">

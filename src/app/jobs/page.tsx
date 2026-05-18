@@ -306,7 +306,7 @@ function JobCard({
           )}
         </div>
 
-        <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+        <h3 className="font-display text-lg text-[var(--rex-text)] mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
           {payload.title}
         </h3>
 

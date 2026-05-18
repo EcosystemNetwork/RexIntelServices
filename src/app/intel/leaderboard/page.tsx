@@ -84,7 +84,7 @@ export default async function LeaderboardPage() {
           >
             ▸ Leaderboard · {monthLabel}
           </p>
-          <h1 className="font-display text-4xl md:text-5xl font-semibold text-white tracking-tight mb-3">
+          <h1 className="font-display text-4xl md:text-5xl font-semibold text-[var(--rex-text)] tracking-tight mb-3">
             Community Prize Pool
           </h1>
           <p
@@ -92,7 +92,7 @@ export default async function LeaderboardPage() {
             style={{ color: "var(--rex-text-muted)" }}
           >
             Donors fund the pool. Operators vote. The top three intel posts
-            each month split <strong className="text-white">80%</strong> of
+            each month split <strong className="text-[var(--rex-text)]">80%</strong> of
             the pool (60/30/10); the remaining 20% rolls to next month so the
             pot never empties.
           </p>
@@ -112,7 +112,7 @@ export default async function LeaderboardPage() {
                   : "unconfigured"}
             </div>
             <div className="flex items-baseline gap-3 mb-4">
-              <div className="font-display text-5xl md:text-6xl font-semibold text-white tabular-nums">
+              <div className="font-display text-5xl md:text-6xl font-semibold text-[var(--rex-text)] tabular-nums">
                 {formatMoney(poolBalance.amount)}
               </div>
               <div
@@ -147,8 +147,8 @@ export default async function LeaderboardPage() {
             {config.walletAddress ? (
               <>
                 <div className="mb-3 text-xs leading-relaxed" style={{ color: "var(--rex-text-muted)" }}>
-                  Send <strong className="text-white">{config.asset}</strong>{" "}
-                  on <strong className="text-white">{config.chain.toUpperCase()}</strong>{" "}
+                  Send <strong className="text-[var(--rex-text)]">{config.asset}</strong>{" "}
+                  on <strong className="text-[var(--rex-text)]">{config.chain.toUpperCase()}</strong>{" "}
                   to:
                 </div>
                 <div
@@ -186,7 +186,7 @@ export default async function LeaderboardPage() {
 
         <section className="mb-10">
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="font-display text-2xl font-medium text-white">
+            <h2 className="font-display text-2xl font-medium text-[var(--rex-text)]">
               {monthLabel} leaders
             </h2>
             <Link
@@ -228,7 +228,7 @@ export default async function LeaderboardPage() {
                         {row.rank}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium truncate">
+                        <div className="text-[var(--rex-text)] font-medium truncate">
                           {row.headline}
                         </div>
                         <div
@@ -258,7 +258,7 @@ export default async function LeaderboardPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-display text-xl font-semibold text-white tabular-nums">
+                        <div className="font-display text-xl font-semibold text-[var(--rex-text)] tabular-nums">
                           {row.voteCount.toLocaleString()}
                         </div>
                         <div
@@ -277,7 +277,7 @@ export default async function LeaderboardPage() {
         </section>
 
         <section className="mb-10">
-          <h2 className="font-display text-2xl font-medium text-white mb-3">
+          <h2 className="font-display text-2xl font-medium text-[var(--rex-text)] mb-3">
             How it works
           </h2>
           <ul
@@ -285,22 +285,22 @@ export default async function LeaderboardPage() {
             style={{ color: "var(--rex-text-muted)" }}
           >
             <li>
-              <strong className="text-white">1.</strong> Anyone donates{" "}
+              <strong className="text-[var(--rex-text)]">1.</strong> Anyone donates{" "}
               {config.asset} on {config.chain.toUpperCase()} to the pool
               wallet above. Balance is public on-chain.
             </li>
             <li>
-              <strong className="text-white">2.</strong> Operators vote on
+              <strong className="text-[var(--rex-text)]">2.</strong> Operators vote on
               intel that&apos;s published this month. Magic-link confirm — one
               vote per email per intel.
             </li>
             <li>
-              <strong className="text-white">3.</strong> At month end, the
+              <strong className="text-[var(--rex-text)]">3.</strong> At month end, the
               top three split 80% of the pool (60/30/10). 20% rolls to next
               month so the pot is never zero.
             </li>
             <li>
-              <strong className="text-white">4.</strong> Winners with a
+              <strong className="text-[var(--rex-text)]">4.</strong> Winners with a
               listed submitter email are contacted directly. Anonymous intel
               earns points but the prize rolls — no contact, no payout.
             </li>
@@ -317,7 +317,7 @@ export default async function LeaderboardPage() {
 
         {lastSettled[0] && (
           <section>
-            <h2 className="font-display text-2xl font-medium text-white mb-3">
+            <h2 className="font-display text-2xl font-medium text-[var(--rex-text)] mb-3">
               Last settled month
             </h2>
             <div
@@ -389,7 +389,7 @@ function PrizeSlot({
       >
         {place} · {subtitle}
       </div>
-      <div className="font-display text-xl font-semibold text-white tabular-nums">
+      <div className="font-display text-xl font-semibold text-[var(--rex-text)] tabular-nums">
         {formatMoney(amount)}
       </div>
     </div>

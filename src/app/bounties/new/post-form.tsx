@@ -169,7 +169,7 @@ export function PostBountyForm({
             // but unselectable until legal sign-off.
             if (v !== "info_arrest") setKind(v);
           }}
-          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
         >
           <option value="recovery">
             Recovery — % of recovered funds
@@ -198,7 +198,7 @@ export function PostBountyForm({
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
         />
       </label>
 
@@ -217,7 +217,7 @@ export function PostBountyForm({
               onChange={(e) => setPercentBps(Number(e.target.value))}
               className="flex-1"
             />
-            <span className="text-base font-mono text-white w-16 text-right">
+            <span className="text-base font-mono text-[var(--rex-text)] w-16 text-right">
               {(percentBps / 100).toFixed(0)}%
             </span>
           </div>
@@ -235,7 +235,7 @@ export function PostBountyForm({
             required
             value={flatAmount}
             onChange={(e) => setFlatAmount(Number(e.target.value))}
-            className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+            className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
           />
         </label>
       )}
@@ -251,7 +251,7 @@ export function PostBountyForm({
           required
           value={expiresInDays}
           onChange={(e) => setExpiresInDays(Number(e.target.value))}
-          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
         />
       </label>
 
@@ -267,7 +267,7 @@ export function PostBountyForm({
           onChange={(e) => setDescription(e.target.value)}
           rows={6}
           placeholder="What was stolen, how, what you've already tried, what evidence would unlock the bounty (e.g., custodial address where the funds end up, doxx + recovery cooperation, attestation of arrest)."
-          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+          className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
         />
       </label>
 
@@ -294,7 +294,7 @@ export function PostBountyForm({
               placeholder="Case ref / jurisdiction (e.g., LA-FBI 2026-04331)"
               value={policeReportRef}
               onChange={(e) => setPoliceReportRef(e.target.value)}
-              className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-white"
+              className="w-full text-sm font-mono bg-[var(--rex-bg-elevated)] border border-[var(--rex-border-subtle)] rounded p-2 text-[var(--rex-text)]"
             />
           ) : null}
         </div>

@@ -132,7 +132,7 @@ export async function FellowshipsLane({
         Running a fellowship?{" "}
         <Link
           href="/submit?type=fellowship"
-          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+          className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors underline decoration-dotted underline-offset-2"
         >
           Submit it
         </Link>{" "}
@@ -304,7 +304,7 @@ function FellowshipCard({
           )}
         </div>
 
-        <h3 className="font-display text-lg text-white mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
+        <h3 className="font-display text-lg text-[var(--rex-text)] mb-1.5 group-hover:text-[var(--rex-accent)] transition-colors">
           {payload.name}
         </h3>
 

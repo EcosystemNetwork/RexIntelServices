@@ -146,7 +146,7 @@ export default async function EventDetailPage({
       <main className="max-w-3xl mx-auto px-6 pt-8 md:pt-12 pb-24">
         <Link
           href="/events"
-          className="mono-label hover:text-white transition-colors inline-flex items-center gap-1.5 mb-6"
+          className="mono-label hover:text-[var(--rex-text)] transition-colors inline-flex items-center gap-1.5 mb-6"
         >
           <span>←</span>
           <span>All events</span>
@@ -196,7 +196,7 @@ export default async function EventDetailPage({
             )}
           </div>
 
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-6">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-6">
             {payload.name}
           </h1>
 
@@ -323,7 +323,7 @@ function DetailField({
       >
         {label}
       </div>
-      <div className="text-white text-sm">{children}</div>
+      <div className="text-[var(--rex-text)] text-sm">{children}</div>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export default async function ContributorsPage() {
           >
             ▸ Trust leaderboard
           </div>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-3 leading-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-3 leading-tight">
             Contributors
           </h1>
           <p
@@ -113,7 +113,7 @@ export default async function ContributorsPage() {
             No contributors yet. Be the first —{" "}
             <Link
               href="/submit"
-              className="underline hover:text-white transition-colors"
+              className="underline hover:text-[var(--rex-text)] transition-colors"
             >
               submit intel
             </Link>
@@ -143,7 +143,7 @@ export default async function ContributorsPage() {
                         {rank}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-display text-base text-white group-hover:text-[var(--rex-accent)] transition-colors truncate">
+                        <div className="font-display text-base text-[var(--rex-text)] group-hover:text-[var(--rex-accent)] transition-colors truncate">
                           @{name}
                         </div>
                         <div
@@ -162,7 +162,7 @@ export default async function ContributorsPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-display text-xl text-white tabular-nums">
+                        <div className="font-display text-xl text-[var(--rex-text)] tabular-nums">
                           {r.points.toLocaleString()}
                         </div>
                         <div

@@ -32,7 +32,7 @@ export function LocationPill() {
       <button
         type="submit"
         aria-label={`Clear location filter ${loc}`}
-        className="hover:text-white transition-colors ml-1"
+        className="hover:text-[var(--rex-text)] transition-colors ml-1"
         style={{ color: "var(--rex-text-dim)" }}
       >
         ✕ Clear

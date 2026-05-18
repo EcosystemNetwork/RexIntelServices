@@ -98,7 +98,7 @@ export function FilterBar({
   return (
     <details className="mb-6 group [&[open]_.rex-filter-chev]:rotate-90">
       <summary
-        className="flex items-center gap-2 mb-3 text-xs font-mono cursor-pointer select-none list-none hover:text-white transition-colors"
+        className="flex items-center gap-2 mb-3 text-xs font-mono cursor-pointer select-none list-none hover:text-[var(--rex-text)] transition-colors"
         style={{ color: "var(--rex-text-muted)" }}
       >
         <span

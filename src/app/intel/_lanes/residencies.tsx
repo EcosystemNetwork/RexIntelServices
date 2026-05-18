@@ -129,7 +129,7 @@ export async function ResidenciesLane({
         Running a builder residency?{" "}
         <Link
           href="/submit?type=residency"
-          className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+          className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors underline decoration-dotted underline-offset-2"
         >
           Submit it
         </Link>{" "}
@@ -248,7 +248,7 @@ function ResidencyCard({
             >
               {start.toLocaleDateString(undefined, { month: "short" })}
             </div>
-            <div className="text-xl font-display text-white leading-none">
+            <div className="text-xl font-display text-[var(--rex-text)] leading-none">
               {start.getDate()}
             </div>
             <div
@@ -288,7 +288,7 @@ function ResidencyCard({
             rolling={payload.rolling}
           />
         </div>
-        <div className="text-white text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
+        <div className="text-[var(--rex-text)] text-base font-medium truncate group-hover:text-[var(--rex-accent)] transition-colors">
           {payload.name}
         </div>
         <div

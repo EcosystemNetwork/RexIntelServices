@@ -29,7 +29,7 @@ export function PublicHeader({
         </div>
         {!brandInScene && (
           <div className="flex flex-col leading-none min-w-0">
-            <span className="font-display text-base sm:text-lg font-semibold tracking-tight text-white truncate">
+            <span className="font-display text-base sm:text-lg font-semibold tracking-tight text-[var(--rex-text)] truncate">
               Rex Intel Services
             </span>
             <span className="mono-label mt-0.5 text-[9.5px] hidden sm:inline truncate">
@@ -66,7 +66,7 @@ function PublicNavLink({
   return (
     <Link
       href={href}
-      className="hover:text-white transition-colors"
+      className="hover:text-[var(--rex-text)] transition-colors"
       style={{
         color: accent ? "var(--rex-accent)" : "var(--rex-text-dim)",
       }}

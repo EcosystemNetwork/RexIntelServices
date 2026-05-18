@@ -21,7 +21,7 @@ export default function LandingForm() {
           We stay deep in the trenches so you don&apos;t have to...
         </p>
 
-        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4 animate-fade-in animate-fade-in-delay-2">
+        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-[var(--rex-text)] mb-4 animate-fade-in animate-fade-in-delay-2">
           Intelligence,{" "}
           <span
             style={{
@@ -41,7 +41,7 @@ export default function LandingForm() {
           weekly briefing, plus live boards you can{" "}
           <Link
             href="/submit"
-            className="text-[var(--rex-accent)] hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+            className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors underline decoration-dotted underline-offset-2"
           >
             contribute to
           </Link>
@@ -167,7 +167,7 @@ function DivisionCard({
         </div>
         <span className="mono-label-accent text-[10px]">{code}</span>
       </div>
-      <h3 className="font-display text-lg font-semibold text-white mb-1.5 tracking-tight">
+      <h3 className="font-display text-lg font-semibold text-[var(--rex-text)] mb-1.5 tracking-tight">
         {title}
       </h3>
       <p className="text-[13px] text-[var(--rex-text-muted)] leading-relaxed">

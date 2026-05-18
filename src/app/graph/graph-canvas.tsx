@@ -327,12 +327,12 @@ function SelectedDetail({
               {node.severity ? ` · ${node.severity}` : ""}
               {node.category ? ` · ${node.category}` : ""}
             </div>
-            <div className="font-semibold text-white mt-1">{node.headline}</div>
+            <div className="font-semibold text-[var(--rex-text)] mt-1">{node.headline}</div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--rex-text-dim)] hover:text-white font-mono text-sm"
+            className="text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] font-mono text-sm"
             aria-label="Close detail"
           >
             ✕
@@ -340,7 +340,7 @@ function SelectedDetail({
         </div>
         <Link
           href={href}
-          className="inline-block mt-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+          className="inline-block mt-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors"
         >
           Open intel ▸
         </Link>
@@ -358,11 +358,11 @@ function SelectedDetail({
             {node.category ? ` · ${node.category}` : ""}
             {sourceLabel ? ` · ${sourceLabel}` : ""}
           </div>
-          <div className="font-mono text-xs text-white mt-1 break-all">
+          <div className="font-mono text-xs text-[var(--rex-text)] mt-1 break-all">
             {node.address}
           </div>
           {node.ownerName && (
-            <div className="text-sm text-white mt-1 font-semibold">
+            <div className="text-sm text-[var(--rex-text)] mt-1 font-semibold">
               {node.ownerName}
             </div>
           )}
@@ -380,7 +380,7 @@ function SelectedDetail({
         <button
           type="button"
           onClick={onClose}
-          className="text-[var(--rex-text-dim)] hover:text-white font-mono text-sm"
+          className="text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] font-mono text-sm"
           aria-label="Close detail"
         >
           ✕
@@ -388,7 +388,7 @@ function SelectedDetail({
       </div>
       <Link
         href={href}
-        className="inline-block mt-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent-2)] hover:text-white transition-colors"
+        className="inline-block mt-3 text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent-2)] hover:text-[var(--rex-text)] transition-colors"
       >
         Open address page ▸
       </Link>
