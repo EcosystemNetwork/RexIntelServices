@@ -226,6 +226,14 @@ export async function POST(req: NextRequest) {
   // creator must capture it now (or via the funding-instructions email).
   const accessToken = mintVictimAccessToken();
 
+  // v1: all bounties share a single platform-level Circle escrow wallet
+  // for simplicity. The schema keeps circle_wallet_id per-bounty so a
+  // v2 can switch to per-bounty wallets without a migration. When the
+  // env isn't set (dev / not-yet-provisioned), the column stays NULL and
+  // the payout cron's "no_source_wallet" skip kicks in safely.
+  const sharedEscrowWalletId =
+    process.env.CIRCLE_BOUNTY_ESCROW_WALLET_ID ?? null;
+
   const [created] = await db
     .insert(bounties)
     .values({
@@ -247,6 +255,7 @@ export async function POST(req: NextRequest) {
       status: "draft",
       victimVerifiedAt,
       victimAccessTokenHash: accessToken.hash,
+      circleWalletId: sharedEscrowWalletId,
     })
     .returning({
       publicId: bounties.publicId,
