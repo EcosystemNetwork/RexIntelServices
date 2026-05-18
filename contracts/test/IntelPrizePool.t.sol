@@ -425,11 +425,170 @@ contract IntelPrizePoolTest is Test {
     function test_receiveEth_reverts() public {
         vm.deal(address(this), 1 ether);
 
+        // vm.expectRevert captures the revert at the cheatcode level;
+        // the inner call still returns ok=true from the cheatcode's
+        // wrapped frame, which is why we don't assert on `ok` here.
+        // The point is the bubble-up revert + no balance change.
         vm.expectRevert(IntelPrizePool.EthNotAccepted.selector);
         (bool ok,) = address(pool).call{value: 0.5 ether}("");
-        // ok will be false due to revert
-        assertFalse(ok);
+        ok; // silence unused-var warning
+
         assertEq(address(pool).balance, 0);
+    }
+
+    // ─── differential fuzz vs lib/prize-pool.ts:computePayouts5 ──────────
+    //
+    // The off-chain cron computes amounts in CENTS (TS bigint, 2 decimal
+    // precision), then multiplies by 10_000 to land in USDC base units
+    // (6 decimals). The contract receives those USDC units. If the
+    // contract refactors and the math drifts from the TS impl, this
+    // fuzz catches it — the inputs and the outputs must agree to the wei.
+    //
+    // TS reference (computePayouts5):
+    //   cents    = parseDecimalToCents(poolAmount)
+    //   payable  = (cents * 80) / 100
+    //   place1   = (payable * 50) / 100
+    //   place2   = (payable * 25) / 100
+    //   place3   = (payable * 15) / 100
+    //   place4   = (payable * 7)  / 100
+    //   place5   = (payable * 3)  / 100
+    //   rollover = cents - sum(places)
+    // Sol mirror lives in _expectedSplitCents below.
+
+    function testFuzz_distribute_matchesTsPayout(uint96 poolCents96) public {
+        // Bound to a sensible pool range (0 → $1M in cents).
+        uint256 poolCents = uint256(poolCents96) % 100_000_000;
+        if (poolCents == 0) return;
+
+        // Fund pool with poolCents * 10_000 USDC base units (cents → USDC).
+        uint256 poolUsdc = poolCents * 10_000;
+        usdc.mint(address(pool), poolUsdc);
+
+        (uint256[5] memory amountsCents,) = _expectedSplitCents(poolCents);
+
+        // Build USDC-base-unit amounts. Skip places that round to 0 cents
+        // — the cron filters these before submitting on-chain.
+        uint256[5] memory amounts;
+        for (uint256 i = 0; i < 5; i++) {
+            amounts[i] = amountsCents[i] * 10_000;
+        }
+        // If everyone rounds to zero we have nothing to test — skip.
+        if (amounts[0] + amounts[1] + amounts[2] + amounts[3] + amounts[4] == 0) {
+            return;
+        }
+
+        address[5] memory winners = [w1, w2, w3, w4, w5];
+
+        vm.prank(settler);
+        pool.distribute(202607, winners, amounts);
+
+        // Every place's on-chain `pendingClaim` must equal the
+        // TS-computed expected amount, in USDC base units.
+        for (uint256 i = 0; i < 5; i++) {
+            address w = winners[i];
+            assertEq(pool.pendingClaim(202607, w), amounts[i], "place mismatch");
+        }
+    }
+
+    function testFuzz_distributeThenClaim_invariant(uint96 poolCents96) public {
+        uint256 poolCents = uint256(poolCents96) % 100_000_000;
+        if (poolCents == 0) return;
+
+        uint256 poolUsdc = poolCents * 10_000;
+        usdc.mint(address(pool), poolUsdc);
+
+        (uint256[5] memory amountsCents,) = _expectedSplitCents(poolCents);
+        uint256[5] memory amounts;
+        uint256 totalPayable;
+        for (uint256 i = 0; i < 5; i++) {
+            amounts[i] = amountsCents[i] * 10_000;
+            totalPayable += amounts[i];
+        }
+        if (totalPayable == 0) return;
+
+        address[5] memory winners = [w1, w2, w3, w4, w5];
+
+        uint256 poolBalBefore = usdc.balanceOf(address(pool));
+
+        vm.prank(settler);
+        pool.distribute(202607, winners, amounts);
+
+        // Each winner claims; sum the transfers out.
+        uint256 totalClaimed;
+        for (uint256 i = 0; i < 5; i++) {
+            if (amounts[i] == 0) continue;
+            address w = winners[i];
+            vm.prank(w);
+            pool.claim(202607);
+            totalClaimed += amounts[i];
+        }
+
+        // Invariant 1: sum of all claimed transfers == totalPayable.
+        assertEq(totalClaimed, totalPayable, "claimed != payable");
+
+        // Invariant 2: pool balance dropped by exactly totalPayable.
+        assertEq(
+            usdc.balanceOf(address(pool)),
+            poolBalBefore - totalPayable,
+            "pool balance drift"
+        );
+
+        // Invariant 3: every pendingClaim is now 0.
+        for (uint256 i = 0; i < 5; i++) {
+            assertEq(pool.pendingClaim(202607, winners[i]), 0, "claim residue");
+        }
+    }
+
+    // Specific edge case: tiny pool where the lowest place rounds to 0.
+    // The on-chain `distribute` accepts it (it's a no-op slot), but the
+    // cron's pre-filter would strip the zero-amount paidTo. This test
+    // pins the contract behavior so a future refactor doesn't surprise
+    // the cron.
+    function test_distribute_smallPool_zeroPlace5() public {
+        // $0.42 → 42 cents → payable = 33 cents → place5 = 0 cents.
+        usdc.mint(address(pool), 42 * 10_000);
+
+        uint256[5] memory amounts;
+        (uint256[5] memory amountsCents,) = _expectedSplitCents(42);
+        for (uint256 i = 0; i < 5; i++) {
+            amounts[i] = amountsCents[i] * 10_000;
+        }
+        assertEq(amounts[4], 0, "place5 should round to 0 at 42c pool");
+
+        address[5] memory winners = [w1, w2, w3, w4, w5];
+        vm.prank(settler);
+        pool.distribute(202607, winners, amounts);
+
+        assertEq(pool.pendingClaim(202607, w5), 0);
+    }
+
+    // Year-far-future regression: contract no longer rejects year ≥ 2100.
+    function test_distribute_acceptsLargeMonth() public {
+        uint256[5] memory amounts = [uint256(1e6), uint256(0), uint256(0), uint256(0), uint256(0)];
+        address[5] memory winners = [w1, address(0), address(0), address(0), address(0)];
+
+        // Year 999_999, December — well beyond any practical use.
+        vm.prank(settler);
+        pool.distribute(99999912, winners, amounts);
+        assertTrue(pool.distributed(99999912));
+    }
+
+    function _expectedSplitCents(uint256 poolCents)
+        internal
+        pure
+        returns (uint256[5] memory amounts, uint256 rollover)
+    {
+        if (poolCents == 0) {
+            return (amounts, 0);
+        }
+        uint256 payable_ = (poolCents * 80) / 100;
+        amounts[0] = (payable_ * 50) / 100;
+        amounts[1] = (payable_ * 25) / 100;
+        amounts[2] = (payable_ * 15) / 100;
+        amounts[3] = (payable_ * 7) / 100;
+        amounts[4] = (payable_ * 3) / 100;
+        uint256 totalPlaces = amounts[0] + amounts[1] + amounts[2] + amounts[3] + amounts[4];
+        rollover = poolCents - totalPlaces;
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────

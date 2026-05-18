@@ -70,7 +70,16 @@ export function PublicShell({
                 Submit
               </Link>
               <span className="text-[var(--rex-border)]">│</span>
-              <span>Based on the high seas</span>
+              <a
+                href="https://x.com/rexintelservice"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[var(--rex-accent)] transition-colors"
+              >
+                X ▸
+              </a>
+              <span className="text-[var(--rex-border)]">│</span>
+              <span>Located in the Exclusive Economic Zone</span>
             </div>
             <div className="mono-label flex items-center gap-3">
               <span className="pulse-dot" />

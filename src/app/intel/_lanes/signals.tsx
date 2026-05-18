@@ -244,10 +244,10 @@ export async function SignalsLane({
   catFilter?: string;
   view?: string;
 }) {
-  // View mode controls how the intel cards are laid out below. `list`
-  // (default) is the original vertical stack of full-width cards; `grid`
-  // is a responsive multi-column layout for higher-density scanning.
-  const viewMode: "list" | "grid" = view === "grid" ? "grid" : "list";
+  // View mode controls how the intel cards are laid out below. `grid`
+  // (default) is the responsive multi-column layout for higher-density
+  // scanning; `list` is the vertical stack of full-width cards.
+  const viewMode: "list" | "grid" = view === "list" ? "list" : "grid";
   // Push severity/category filters into SQL so we don't fetch 200 rows just
   // to discard most of them in JS. Indexes added in migration 0015 make these
   // exact-match filters cheap. Results are cached + tag-invalidated, so the

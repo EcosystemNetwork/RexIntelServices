@@ -187,7 +187,7 @@ export async function ResidenciesLane({
             : "No residencies match this filter. Know one we should add?"}
         </EmptyState>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {visible.map((r) => (
             <ResidencyCard
               key={r.id}

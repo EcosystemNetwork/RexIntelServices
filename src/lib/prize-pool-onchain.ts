@@ -279,6 +279,30 @@ export async function submitDistribute(args: {
     );
   }
 
+  // Gas pre-flight: distribute() consumes < 200k gas on Base mainnet
+  // (1-Gwei range). We page when the settler EOA dips below the
+  // SETTLER_LOW_GAS_THRESHOLD (default 0.005 ETH = ~25 distribute() runs
+  // of headroom) so Rex has lead time to top up before the next 1st-of-
+  // month tick. Throws if balance is fully zero — no point burning the
+  // gas estimator on a tx that can't pay base fee.
+  const gasWei = await publicClient.getBalance({ address: account.address });
+  if (gasWei === 0n) {
+    throw new Error(
+      `submitDistribute: settler EOA ${account.address} has 0 ETH on chain ${cfg.chainId} — fund it before retrying`,
+    );
+  }
+  const lowThreshold = BigInt(
+    process.env.SETTLER_LOW_GAS_WEI || "5000000000000000", // 0.005 ETH
+  );
+  if (gasWei < lowThreshold) {
+    // Non-fatal — the tx will likely still land. Surface via the cron's
+    // sendOpsAlert wiring (the cron checks gasWei against the same
+    // threshold post-submit; logging here gives early signal).
+    console.warn(
+      `[submitDistribute] settler ${account.address} balance ${gasWei} wei is below low-gas threshold ${lowThreshold} wei — fund soon`,
+    );
+  }
+
   const walletClient = createWalletClient({
     account,
     chain,

@@ -833,6 +833,27 @@ const fellowships: FellowshipPayload[] = [
     cadence: "Rolling / self-paced",
     tags: ["sui", "eccentric-labs", "online", "learn-to-earn", "emerging-markets", "latam", "africa", "southeast-asia", "greater-china"],
   },
+
+  // === Open-source contributor fellowships (added 2026-05-18) ===
+  {
+    name: "Flow Fellowship",
+    organization: "Flow Research",
+    organizationUrl: "https://flowresearch.tech/",
+    description:
+      "Unpaid open-source contribution fellowship — no stipend, no equity, no guaranteed job. 12-week cohort from Flow Research with five workstreams: Builder/Product (Harnessy agent harness, WorkStream incentive layer, Garden collaboration software, Jarvis knowledge-work agent), AI Research (decentralized training, neural computers, world models), Systems/Protocol (local-first, security, DePINs, crypto economics, blockchain + protocol engineering), Learning Content, and Creative/Media. Part-time friendly (~15–20 hrs/week). Compensation is mentorship, async + biweekly synchronous review, a public portfolio artifact, and points for accepted contributions toward Flow's long-term ecosystem. First cohort begins June 1, 2026; 12-week trial ends in Demo Week, then continues as a year-long contributor program.",
+    stipend: "Unpaid — no stipend, no equity (points-only contribution path)",
+    duration: "12-week trial cohort + year-long contributor program",
+    eligibility:
+      "Builders, researchers, educators, systems thinkers, and storytellers willing to ship public open-source work. No degree, prior research, or established profile required. Expected commitment ~15–20 hrs/week.",
+    location: "Remote (worldwide; fully online program)",
+    focus: "Open-source AI infrastructure, agentic systems, protocols, DePIN, crypto economics, learning + media",
+    applyUrl:
+      "https://docs.google.com/forms/d/e/1FAIpQLSfbqzu_My55Jk6Bar_R-VlNVYnRWUHVmEyBCe-4VBlXAEqz6g/viewform?usp=dialog",
+    nextDeadline: "2026-06-01T00:00:00.000Z",
+    rolling: false,
+    cadence: "Cohort-based (first cohort starts 2026-06-01)",
+    tags: ["flow-research", "open-source", "ai", "agents", "web3", "depin", "protocols", "remote", "unpaid"],
+  },
 ];
 
 async function upsert(payload: FellowshipPayload) {

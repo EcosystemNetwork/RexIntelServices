@@ -147,7 +147,7 @@ export async function CapitalLane({
       {visible.length === 0 ? (
         <EmptyState>No funds match this filter yet.</EmptyState>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {visible.map((c) => (
             <CapitalCard
               key={c.id}
