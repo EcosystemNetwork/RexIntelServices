@@ -118,7 +118,20 @@ export async function sendBountyPayout(
 
   // Idempotency: payout row UUID is the key. Same retry → same key →
   // Circle dedupes server-side. No double-pay even if cron runs twice.
-  const idempotencyKey = stableUuidFromPayoutId(req.payoutId);
+  // Non-UUID payoutIds fail loudly rather than silently auto-generating
+  // a fresh key (which would double-pay on retry).
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      req.payoutId,
+    )
+  ) {
+    return {
+      kind: "failed",
+      reason: `non_uuid_payout_id: ${req.payoutId}`,
+      retryable: false,
+    };
+  }
+  const idempotencyKey = req.payoutId;
 
   const tokenAddress =
     process.env.CIRCLE_BOUNTY_USDC_TOKEN_ADDRESS ?? DEFAULT_USDC_TOKEN_ADDRESS;
