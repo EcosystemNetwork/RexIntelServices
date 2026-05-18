@@ -3,8 +3,8 @@
  *
  * Inserts the Casper Hackathon 2026 investigative exposé as a featured
  * incident-class intel row at the top of /intel. Idempotent — matches on
- * the headline, so re-running updates the body without changing publicId
- * or breaking inbound links.
+ * the hero image URL, so re-running updates the body (and headline)
+ * without changing publicId or breaking inbound links.
  *
  * Anonymous source by design (RexIntel publishes anonymously). The byline
  * renders as "Anonymous source" in the UI and "Rex Intel Services
@@ -16,7 +16,7 @@ import { db, submissions } from "../src/lib/db";
 import type { IntelPayload } from "../src/lib/db/schema";
 
 const HEADLINE =
-  "Casper Hackathon 2026: the 3rd-place winner's deployer wallet was the bot operator that funded 106 voters";
+  "Casper Hackathon 2026: Halborn, NodeOps, ChainGPT, NOWNodes vouched for the marketing. The voter pool was 96% bot-fed.";
 
 const body = [
   // First paragraph = the public teaser (first ~280 chars when gated).
@@ -51,9 +51,25 @@ const body = [
   "",
   "Casper's own announcement of the contest also reserved the Casper Association's right to \"support any additional projects it deems valuable, including post-hackathon grants and incubation opportunities.\" The override of the community vote was disclosed in the marketing copy.",
   "",
+  "## The same hands on both sides of the vote",
+  "",
+  "The contest was presented as three independent layers: a foundation (the Casper Association) that funded the prizes, a platform (CSPR.fans) that ran the vote, and a community that cast it. The corporate filings describe a different structure.",
+  "",
+  "CSPR.fans, cspr.live, the Casper Wallet, and the CSPR.cloud indexer that this very piece sources its evidence from are all operated by **MAKE** — formally **MAKE Group LLC**, a US limited liability company, with a sister entity **MAKE GROUP LIMITED** (UK Companies House No. 09656022, registered at Studio 5.01, 470 Bath Road, Bristol, BS4 3AP). MAKE Group LLC's stated US contact address is 30 N. Gould Street, Suite R, Sheridan, WY 82801 — a mass registered-agent service address in Wyoming shared with hundreds of other LLCs and not the real seat of operations, which is Los Angeles, California. MAKE was founded in 2016 by Alex Kelly (CEO) and Michael Steuer (CTO). The corporate identity is published on the company's own marketing site at `makegroup.io`.",
+  "",
+  "In 2024, Michael Steuer also became **President of the Casper Association** — the same foundation that funded the hackathon and announced the winners. The dual role is not inferred. The Casper Association's own news page announced his appointment as \"the new Casper Association CTO\" (the role title shifted to President of the Board in subsequent disclosures) and the Casper Network's own podcast aired an episode introducing him by both titles: \"Michael Steuer | CTO of MAKE.\" The relationship is co-disclosed by both sides on their own marketing channels.",
+  "",
+  "The President of the foundation that paid the prizes is the CTO of the company that operated the vote. What was disclosed in each entity's marketing was never disclosed in the contest's rules, in the announcement of the winners, or in the recap claiming the vote was \"Sybil-resistant and fully transparent.\" The participants who entered the contest in reliance on the community-decided framing were not told that the chief technologist of the community-vote platform was also the head of the foundation paying the prizes.",
+  "",
+  "MAKE's published team page lists the rest of the leadership: Tamara Wasserman (COO — the named recipient of participant complaint emails during the contest, in her MAKE capacity), Camilla Mantelli (General Counsel), and Ihor Burlachenko (VP Engineering). MAKE's Program & Community Manager Muhammet Kara is listed by Casper's own banner as the ChainGPT-sponsor contact, putting another MAKE staffer on the operations side of the contest while ostensibly representing an external sponsor.",
+  "",
+  "Every line of formal authority over the voting platform and every line of formal authority over the prize allocation converges on the same C-suite — Steuer at the top of both — with no independent oversight inserted between them. This is the structural fact that contextualises every on-chain finding in the rest of this piece. The on-chain Sybil-resistance gap exists because the off-chain authorising server is MAKE's. The Casper Association wallet that directly funded 34 voters and 4 of 7 winning project shells is signed by the same individual who presides over both entities. The private recorded Zoom evaluations sent from `@make.services` email addresses were sent by the operator whose President is the President of the foundation paying for the contest.",
+  "",
+  "The conflict is not alleged. It is published, in both entities' own marketing, in two different places that were never put side-by-side until now.",
+  "",
   "**The submission deadline was extended mid-contest.** Casper's published rules — still visible on DoraHacks at the time of writing — show the original submission deadline of 4 January 2026 23:59 UTC struck through, replaced by an extended deadline of 11 January 2026 23:59 UTC. The rules-text strikethrough is in their own document. Late-arriving bot wallets benefited from the extra week; the apex bot-funder wallet that this piece centers on was first funded eleven hours after Round 2's voting contract was deployed on 15 January, so the extension specifically widened the window during which fresh wallets could still be qualified for the on-chain vote.",
   "",
-  "**The sponsors lent their names to a security claim that the on-chain record falsifies.** Casper's Final Round marketing banner names four co-sponsors alongside the Casper Association: Halborn Security, NOWNodes, NodeOps, and ChainGPT. Halborn is a Web3 security firm; its logo on a contest publicly framed as \"Sybil-resistant and fully transparent\" was a credibility-stamp. We surface here, without assertion about Halborn's actual scope of work on this hackathon, that the on-chain record we present is incompatible with the Sybil-resistance claim the banner endorsed. NodeOps ($5,000 in compute credits), ChainGPT ($10,000 in API grants), and NOWNodes (CSPR Full Node / RPC access) each contributed prize value to a process whose voter pool was, by every measure we can run on Casper mainnet, scripted.",
+  "**The sponsors and their scope.** Casper's Final Round marketing banner names four co-sponsors alongside the Casper Association: Halborn Security, NOWNodes, NodeOps, and ChainGPT. What each sponsor contributed is on the public record: Halborn is a Web3 security firm and its logo on a contest publicly framed as \"Sybil-resistant and fully transparent\" was a credibility-stamp; NodeOps contributed $5,000 in compute credits to the prize pool; ChainGPT contributed $10,000 in API grants; NOWNodes contributed CSPR Full Node and RPC access. What we have *not* found in any public source — and what this piece does not allege — is evidence that any of the four sponsors audited the FANR2 voting contract, signed off on the CSPR.fans points-allocation logic, operated the off-chain points system, or controlled the wallets identified below. The voter pool and the project-shell wallets were funded from the Casper Association's own treasury wallet on the Casper mainnet, not from any of the sponsors. The newsworthy fact is narrower and harder: four named brands lent their logos to a contest whose Sybil-resistance and full-transparency claim the on-chain record falsifies. Whether the sponsors were aware their names were attached to a security claim before that claim went on-chain is a question only they can answer.",
   "",
   "## What the chain shows",
   "",
@@ -123,14 +139,6 @@ const body = [
   "- **Realistic time-of-day distribution.** Hour-of-day UTC voting counts peak between 12:00–13:00 and 18:00–21:00 UTC, with the lowest activity at 02:00–04:00 UTC — consistent with the global daytime distribution of real human users. A naive bot would fire votes around the clock at off-peak hours; the operators here calibrated to match human activity patterns. The realistic timing distribution makes raw \"votes per hour\" histograms reveal nothing.",
   "",
   "These are the signatures of an operator who has done this before. The cross-hackathon prior-work we identified for the operator-cluster usernames — Polkadot hackathons, Solana hackathons, multi-chain submissions across 2023–2025 — is consistent with this skill level. The Casper Hackathon 2026 wasn't a first attempt.",
-  "",
-  "## 39 finalists, 46 vote-recipient shells",
-  "",
-  "DoraHacks reports 39 buidls in the Casper Hackathon 2026 Final Round. The FANR2 contract recorded votes flowing to 46 distinct project account-hashes. The difference (seven extra project-shells) is unaccounted for in the published finalist list.",
-  "",
-  "We don't have a single explanation for the discrepancy. Possible reads: some project entries used multiple Casper account-hashes (one for the team registration, one for the deployed contract, one for the demo); some are test deploys made by the Casper Association or by the operators themselves; one project shell in the vote data appears as a contract-package-hash reference (`hash-778b9d…`) rather than an account-hash, suggesting it was an automated or scripted entry rather than a standard team submission.",
-  "",
-  "Worth surfacing because the discrepancy means the on-chain vote distribution and the published finalist count don't reconcile. If you're trying to verify the announced results against the chain, you can't — the buckets don't match.",
   "",
   "## The Round 1 to Round 2 leaderboard didn't carry over",
   "",
@@ -388,6 +396,14 @@ const body = [
   "- `luxipha/CasperID`",
   "- `mja2001/SolCipher-Casper`",
   "",
+  "**Corporate identity of the contest operator**",
+  "- MAKE Group corporate site: https://makegroup.io/",
+  "- MAKE Group team / leadership: https://makegroup.io/team/",
+  "- MAKE Group US contact (Sheridan, WY registered-agent address): https://makegroup.io/contact-us/",
+  "- MAKE GROUP LIMITED (UK), Companies House No. 09656022: https://find-and-update.company-information.service.gov.uk/company/09656022",
+  "- Casper Association announcement of Michael Steuer as CTO/President: https://www.casper.network/news/ama-with-the-new-casper-association-cto--michael-steuer",
+  "- Casper Network podcast, Episode 7 — \"Michael Steuer | CTO of MAKE\": https://www.casper.network/podcast/episode-7-michael-steuer-cto-of-make-the-convergence-of-blockchain-nfts-and-gaming",
+  "",
   "**Official Casper sources cited**",
   "- Casper Hackathon 2026 announcement: https://www.casper.network/news/casper-hackathon-2026-build-vote-shape-the-future-of-the-network",
   "- CSPR.fans launch post (points mechanism): https://www.casper.network/news/cspr-fans",
@@ -395,6 +411,27 @@ const body = [
   "- DoraHacks Final Round + Community Choice Fast-Track rules: https://dorahacks.io/hackathon/casper-hackathon-2026-finals",
   "",
   "All on-chain claims in this piece were independently verified against the cspr.cloud REST API and cross-referenced with cspr.live. All GitHub claims were verified via the GitHub REST API. The investigation was conducted by RexIntel.",
+  "",
+  "## Address graph — the wallets in RexIntel's attribution layer",
+  "",
+  "Every wallet identified in this investigation has been logged in RexIntel's public address attribution graph and linked to this exposé as primary source. Open them directly:",
+  "",
+  "**Operator wallets (subjects)**",
+  "- Casper Association operational wallet — [/intel/address/casper/0bc9335b32b92985dd765680d3e058cf060efc1fba295f1b6342f58ea04f5d65](/intel/address/casper/0bc9335b32b92985dd765680d3e058cf060efc1fba295f1b6342f58ea04f5d65)",
+  "- Apex bot-funder #1 / CasperLink documented owner — [/intel/address/casper/74ab92cebdb16189b8a1d3ed5a87d6fff8df694e9ede46393b5e11bb441be597](/intel/address/casper/74ab92cebdb16189b8a1d3ed5a87d6fff8df694e9ede46393b5e11bb441be597)",
+  "- Apex bot-funder #2 (88 voters, fastest fund→vote cluster) — [/intel/address/casper/41e4339ebc8a4f2941be99cc64fabb028be6fca8dd071ba7fbebfec13533fb37](/intel/address/casper/41e4339ebc8a4f2941be99cc64fabb028be6fca8dd071ba7fbebfec13533fb37)",
+  "",
+  "**Winning project shells (counterparties)**",
+  "- CasPay (1st place, $10K) — [/intel/address/casper/9842d06f78b91aee7acaa22de7776f9d266eddc83c0e5e457f1ca89b69526e19](/intel/address/casper/9842d06f78b91aee7acaa22de7776f9d266eddc83c0e5e457f1ca89b69526e19)",
+  "- 3rd-ranked project shell (56% bot-funded from CasperLink cluster) — [/intel/address/casper/28f5f1a233c4f89003f2591951c73cd4ad65b193956363e925dc58e672596147](/intel/address/casper/28f5f1a233c4f89003f2591951c73cd4ad65b193956363e925dc58e672596147)",
+  "- 4th-ranked project shell (61% bot-funded) — [/intel/address/casper/066662e98a983575300cdda045703e2820fdfc57d38db93f70a2376eaf51a145](/intel/address/casper/066662e98a983575300cdda045703e2820fdfc57d38db93f70a2376eaf51a145)",
+  "",
+  "**Edge-case observed wallets**",
+  "- One operator, two top-7 project shells funded 67 seconds apart — [/intel/address/casper/65a1bb912303cdaa01a7b07c9ad5bef91dbf45d6cd9d9f3dc69eecd3a8aebcca](/intel/address/casper/65a1bb912303cdaa01a7b07c9ad5bef91dbf45d6cd9d9f3dc69eecd3a8aebcca)",
+  "- High-balance 71-voter funder ($91M class) — [/intel/address/casper/496d542527e1a29f576ab7c3f4c947bfcdc9b4145f75f6ec40e36089432d7351](/intel/address/casper/496d542527e1a29f576ab7c3f4c947bfcdc9b4145f75f6ec40e36089432d7351)",
+  "- 5,036-CSPR wallet hardcoded in three different finalist repos — [/intel/address/casper/017d96b9a63abcb61c870a4f55187a0a7ac24096bdb5fc585c12a686a4d892009e](/intel/address/casper/017d96b9a63abcb61c870a4f55187a0a7ac24096bdb5fc585c12a686a4d892009e)",
+  "",
+  "The full attribution cluster — every wallet from this investigation, every linked incident, every counterparty edge — is browsable at [/graph](/graph). RexIntel's attribution graph is the community-data layer that Chainalysis, TRM, and Elliptic do not index. When you submit intel that lands a new address, that address joins the same graph.",
 ].join("\n");
 
 const payload: IntelPayload = {
@@ -463,6 +500,12 @@ const payload: IntelPayload = {
     "https://www.casper.network/news/casper-hackathon-2026-build-vote-shape-the-future-of-the-network",
     "https://www.casper.network/news/cspr-fans",
     "https://www.casper.network/news/casper-x-space-recap-feb-5-2026-parking-mvp-goes-live-defi-expands-hackathon-winners-and-live-q-a",
+    "https://www.casper.network/news/ama-with-the-new-casper-association-cto--michael-steuer",
+    "https://www.casper.network/podcast/episode-7-michael-steuer-cto-of-make-the-convergence-of-blockchain-nfts-and-gaming",
+    "https://makegroup.io/about/",
+    "https://makegroup.io/team/",
+    "https://makegroup.io/contact-us/",
+    "https://find-and-update.company-information.service.gov.uk/company/09656022",
     "https://dorahacks.io/hackathon/casper-hackathon-2026-finals",
     "https://cspr.live/contract-package/cbf2518437fbf7f8bdc895dad8eb1bcc5ea4fa0b7978b33721ea73366ad42428",
     "https://github.com/SohamJuneja/CasperLink",
@@ -483,7 +526,7 @@ async function main() {
   const existing = await db
     .select({ id: submissions.id, publicId: submissions.publicId })
     .from(submissions)
-    .where(eq(sql`${submissions.payload}->>'headline'`, HEADLINE))
+    .where(eq(sql`${submissions.payload}->>'heroImageUrl'`, payload.heroImageUrl ?? ""))
     .limit(1);
 
   if (existing.length) {

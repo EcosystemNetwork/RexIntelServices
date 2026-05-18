@@ -22,6 +22,7 @@ export const SUPPORTED_CHAINS = [
   { slug: "ripple", label: "XRP Ledger" },
   { slug: "litecoin", label: "Litecoin" },
   { slug: "monero", label: "Monero" },
+  { slug: "casper", label: "Casper" },
   { slug: "other", label: "Other" },
 ] as const;
 
@@ -78,6 +79,8 @@ export function explorerUrl(chain: string, address: string): string | null {
       return `https://xrpscan.com/account/${address}`;
     case "litecoin":
       return `https://litecoinspace.org/address/${address}`;
+    case "casper":
+      return `https://cspr.live/account/${address}`;
     default:
       return null;
   }

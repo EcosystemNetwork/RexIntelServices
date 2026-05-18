@@ -81,6 +81,27 @@ export default function ConnectWalletButton({
     const chainId = Number(
       process.env.NEXT_PUBLIC_MAGIC_CHAIN_ID ?? "8453",
     );
+    // Catch the silent-401 case: pk_live_ must pair with Base mainnet (8453),
+    // pk_test_ must pair with Base Sepolia (84532). A mismatch surfaces as a
+    // generic 401 from api.toaster.magic.link/v1/auth/email_otp/start, which
+    // is invisible without console-diving — fail loudly instead.
+    const isLive = publishableKey.startsWith("pk_live_");
+    const isTest = publishableKey.startsWith("pk_test_");
+    if (!isLive && !isTest) {
+      throw new Error(
+        `NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY has unexpected prefix "${publishableKey.slice(0, 8)}" — expected pk_live_ or pk_test_`,
+      );
+    }
+    if (isLive && chainId !== 8453) {
+      throw new Error(
+        `Magic key/chain mismatch: pk_live_ requires NEXT_PUBLIC_MAGIC_CHAIN_ID=8453 (Base mainnet), got ${chainId}`,
+      );
+    }
+    if (isTest && chainId !== 84532) {
+      throw new Error(
+        `Magic key/chain mismatch: pk_test_ requires NEXT_PUBLIC_MAGIC_CHAIN_ID=84532 (Base Sepolia), got ${chainId}`,
+      );
+    }
     const mod = (await import("magic-sdk")) as unknown as {
       Magic: new (
         key: string,

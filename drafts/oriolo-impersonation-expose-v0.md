@@ -111,13 +111,13 @@ The handle the participant interacted with on Telegram was `@oriollo_alessio` (n
 
 **Two photos accompany this section. They are two different people, presented for two different reasons.**
 
+| Picture A — the scammer | Picture B — the impersonation target |
+| --- | --- |
+| ![Picture A — the face the participant saw on the video call with @oriollo_alessio. Identity unknown. This is the scammer.](/btchack3.jpeg) | ![Picture B — Italian VC Alessio Oriolo at a public conference appearance. Oriolo is the impersonation target, not the scammer.](/btchack1.jpeg) |
+
 **Picture A — the scammer.** This is the face the participant saw on the video call with `@oriollo_alessio` on 2025-02-20, during the failed Chinese-video-chat-app install session. **Identity unknown.** This is the person who ran the scam.
 
-![The face the participant saw on the video call with @oriollo_alessio — identity unknown, this is the scammer](/btchack1.jpeg)
-
 **Picture B — the impersonation target.** This is the real Italian venture investor Alessio Oriolo, photographed at a public conference appearance. **Mr. Oriolo is not the scammer.** He is the third-party victim of identity theft — the person whose name and professional reputation the operator behind `@oriollo_alessio` used to make the cover story credible.
-
-![Italian VC Alessio Oriolo at a public conference appearance — Oriolo is the impersonation target, not the scammer](/btchack3.jpeg)
 
 To restate without ambiguity: **Picture A is the perpetrator. Picture B is a private third party whose name was abused. RexIntel does not assert that the individual in Picture A is, or is in any way related to, Mr. Oriolo.**
 
