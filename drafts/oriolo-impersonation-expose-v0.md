@@ -170,6 +170,8 @@ The participant remains anonymous at his request. Verification of his identity, 
 
 ## What we are asking
 
+> **Recovery reward.** An undisclosed reward is being offered for information leading to the recovery of the assets described in this article, provided by **[orangepills.xyz](https://orangepills.xyz)**. Tips, leads, and successful trace work all qualify. Email **rexintelservices@proton.me** with the subject line "Oriolo recovery" to claim.
+
 **If you were approached on Telegram in the past 12 months by the handle `@oriollo_alessio`** — especially in or around ETH Denver, ETH Global, or similar pitch communities — and you have any unexplained on-chain activity in the hours or days that followed: email **rexintelservices@proton.me**. For end-to-end encrypted source protection, write to us from your own ProtonMail account.
 
 **If you recognize any of the following Bitcoin addresses as having received funds you did not authorize:**
