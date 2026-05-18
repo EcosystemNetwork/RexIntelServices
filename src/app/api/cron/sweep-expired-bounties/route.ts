@@ -97,9 +97,9 @@ export async function GET(req: Request) {
 
     // Step 2: auto-withdraw any open claims and refund their bonds. Gated
     // on bondTxHash being present: an un-collected bond has no funds to
-    // refund, and writing a payout row anyway would drain the bounty's own
-    // escrow to the claimant (the payout cron sources from
-    // bounties.circleWalletId regardless of payeeKind).
+    // refund, and writing a payout row anyway would drain the bounty's
+    // own escrow to the claimant (the payout worker sources from the
+    // bounty's funding wallet regardless of payeeKind).
     const openClaims = await db
       .select({
         id: bountyClaims.id,

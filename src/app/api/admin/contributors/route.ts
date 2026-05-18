@@ -8,7 +8,7 @@ import {
 } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
-// Admin-only listing of Circle-authenticated contributors. Middleware
+// Admin-only listing of Magic-authenticated contributors. Middleware
 // already gates /api/admin behind newsletter_session, but defense in
 // depth: a future middleware refactor or a manual matcher tweak should
 // not be the only thing standing between a public request and every

@@ -1,11 +1,11 @@
 import { Resend } from "resend";
 
 /**
- * Transactional one-time-passcode email for the Circle sign-in flow. Sent
- * by /api/auth/email/request-otp. Plain-text + minimal HTML — no marketing
- * chrome, no images. Code is shown in the subject line too so the user can
- * see it from the inbox preview without opening (matches GitHub / Notion /
- * Linear conventions).
+ * Transactional one-time-passcode email for the Magic Link sign-in
+ * flow. Sent by /api/auth/email/request-otp. Plain-text + minimal HTML
+ * — no marketing chrome, no images. Code is shown in the subject line
+ * too so the user can see it from the inbox preview without opening
+ * (matches GitHub / Notion / Linear conventions).
  */
 
 const FROM_NAME = process.env.DIGEST_FROM_NAME ?? "Rex Intel Services";

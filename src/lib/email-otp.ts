@@ -7,9 +7,8 @@ import { sendOtpEmail } from "./email/otp-email";
 
 // =====================================================================
 // Email OTP — verifies the user owns the email before we hand it to
-// Circle for wallet provisioning. Without this layer, anyone could type
-// vitalik@ethereum.org into the form and front-run that identity by
-// setting a PIN before the real owner ever showed up.
+// Magic Link for wallet provisioning. Without this layer, anyone could
+// type vitalik@ethereum.org into the form and front-run that identity.
 //
 // Lifecycle:
 //   1. POST /request-otp { email }  → row inserted with hashed 6-digit
@@ -18,8 +17,9 @@ import { sendOtpEmail } from "./email/otp-email";
 //                                   → on success, `verified_at` set on the
 //                                     row + sealed `rex_email_verified`
 //                                     cookie minted (15min TTL).
-//   3. POST /circle/init { email } → reads + consumes the cookie. Rejects
-//                                     if no cookie, wrong email, or stale.
+//   3. POST /auth/magic/login { didToken } → reads + consumes the cookie
+//                                     for the matching email; mints the
+//                                     contributor session.
 //
 // The cookie is the load-bearing check at init-time; the DB row is the
 // audit record + lets us cap brute-force attempts. Both layers must agree.
@@ -186,7 +186,7 @@ export async function verifyEmailOtp(args: {
 }
 
 // ---------------------------------------------------------------------------
-// Sealed cookie — load-bearing check at /circle/init
+// Sealed cookie — load-bearing check at /auth/magic/login
 // ---------------------------------------------------------------------------
 
 async function mintVerifiedCookie(data: VerifiedCookiePayload) {
@@ -204,7 +204,7 @@ async function mintVerifiedCookie(data: VerifiedCookiePayload) {
  * Read the `rex_email_verified` cookie and confirm it matches the given
  * email. Returns true only when the cookie is present, the email matches
  * (case-insensitive), and the verification is < VERIFIED_TTL_SECONDS old.
- * On success the cookie is cleared — one cookie buys one Circle init,
+ * On success the cookie is cleared — one cookie buys one Magic login,
  * never replay.
  */
 export async function consumeEmailVerifiedCookie(
@@ -236,7 +236,7 @@ export async function consumeEmailVerifiedCookie(
   }
 
   // Single-use: clear the cookie so a stolen browser session can't reuse
-  // a verification round to provision Circle wallets repeatedly.
+  // a verification round to provision Magic wallets repeatedly.
   cookies().delete(VERIFIED_COOKIE);
   return true;
 }

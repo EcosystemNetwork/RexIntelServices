@@ -3,9 +3,12 @@ import { siteUrl } from "../site-url";
 
 /**
  * Funding-instructions email sent after a draft bounty is created.
- * Carries the one-shot access link + the per-bounty Circle wallet address
- * to send USDC to. Without this email the victim's only way back to their
- * draft (if they close the create-form tab) is the OTP-recovery flow.
+ * Carries the one-shot access link + (eventually) the per-bounty escrow
+ * deposit address. Custody rail is currently paused (Circle was ripped
+ * 2026-05-18; replacement TBD), so `depositAddress` is always null and
+ * the email surfaces a "rail being rebuilt" notice instead — kept wired
+ * so we don't have to re-thread the email pipeline when the new rail
+ * lands.
  *
  * Resend-only — silently no-ops if RESEND_API_KEY isn't configured so
  * dev environments don't fail bounty creation.
@@ -29,7 +32,7 @@ type Args = {
   accessUrl: string; // absolute URL with ?token=
   /** USDC amount the victim needs to send. Null for kind=recovery (no fixed amount). */
   fundingAmountUsdc: number | null;
-  /** Per-bounty Circle wallet deposit address. Null when wallet wasn't provisioned (dev mode). */
+  /** Per-bounty escrow deposit address. Currently always null (custody rail paused). */
   depositAddress: string | null;
   /** "BASE" or "BASE-SEPOLIA" — drives the human-readable network name + faucet URL note. */
   blockchain: string;

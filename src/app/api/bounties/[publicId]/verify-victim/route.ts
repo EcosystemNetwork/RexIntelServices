@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 //   1. A presented access token that matches the stored hash AND the
 //      caller just completed an email-OTP round for the bounty's
 //      victim email (the rex_email_verified cookie is consumed).
-//   2. (Future) Circle session match — handled at create time, so any
+//   2. (Future) Magic session match — handled at create time, so any
 //      caller hitting this route is by definition the token+OTP path.
 //
 // Idempotent: if already verified, returns ok=true without re-consuming

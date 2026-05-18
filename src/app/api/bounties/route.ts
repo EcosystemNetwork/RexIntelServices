@@ -80,9 +80,11 @@ export async function GET(req: NextRequest) {
 // POST /api/bounties
 //
 // Create a draft bounty. The bounty is not yet visible publicly and no
-// funds have moved — the response carries the publicId and a `fundingUrl`
-// the victim follows to deposit USDC into the custodial escrow wallet.
-// A separate /fund route flips draft → funded → open once Circle confirms.
+// funds have moved — historically the response carried a `fundingUrl`
+// the victim followed to deposit USDC into the custodial escrow wallet.
+// As of 2026-05-18 the custody rail is paused (Circle was ripped, new
+// rail TBD) and the whole handler 503s behind BOUNTY_CUSTODY_RAIL_ENABLED;
+// see the kill-switch at the top of POST.
 //
 // Anyone with a hack_trace public_id can create a draft against their
 // trace; we re-verify the email matches the trace's submitter email so a
@@ -209,7 +211,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Try to link to an existing submitter row if the victim already has a
-  // Circle wallet. Bounty still works for anon victims (just an email).
+  // Magic wallet. Bounty still works for anon victims (just an email).
   const [matched] = await db
     .select({ id: submitters.id, email: submitters.email })
     .from(submitters)
@@ -218,7 +220,7 @@ export async function POST(req: NextRequest) {
   const victimSubmitterId = matched?.id ?? null;
 
   // Victim ownership proof. Two routes accepted:
-  //   (a) Circle session present AND its submitter row's email matches —
+  //   (a) Magic session present AND its submitter row's email matches —
   //       the caller is logged in as the victim. Strongest proof.
   //   (b) The single-use email-OTP cookie is present and matches —
   //       caller just completed an OTP round for this exact email.
@@ -243,8 +245,8 @@ export async function POST(req: NextRequest) {
   // creator must capture it now (or via the funding-instructions email).
   const accessToken = mintVictimAccessToken();
 
-  // Insert FIRST so we have a publicId to use as the Circle wallet refId.
-  // The wallet provisioning step writes back the wallet id + address.
+  // Insert the draft row. Custody rail is paused — no wallet provisioning
+  // step follows this insert.
   const [created] = await db
     .insert(bounties)
     .values({
@@ -303,7 +305,7 @@ export async function POST(req: NextRequest) {
       fundingAmountUsdc:
         kind === "recovery" ? null : (body.flatAmountUsdc as number),
       depositAddress: escrowAddress,
-      blockchain: process.env.CIRCLE_BOUNTY_BLOCKCHAIN ?? "BASE",
+      blockchain: "BASE",
       victimVerified: victimVerifiedAt != null,
     });
   } catch (err) {

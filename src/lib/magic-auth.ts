@@ -198,10 +198,6 @@ async function validateAndResolveDidToken(
  * and wallet address on the same row so subsequent sessions can resolve
  * either by email or issuer.
  *
- * Existing rows from the Circle era (circleUserId set, magicIssuer NULL)
- * are matched on email and updated in-place — points/clearance/strikes
- * survive the auth rail swap.
- *
  * Slug is generated once on insert from the email's local-part + the
  * uuid prefix — collision-free without a retry loop.
  */

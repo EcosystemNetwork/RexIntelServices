@@ -106,8 +106,8 @@ export default function UsersPage() {
           className="text-sm mt-1"
           style={{ color: "var(--rex-text-muted)" }}
         >
-          Email-onboarded Circle wallet signups. Every sign-in mints a fresh
-          login event.
+          Email-onboarded Magic Link wallet signups. Every sign-in mints
+          a fresh login event.
         </p>
       </header>
 

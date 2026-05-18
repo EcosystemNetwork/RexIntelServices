@@ -116,7 +116,7 @@ export async function GET(
 // POST /api/bounties/[publicId]/claims
 //
 // Submit a claim. Gated:
-//   - Caller must have a Circle session.
+//   - Caller must have a Magic session.
 //   - Caller must meet BOUNTY_CLAIM_MIN_TIER.
 //   - Caller must not be bounty-banned (2 strikes per
 //     project_bounty_bad_faith_policy.md).
@@ -129,8 +129,9 @@ export async function GET(
 //
 // On success returns: { publicId, bondAmountUsdc, bondDepositAddress? }
 // where bondDepositAddress is the wallet the claimant should send the
-// USDC bond to. (Bond rail is a TODO follow-up; v1 we accept claims with
-// bondAmountUsdc=0 until the Circle deposit wallet lookup is wired up.)
+// USDC bond to. (Bond rail is a TODO follow-up; v1 we accept claims
+// with bondAmountUsdc=0 until the new custody rail + per-claim deposit
+// wallet are wired up.)
 // =====================================================================
 
 export async function POST(

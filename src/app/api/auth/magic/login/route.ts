@@ -16,8 +16,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   // Tight on this endpoint: the Magic Admin SDK call is the only paid path,
-  // and a flood would burn Magic quota. 10/IP/30min mirrors the prior
-  // /circle/init budget.
+  // and a flood would burn Magic quota. 10/IP/30min.
   const limit = await rateLimit(`magic-login:${ip}`, 10, 30 * 60 * 1000);
   if (!limit.ok) {
     return NextResponse.json(

@@ -61,10 +61,10 @@ export const BOUNTY_CLAIM_MIN_TIER: ClearanceTier = "trusted";
 // response (and the funding-instructions email). The DB stores only the
 // SHA-256 hash, so a leaked snapshot does not yield working tokens.
 //
-// Tokens grant draft-viewing access to anon victims (no Circle account)
+// Tokens grant draft-viewing access to anon victims (no Magic account)
 // — they're not session-bearing and don't authorize state changes by
 // themselves. State-changing victim actions (verify-victim, /fund acks,
-// etc.) require either the token PLUS a fresh OTP, or a Circle session
+// etc.) require either the token PLUS a fresh OTP, or a Magic session
 // match.
 // =====================================================================
 
@@ -469,9 +469,9 @@ export async function applyClaimReview(args: {
     );
   }
   // Cap payouts at the escrowed amount. Without this a curator could
-  // trigger a payout larger than what Circle can actually send, leaving
-  // the bounty marked paid + points awarded + attributions written but
-  // no money out. Cleaner to refuse up-front than to unwind later.
+  // trigger a payout larger than what's actually in escrow, leaving the
+  // bounty marked paid + points awarded + attributions written but no
+  // money out. Cleaner to refuse up-front than to unwind later.
   if (verdict === "accepted" || verdict === "partial") {
     const escrowed = Number(bounty.escrowedAmountUsdc ?? "0");
     if ((payoutAmountUsdc as number) > escrowed) {
@@ -569,9 +569,9 @@ export async function applyClaimReview(args: {
     // bond was actually collected on-chain — and (b) for slashes only, a
     // non-null payee submitter (anon victims have nowhere to send the slash).
     // The bondTxHash gate is load-bearing: writing a refund payout for an
-    // un-collected bond would drain the bounty's own escrow (the payout cron
-    // sources from bounties.circleWalletId), i.e. the victim would pay
-    // refunds for bonds the claimant never sent.
+    // un-collected bond would drain the bounty's own escrow (the payout
+    // worker sources from the bounty's funding wallet), i.e. the victim
+    // would pay refunds for bonds the claimant never sent.
     let bondPayoutId: string | undefined;
     const bond = Number(claim.bondAmountUsdc ?? "0");
     if (bond > 0 && claim.bondTxHash) {

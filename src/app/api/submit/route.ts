@@ -251,13 +251,13 @@ export async function POST(req: NextRequest) {
 
   // Identity resolution order:
   //   1. Anonymous intel → no submitter (whistleblower contract).
-  //   2. Circle session present → the email-onboarded contributor IS the
+  //   2. Magic session present → the email-onboarded contributor IS the
   //      canonical identity. If a handle was also typed in the form,
   //      persist it on the contributor row so the byline reflects the
   //      latest preference. Form email is ignored when a session is active.
   //   3. Email-only path (form-entered email, no signed-in session) →
   //      upsert keyed on lower(email). These rows have no wallet yet; the
-  //      submitter can later sign in via Circle to claim them.
+  //      submitter can later sign in via Magic to claim them.
   //   4. Neither → no submitter (anonymous, can't earn clearance).
   //
   // Anonymous-intel always wins so a signed-in user can still file a

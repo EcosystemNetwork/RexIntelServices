@@ -20,7 +20,6 @@ type DraftRow = {
   flatAmountUsdc: string | null;
   recoveryPercentBps: number | null;
   createdAt: string;
-  circleWalletAddress: string | null;
 };
 
 type AwaitingRow = {
@@ -260,9 +259,7 @@ function DraftRowItem({ row }: { row: DraftRow }) {
         <span className="text-[var(--rex-text-dim)]"> · {row.kind} · </span>
         <span className="text-white">{ask}</span>
         <span className="text-[var(--rex-text-dim)]"> · {row.victimEmail}</span>
-        {!row.circleWalletAddress ? (
-          <span className="text-[var(--rex-warning)]"> · NO ESCROW WALLET</span>
-        ) : null}
+        <span className="text-[var(--rex-warning)]"> · CUSTODY RAIL PAUSED</span>
       </div>
       <div className="text-[10px] text-[var(--rex-text-dim)]">
         {humanAge(row.createdAt)} old

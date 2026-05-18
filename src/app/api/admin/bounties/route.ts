@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 //     by now; investigate before they pile up)
 //   - failed_payouts: bounty_payouts where status='failed' — needs curator
 //     attention (often: insufficient escrow, sanctioned destination,
-//     Circle API change)
+//     custody rail change)
 //
 // Plus aggregate counters for the top of the page.
 // =====================================================================
@@ -51,7 +51,6 @@ export async function GET() {
         flatAmountUsdc: bounties.flatAmountUsdc,
         recoveryPercentBps: bounties.recoveryPercentBps,
         createdAt: bounties.createdAt,
-        circleWalletAddress: bounties.circleWalletAddress,
       })
       .from(bounties)
       .where(eq(bounties.status, "draft"))

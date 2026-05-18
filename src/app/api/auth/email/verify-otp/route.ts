@@ -6,7 +6,7 @@ import { rateLimit, clientIp } from "@/lib/rate-limit";
 // Body: { email: string, code: string }
 // On success: sets the sealed `rex_email_verified` cookie (handled inside
 // verifyEmailOtp) and returns { ok: true }. The client then calls
-// /api/auth/circle/init, which consumes the cookie.
+// /api/auth/magic/login, which consumes the cookie.
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   // Tighter rate limit on verify than on request — brute-force resistance.

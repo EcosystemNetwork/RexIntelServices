@@ -1023,10 +1023,6 @@ export const addressAttributions = pgTable(
 // the contributor identity. Email is the entry point; wallet stays
 // canonical for the points ledger and the address-graph moat. Anonymous
 // tips bypass this table entirely.
-//
-// circleUserId is retained for legacy rows from the prior Circle-DCW auth
-// rail. New sign-ins write magicIssuer instead; circleUserId can be dropped
-// in a follow-up migration once no live row references it.
 export const submitters = pgTable(
   "submitters",
   {
@@ -1036,12 +1032,9 @@ export const submitters = pgTable(
     // Admin SDK (`getMetadataByIssuer`). Format: `did:ethr:0x...`. Unique
     // when present.
     magicIssuer: text("magic_issuer"),
-    // Legacy Circle programmable-wallet user id (UUID we generated). Read-
-    // only after the Magic migration; kept for historical join correctness.
-    circleUserId: text("circle_user_id"),
-    // Lowercased hex wallet address from Magic (or legacy Circle). Unique
-    // when present; the address-graph layer indexes these as nodes alongside
-    // externally-attributed addresses.
+    // Lowercased hex wallet address from Magic. Unique when present; the
+    // address-graph layer indexes these as nodes alongside externally-
+    // attributed addresses.
     walletAddress: text("wallet_address"),
     walletChain: text("wallet_chain").default("ethereum"),
     displayHandle: text("display_handle"),
@@ -1055,9 +1048,8 @@ export const submitters = pgTable(
     clearanceTier: clearanceTierEnum("clearance_tier")
       .notNull()
       .default("open"),
-    // Lifetime count of successful Circle-PIN auth completions. Bumped in
-    // createMagicSession so legacy SIWE/Circle-era rows stay at 0 until next
-    // sign-in. Powers the admin Contributors analytics view.
+    // Lifetime sign-in count, bumped in createMagicSession. Powers the
+    // admin Contributors analytics view.
     loginCount: integer("login_count").notNull().default(0),
     lastLoginAt: timestamp("last_login_at"),
     // Bounty-surface strike count. Bad-faith / doxx-attempt bounty claim
@@ -1077,9 +1069,6 @@ export const submitters = pgTable(
     emailIdx: uniqueIndex("submitters_email_idx")
       .on(sql`lower(${t.email})`)
       .where(sql`${t.email} IS NOT NULL`),
-    circleUserIdx: uniqueIndex("submitters_circle_user_idx")
-      .on(t.circleUserId)
-      .where(sql`${t.circleUserId} IS NOT NULL`),
     magicIssuerIdx: uniqueIndex("submitters_magic_issuer_idx")
       .on(t.magicIssuer)
       .where(sql`${t.magicIssuer} IS NOT NULL`),
@@ -1093,11 +1082,11 @@ export const submitters = pgTable(
 );
 
 // One-time-passcode challenges issued during the email-OTP step of the
-// Circle sign-in flow. The code itself is hashed at rest (HMAC-SHA256 with
-// SESSION_PASSWORD as key) so a leaked DB snapshot cannot replay live
-// challenges. A successful verify sets `verified_at` and also drops a
-// short-lived sealed cookie that the Circle init endpoint reads — the row
-// is the audit record, the cookie is the load-bearing check.
+// Magic Link sign-in flow. The code itself is hashed at rest (HMAC-SHA256
+// with SESSION_PASSWORD as key) so a leaked DB snapshot cannot replay
+// live challenges. A successful verify sets `verified_at` and also drops
+// a short-lived sealed cookie that the Magic login endpoint reads — the
+// row is the audit record, the cookie is the load-bearing check.
 export const emailVerifications = pgTable(
   "email_verifications",
   {
@@ -1520,11 +1509,13 @@ export const hackTraceHopsRelations = relations(hackTraceHops, ({ one }) => ({
 
 // =====================================================================
 // RECOVERY BOUNTIES — victim-posted USDC bounties for white-hat info that
-// leads to fund recovery (or, with a filed police report, arrest). Custodial
-// escrow via the same Circle wallet rail the monthly prize pool uses; claims
-// gated to trusted+ tier; 2-strike bad-faith ban per
-// project_bounty_bad_faith_policy.md. Accepted-claim target addresses land
-// in address_attributions with source='bounty-claim'.
+// leads to fund recovery (or, with a filed police report, arrest). Custody
+// rail is currently paused (Circle DCW was ripped 2026-05-18, replacement
+// not yet picked) — `/bounties/new` and POST /api/bounties are gated
+// behind BOUNTY_CUSTODY_RAIL_ENABLED. Claims gated to trusted+ tier;
+// 2-strike bad-faith ban per project_bounty_bad_faith_policy.md.
+// Accepted-claim target addresses land in address_attributions with
+// source='bounty-claim'.
 // =====================================================================
 
 export const bountyStatusEnum = pgEnum("bounty_status", [
@@ -1607,13 +1598,6 @@ export const bounties = pgTable(
     })
       .notNull()
       .default("0"),
-    // Per-bounty Circle Developer-Controlled wallet. Provisioned at create
-    // time when CIRCLE_API_KEY + CIRCLE_BOUNTY_WALLET_SET_ID are configured;
-    // otherwise NULL and the bounty stays in dev mode (no real escrow).
-    circleWalletId: text("circle_wallet_id"),
-    // On-chain deposit address for the per-bounty wallet. Indexed for the
-    // inbound webhook handler's reverse lookup (deposit address → bounty).
-    circleWalletAddress: text("circle_wallet_address"),
     fundingTxHash: text("funding_tx_hash"),
     status: bountyStatusEnum("status").notNull().default("draft"),
     policeReportFiled: boolean("police_report_filed").notNull().default(false),
@@ -1621,7 +1605,7 @@ export const bounties = pgTable(
     termsAcceptedAt: timestamp("terms_accepted_at"),
     expiresAt: timestamp("expires_at").notNull(),
     description: text("description").notNull(),
-    // Victim email-ownership proof. Set when the creator (a) has a Circle
+    // Victim email-ownership proof. Set when the creator (a) has a Magic
     // session whose email matches victimEmail, or (b) completes an
     // email-OTP round and the cookie is consumed at create-time or via
     // /verify-victim. The /fund route refuses to flip draft → open while
@@ -1630,7 +1614,7 @@ export const bounties = pgTable(
     victimVerifiedAt: timestamp("victim_verified_at"),
     // SHA-256 of a 32-byte random token returned only in the create
     // response (and the funding-instructions email). Gates anon-victim
-    // access to their own draft without requiring a Circle account.
+    // access to their own draft without requiring a Magic account.
     victimAccessTokenHash: text("victim_access_token_hash"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1648,12 +1632,6 @@ export const bounties = pgTable(
     ),
     victimTokenHashIdx: index("bounties_victim_token_hash_idx").on(
       t.victimAccessTokenHash,
-    ),
-    // Reverse lookup for the inbound Circle webhook: given a deposit
-    // address, find the bounty. Lower() so the lookup is case-insensitive
-    // regardless of how Circle returns the address in webhook payloads.
-    circleWalletAddrIdx: index("bounties_circle_wallet_addr_idx").on(
-      sql`lower(${t.circleWalletAddress})`,
     ),
   }),
 );
@@ -1732,7 +1710,6 @@ export const bountyPayouts = pgTable(
     }),
     amountUsdc: numeric("amount_usdc", { precision: 18, scale: 2 }).notNull(),
     payoutTxHash: text("payout_tx_hash"),
-    circleTransferId: text("circle_transfer_id"),
     payeeKind: text("payee_kind").$type<BountyPayoutPayeeKind>().notNull(),
     payeeSubmitterId: uuid("payee_submitter_id").references(
       () => submitters.id,
@@ -1793,20 +1770,6 @@ export const bountyPayoutsRelations = relations(bountyPayouts, ({ one }) => ({
     references: [submitters.id],
   }),
 }));
-
-// Inbound dedupe ledger for Circle webhook deliveries. Circle retries on any
-// non-2xx (and occasionally on the same notification.id even after 2xx during
-// region failovers). Without this, a retried "inbound transfer confirmed"
-// notification double-credits the bounty's escrowedAmountUsdc. The webhook
-// handler INSERTs the notification id with ON CONFLICT DO NOTHING; a 0-row
-// result means we've already applied this delivery and the handler short-
-// circuits with a 200 so Circle stops retrying.
-export const circleWebhookDeliveries = pgTable("circle_webhook_deliveries", {
-  notificationId: text("notification_id").primaryKey(),
-  notificationType: text("notification_type"),
-  transactionId: text("transaction_id"),
-  receivedAt: timestamp("received_at").defaultNow().notNull(),
-});
 
 // Type exports for use in app code
 export type Subscriber = typeof subscribers.$inferSelect;
