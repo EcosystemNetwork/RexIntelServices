@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
+import { fetchValueStats } from "@/lib/graph-data";
 import { Chip } from "./_lanes/_shared";
 import { PrizePoolBanner, SignalsLane } from "./_lanes/signals";
 import { AcceleratorsLane } from "./_lanes/accelerators";
@@ -240,6 +241,8 @@ export default async function IntelHubPage({
           )}
         </div>
 
+        <HackedCryptoCounter />
+
         <LaneTabs active={lane} />
 
         {lane === "signals" && <PrizePoolBanner />}
@@ -300,6 +303,61 @@ export default async function IntelHubPage({
       </main>
     </PublicShell>
   );
+}
+
+async function HackedCryptoCounter() {
+  const stats = await fetchValueStats({ includeUserReported: false });
+  const hackBuckets = stats.byCategory.filter(
+    (b) => b.category === "hack-source" || b.category === "hack-destination",
+  );
+  const totalUsd = hackBuckets.reduce((a, b) => a + b.totalUsd, 0);
+  const walletCount = hackBuckets.reduce((a, b) => a + b.walletCount, 0);
+  if (totalUsd <= 0 || walletCount === 0) return null;
+
+  return (
+    <Link
+      href="/graph?view=incidents&category=hack-source"
+      className="rex-card-flat block px-5 py-4 mb-5 hover:bg-[var(--rex-surface-2)] transition-colors border-[var(--rex-danger)]/30"
+    >
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div>
+          <div
+            className="text-[10px] font-mono uppercase tracking-widest"
+            style={{ color: "var(--rex-danger)" }}
+          >
+            ▸ Hacked crypto tracked
+          </div>
+          <div className="font-display text-2xl sm:text-3xl text-white tabular-nums">
+            {formatUsdShort(totalUsd)}{" "}
+            <span
+              className="text-xs font-mono"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              across {walletCount} address{walletCount === 1 ? "" : "es"}
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 text-xs text-[var(--rex-text-muted)]">
+          Sum of last-snapshot USD at addresses tagged hack-source or
+          hack-destination — the on-chain footprint of stolen funds RexIntel is
+          watching.
+        </div>
+        <div
+          className="text-[11px] font-mono uppercase tracking-widest"
+          style={{ color: "var(--rex-danger)" }}
+        >
+          Open graph ▸
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function formatUsdShort(n: number): string {
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
 }
 
 function LaneTabs({ active }: { active: Lane }) {

@@ -213,15 +213,21 @@ export async function consumeEmailVerifiedCookie(
   const raw = cookies().get(VERIFIED_COOKIE)?.value;
   if (!raw) return false;
 
-  let payload: VerifiedCookiePayload;
+  let payload: Partial<VerifiedCookiePayload>;
   try {
-    payload = await unsealData<VerifiedCookiePayload>(raw, {
+    payload = await unsealData<Partial<VerifiedCookiePayload>>(raw, {
       password: getSessionPassword(),
     });
   } catch {
     return false;
   }
 
+  // iron-session's `unsealData` returns `{}` on garbage input — without
+  // shape-checking the payload, the property accesses below would throw
+  // (TypeError on `undefined.toLowerCase()`) and surface as a 500.
+  if (typeof payload.email !== "string" || typeof payload.verifiedAt !== "number") {
+    return false;
+  }
   if (payload.email.toLowerCase() !== expectedEmail.toLowerCase()) {
     return false;
   }

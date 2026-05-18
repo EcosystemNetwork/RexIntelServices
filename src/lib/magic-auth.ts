@@ -138,6 +138,19 @@ interface MagicMetadata {
   email: string | null;
 }
 
+/**
+ * Validate a Magic DID token (signature, expiry, audience) and resolve
+ * the associated email + wallet address. Throws `MagicAuthError` on any
+ * validation failure. Exposed so callers that mint a different session
+ * (e.g. the operator/admin rail) can reuse the same Magic validation
+ * without going through the submitter upsert.
+ */
+export async function resolveMagicDidToken(
+  didToken: string,
+): Promise<MagicMetadata> {
+  return validateAndResolveDidToken(didToken);
+}
+
 async function validateAndResolveDidToken(
   didToken: string,
 ): Promise<MagicMetadata> {
@@ -416,9 +429,23 @@ export async function getMagicSession(): Promise<MagicSession | null> {
   const raw = cookies().get(SESSION_COOKIE)?.value;
   if (!raw) return null;
   try {
-    return await unsealData<MagicSession>(raw, {
+    // iron-session's `unsealData` returns `{}` (not throw) on garbage
+    // input. Without a shape check, any browser cookie value would
+    // satisfy `if (session)` callers. Verify the unsealed payload has
+    // the (submitterId, magicIssuer, walletAddress) tuple that
+    // `createMagicSession` always seals.
+    const payload = await unsealData<Partial<MagicSession>>(raw, {
       password: getSessionPassword(),
     });
+    if (
+      typeof payload?.submitterId !== "string" ||
+      payload.submitterId.length === 0 ||
+      typeof payload?.magicIssuer !== "string" ||
+      typeof payload?.walletAddress !== "string"
+    ) {
+      return null;
+    }
+    return payload as MagicSession;
   } catch {
     return null;
   }

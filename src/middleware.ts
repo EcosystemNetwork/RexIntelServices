@@ -20,7 +20,10 @@ const PROTECTED_PAGES_REGEX =
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [
-  "/api/auth/login",
+  // Operator (admin) Magic-Link sign-in. The whole point of this route
+  // is to mint the session cookie — gating it behind the very cookie
+  // it issues would create a chicken-and-egg lockout.
+  "/api/auth/operator/magic-login",
   "/api/auth/logout",
   "/api/webhooks/",
   "/api/track/",
@@ -190,8 +193,15 @@ export async function middleware(req: NextRequest) {
   let valid = false;
   if (cookie && process.env.SESSION_PASSWORD) {
     try {
-      await unsealData(cookie, { password: process.env.SESSION_PASSWORD });
-      valid = true;
+      // iron-session's `unsealData` returns `{}` (not throw) on garbage
+      // input — without a shape check, any browser cookie value would
+      // pass this gate. Verify the unsealed payload carries the userId
+      // we always seal in createSession.
+      const payload = (await unsealData(cookie, {
+        password: process.env.SESSION_PASSWORD,
+      })) as { userId?: unknown };
+      valid =
+        typeof payload?.userId === "string" && payload.userId.length > 0;
     } catch {
       valid = false;
     }

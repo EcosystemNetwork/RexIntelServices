@@ -52,20 +52,30 @@ At **11:45:43 AM PT** — 30 minutes 43 seconds after the Mission Complete email
 
 The participant did not sign them. He was not at his computer. His Phantom wallet's private key was. Whoever held that key had decided, at that moment, to start.
 
-Over the next 1 minute and 53 seconds, the wallet emitted eight transactions in unbroken sequence. Each one was signed using the participant's own Phantom keypair as fee payer — meaning whoever was executing them had full custody of the private key, not merely an approved swap signature (a mechanism that does not exist on Solana the way it does on Ethereum). Each transaction routed through a custom drainer router (`6m2CDdhRgxpH4WjvdzxAYbGxwdGUz5MziiL5jek2kBma`) that liquidated one of the wallet's token positions to native SOL, with a small fee skimmed to a persistent operator wallet (`9yj3zvLS3fDMqi1F8zhkaWfq8TZpZWHe6cz1Sgt7djXf`) on each swap.
+Over the next 1 minute and 53 seconds, the wallet emitted eight transactions in unbroken sequence — roughly one signed swap every fourteen seconds, a cadence no human is hitting on a wallet they haven't preloaded the inputs for. Each one was signed using the participant's own Phantom keypair as fee payer — meaning whoever was executing them had full custody of the private key, not merely an approved swap signature (a mechanism that does not exist on Solana the way it does on Ethereum). Each transaction routed through a custom drainer router (`6m2CDdhRgxpH4WjvdzxAYbGxwdGUz5MziiL5jek2kBma`) that liquidated one of the wallet's token positions to native SOL, with a small fee skimmed to a persistent operator wallet (`9yj3zvLS3fDMqi1F8zhkaWfq8TZpZWHe6cz1Sgt7djXf`) on each swap.
 
 The drain sequence, reconstructed from Solana RPC:
 
 | Time (PT) | Action | Wallet SOL balance |
 |----------|--------|--------------------|
-| 11:45:43 | Token 7reSG61f… → 6p6xgHyF… via Raydium CLMM | 4.92 |
-| 11:46:04 | Sell 4.4M HBoNJ5v8… → SOL | 7.27 |
-| 11:46:15 | Sell 242K B5WTLaRw… → SOL | 9.13 |
-| 11:46:26 | Sell 22.9 6p6xgHyF… → SOL | 10.78 |
-| 11:46:37 | Sell 7,548 9wK8yN6i…Ebonk → SOL | 12.61 |
-| 11:46:55 | Sell 2,400 Df6yfrKC…pump → SOL | 13.88 |
-| 11:47:05 | Sell 1,124 CzLSujWB…pump → SOL | 15.15 |
+| 11:45:43 | Swap 7reSG61f… → **OFFICIAL TRUMP (TRUMP)** via Raydium CLMM | 4.92 |
+| 11:46:04 | Sell 4.4M **Purple Pepe (PURPE)** → SOL | 7.27 |
+| 11:46:15 | Sell 242K **Pepe (Pepe)** → SOL | 9.13 |
+| 11:46:26 | Sell 22.9 **OFFICIAL TRUMP (TRUMP)** → SOL | 10.78 |
+| 11:46:37 | Sell 7,548 **Hosico cat (Hosico)** → SOL | 12.61 |
+| 11:46:55 | Sell 2,400 **Just a chill guy (CHILLGUY)** → SOL | 13.88 |
+| 11:47:05 | Sell 1,124 **Goatseus Maximus (GOAT)** → SOL | 15.15 |
 | **11:47:36** | **15.110 SOL swept to `GmgHSpuXYejyfZ9E63YPR9XFdfHj4pyuu7cVu8jTrN9f`** | **0.036** |
+
+The seven distinct token positions liquidated in those eighty seconds read like a Greatest Hits playlist of every meme that owned Solana CT in the prior six months:
+
+- **OFFICIAL TRUMP** (TRUMP) — the inauguration-week political coin that minted a generation of bag-holding former Hill staffers.
+- **Pepe** and **Purple Pepe (PURPE)** — one classic frog, one purple variant; the participant was diversified across froggy color theory.
+- **Hosico cat** (Hosico) — a Bonk-ecosystem cat coin. Note the `Ebonk` suffix on its mint address, which is the kind of detail you only clock when you're being paid in dust to read every drain transaction in someone else's wallet.
+- **Just a chill guy (CHILLGUY)** — the viral late-2024 mascot of doing absolutely nothing while the bag does whatever it's going to do.
+- **Goatseus Maximus (GOAT)** — the AI-agent / Eliza-narrative bellwether and the largest of the autonomous-AI-token-cycle entrants.
+
+It is, broadly, exactly the multi-bag SOL-memecoin portfolio the participant had described, on camera, to the researcher, earlier that same morning. The operator did not have to guess what was in there. The participant had read out the menu.
 
 The final sweep address, `GmgHSpuXYejyfZ9E63YPR9XFdfHj4pyuu7cVu8jTrN9f`, has exactly seven signatures in its entire history. All seven are on May 12, 2025. Its current balance is zero. This is a textbook one-time burner sink — created for one victim, used for one drain, then dormant forever after.
 
@@ -150,7 +160,7 @@ Two observations of public consequence:
 
 A long-running infrastructure address (`7Q5hoiFy3FJu…K4Dhn`) shows continuous activity from April 2025 through February 2026, with multiple shared-batch touchpoints between the May-2025 sink cohort and the currently-active addresses above. The on-chain signature is consistent with a single coordinating actor across that period, though attribution of pseudonymous addresses to a single real-world entity is necessarily inferential.
 
-The participant was not the only address in his batch. He was one entry in a cohort.
+The participant was not the only address in his batch. He was one row on a spreadsheet, processed in sequence with everyone else who got cycled through that day.
 
 ---
 

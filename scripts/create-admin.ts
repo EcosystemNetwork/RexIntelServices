@@ -1,37 +1,48 @@
 /**
- * Run with: npx tsx scripts/create-admin.ts
+ * Run with: npx tsx scripts/create-admin.ts [email]
  *
- * Prompts for email + password, creates an admin user.
+ * Provisions (or refreshes) the `users` row for an operator email so
+ * the FK targets used by review/award routes exist before that email
+ * ever signs in. Authentication itself is Magic-Link OTP — there is
+ * no password — but the allowlist is env-driven via OPERATOR_EMAILS
+ * (defaulting to `rexintelservices@proton.me`).
+ *
+ * The script is optional: `findOrCreateOperatorUser` upserts on first
+ * Magic-Link login too. Use this when you want the row to exist ahead
+ * of time, e.g. to backfill content authored before the admin signed
+ * in for the first time.
  */
 import "dotenv/config";
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import bcrypt from "bcryptjs";
-import { db, users } from "../src/lib/db";
+import { findOrCreateOperatorUser, isOperatorEmail } from "../src/lib/auth";
 
 async function main() {
-  const rl = readline.createInterface({ input: stdin, output: stdout });
-  const email = (await rl.question("Email: ")).trim().toLowerCase();
-  const password = await rl.question("Password (min 12 chars): ");
-  rl.close();
+  let email = process.argv[2]?.trim().toLowerCase();
+  if (!email) {
+    const rl = readline.createInterface({ input: stdin, output: stdout });
+    email = (await rl.question("Operator email: ")).trim().toLowerCase();
+    rl.close();
+  }
 
-  if (password.length < 12) {
-    console.error("Password too short.");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    console.error("✕ Invalid email.");
     process.exit(1);
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  if (!isOperatorEmail(email)) {
+    console.error(
+      `✕ ${email} is not on the operator allowlist (OPERATOR_EMAILS).`,
+    );
+    console.error(
+      "  Add it to your environment, e.g. OPERATOR_EMAILS=rexintelservices@proton.me,you@example.com",
+    );
+    process.exit(1);
+  }
 
-  const [user] = await db
-    .insert(users)
-    .values({ email, passwordHash })
-    .onConflictDoUpdate({
-      target: users.email,
-      set: { passwordHash },
-    })
-    .returning();
-
-  console.log(`✓ Admin user ready: ${user.email}`);
+  const user = await findOrCreateOperatorUser(email);
+  console.log(`✓ Operator row ready: ${user.email} (${user.id})`);
+  console.log("  Sign in via /login — Magic Link will send the OTP.");
   process.exit(0);
 }
 
