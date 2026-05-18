@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   db,
   monthlyPrizes,
@@ -14,6 +14,10 @@ import {
   fetchPoolBalance,
   getMonthlyTopIntel,
 } from "@/lib/prize-pool";
+import {
+  submitDistribute,
+  yearMonthToYYYYMM,
+} from "@/lib/prize-pool-onchain";
 import { awardPrizeWin } from "@/lib/magic-auth";
 
 export const runtime = "nodejs";
@@ -30,13 +34,16 @@ export const maxDuration = 60;
  *   - the 60/30/10-of-80% / 20%-rollover payout split via computePayouts
  *
  * Then writes one monthly_prizes row (unique index on year_month dedupes
- * concurrent settlement attempts) and calls awardPrizeWin for each
- * placement so the recipient's contribution-event ledger reflects the win.
+ * concurrent settlement attempts), calls IntelPrizePool.distribute() on
+ * Base mainnet via the settler EOA, and awards contribution-event points
+ * for each placement.
  *
- * v0 (testnet ETH): does NOT trigger on-chain transfers. Once the pool
- * graduates to USDC-on-Base mainnet, the actual transfer step lands in
- * /api/cron/process-bounty-payouts (or its prize-pool sibling) — the
- * monthly_prizes payouts array is the queue source.
+ * On-chain settlement is best-effort and idempotent: a failed distribute()
+ * leaves the monthly_prizes row in place with empty txHashes; the next
+ * cron tick re-tries and submitDistribute() pre-flights against the
+ * contract's `distributed` mapping so we never double-pay. If
+ * PRIZE_POOL_ADDRESS or SETTLER_PRIVATE_KEY is unset the on-chain step is
+ * skipped cleanly with onchainStatus="skipped_no_contract".
  *
  * Sweep window: settles every prior month back to the project epoch
  * 2026-04 (one month before the prize pool design was committed
@@ -90,6 +97,8 @@ export async function GET(req: Request) {
     yearMonth: string;
     poolAmount: string;
     placesPaid: number;
+    onchainStatus?: string;
+    txHash?: string;
     skipped?: string;
   }> = [];
 
@@ -115,23 +124,20 @@ export async function GET(req: Request) {
       payouts.place4,
       payouts.place5,
     ];
-    const payoutRows: MonthlyPrizePayout[] = top
+
+    // Resolve submission ids (for the awardPrizeWin call) and submitter
+    // wallet addresses (for the on-chain distribute() call) in a single
+    // pair of bulk lookups, then enrich payoutRows accordingly.
+    const initial = top
       .filter((row) => row.voteCount > 0)
       .slice(0, 5)
       .map((row, idx) => ({
         place: idx + 1,
-        submissionId: row.publicId,
+        publicId: row.publicId,
+        submitterEmail: row.submitterEmail,
         amount: placeAmounts[idx]!,
-        notes:
-          row.submitterEmail == null
-            ? "anonymous_intel_no_payout"
-            : undefined,
       }));
-
-    // Resolve submission DB ids and submitter ids for the awardPrizeWin
-    // calls. We selected publicId in payoutRows; map back to (id,
-    // submitterId).
-    const publicIds = payoutRows.map((p) => p.submissionId);
+    const publicIds = initial.map((r) => r.publicId);
     const submissionRows = publicIds.length
       ? await db
           .select({
@@ -142,9 +148,58 @@ export async function GET(req: Request) {
           .from(submissions)
           .where(sql`${submissions.publicId} = ANY(${publicIds})`)
       : [];
-    const idsByPublic = new Map(
-      submissionRows.map((r) => [r.publicId, r]),
+    const idsByPublic = new Map(submissionRows.map((r) => [r.publicId, r]));
+
+    const emails = submissionRows
+      .map((r) => r.submitterEmail?.toLowerCase())
+      .filter((e): e is string => !!e);
+    const submitterRows = emails.length
+      ? await db
+          .select({
+            id: submitters.id,
+            email: submitters.email,
+            walletAddress: submitters.walletAddress,
+          })
+          .from(submitters)
+          .where(sql`lower(${submitters.email}) = ANY(${emails})`)
+      : [];
+    const submitterByEmail = new Map(
+      submitterRows
+        .filter((s) => !!s.email)
+        .map((s) => [s.email!.toLowerCase(), s]),
     );
+
+    const payoutRows: MonthlyPrizePayout[] = initial.map((r) => {
+      const submission = idsByPublic.get(r.publicId);
+      if (!submission || !submission.submitterEmail) {
+        return {
+          place: r.place,
+          submissionId: r.publicId,
+          amount: r.amount,
+          notes: "anonymous_intel_no_payout",
+        };
+      }
+      const submitter = submitterByEmail.get(
+        submission.submitterEmail.toLowerCase(),
+      );
+      if (!submitter || !submitter.walletAddress) {
+        // Email-known submitter without a Magic-provisioned wallet —
+        // they need to log in via Magic Link OTP at least once to mint
+        // their dedicated wallet, then we can pay them.
+        return {
+          place: r.place,
+          submissionId: r.publicId,
+          amount: r.amount,
+          notes: "no_wallet",
+        };
+      }
+      return {
+        place: r.place,
+        submissionId: r.publicId,
+        amount: r.amount,
+        paidTo: submitter.walletAddress.toLowerCase(),
+      };
+    });
 
     // Idempotent insert: unique index on year_month means a concurrent
     // cron tick that beat us to this row gets onConflictDoNothing and we
@@ -172,23 +227,58 @@ export async function GET(req: Request) {
       continue;
     }
 
+    // On-chain settlement — sign + send distribute() from the settler EOA.
+    // Failures here do NOT unwind the monthly_prizes row (the off-chain
+    // settlement record is independent of the on-chain transfer). Re-runs
+    // are safe: submitDistribute() pre-flights against the contract's
+    // `distributed` mapping and returns "already_distributed" without
+    // sending a tx.
+    let onchainStatus: string = "skipped";
+    let txHash: string | undefined;
+    try {
+      const winnersToDistribute = payoutRows
+        .filter((p): p is MonthlyPrizePayout & { paidTo: string } => !!p.paidTo)
+        .map((p) => ({
+          address: p.paidTo as `0x${string}`,
+          amount: p.amount,
+        }));
+      const result = await submitDistribute({
+        monthYYYYMM: yearMonthToYYYYMM(ym),
+        winners: winnersToDistribute,
+      });
+      onchainStatus = result.status;
+      if (result.status === "submitted") {
+        txHash = result.txHash;
+        const patched = payoutRows.map((p) =>
+          p.paidTo ? { ...p, txHash: result.txHash } : p,
+        );
+        await db
+          .update(monthlyPrizes)
+          .set({ payouts: patched })
+          .where(eq(monthlyPrizes.id, inserted.id));
+      }
+    } catch (err) {
+      onchainStatus = "errored";
+      console.warn(
+        `[settle-monthly-prizes] distribute() failed for ${ym}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+
     // Award contribution-event points for each placement. Anonymous-intel
     // submitters (no submitterEmail) earn nothing — the points ledger is
-    // identity-keyed and we don't write phantom rows.
+    // identity-keyed and we don't write phantom rows. Uses the
+    // submitterByEmail map populated above so no extra round-trip.
     for (const payout of payoutRows) {
       const submissionRow = idsByPublic.get(payout.submissionId);
       if (!submissionRow || !submissionRow.submitterEmail) continue;
-      const [submitterRow] = await db
-        .select({ id: submitters.id })
-        .from(submitters)
-        .where(
-          sql`lower(${submitters.email}) = lower(${submissionRow.submitterEmail})`,
-        )
-        .limit(1);
-      if (!submitterRow) continue;
+      const submitter = submitterByEmail.get(
+        submissionRow.submitterEmail.toLowerCase(),
+      );
+      if (!submitter) continue;
       try {
         await awardPrizeWin({
-          submitterId: submitterRow.id,
+          submitterId: submitter.id,
           place: payout.place,
           submissionId: submissionRow.id,
           notes: `monthly_prize ${ym} place_${payout.place}`,
@@ -208,6 +298,8 @@ export async function GET(req: Request) {
       yearMonth: ym,
       poolAmount,
       placesPaid: payoutRows.length,
+      onchainStatus,
+      txHash,
     });
   }
 

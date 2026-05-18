@@ -15,7 +15,7 @@ import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 import { VoteButton } from "@/components/vote-button";
 import { VOTER_COOKIE_NAME, verifyVoterCookie } from "@/lib/voter-cookie";
 import { PrizePoolBanner } from "@/app/intel/_lanes/signals";
-import { SpicyTag } from "@/app/intel/_lanes/_shared";
+import { SpicyTag, FeaturedTag } from "@/app/intel/_lanes/_shared";
 import { getMagicSession } from "@/lib/magic-auth";
 import { meetsTier } from "@/lib/clearance";
 import { ClearanceWall } from "@/components/clearance-wall";
@@ -203,24 +203,24 @@ const SEVERITY_TONE: Record<
   { bg: string; fg: string; border: string }
 > = {
   low: {
-    bg: "rgba(136,136,160,0.08)",
+    bg: "rgba(136,136,160,0.10)",
     fg: "var(--rex-text-muted)",
-    border: "rgba(136,136,160,0.25)",
+    border: "rgba(136,136,160,0.35)",
   },
   medium: {
     bg: "rgba(96,165,250,0.10)",
     fg: "var(--rex-info)",
-    border: "rgba(96,165,250,0.30)",
+    border: "rgba(96,165,250,0.35)",
   },
   high: {
     bg: "rgba(251,191,36,0.10)",
     fg: "var(--rex-warning)",
-    border: "rgba(251,191,36,0.30)",
+    border: "rgba(251,191,36,0.35)",
   },
   critical: {
     bg: "rgba(248,113,113,0.10)",
     fg: "var(--rex-danger)",
-    border: "rgba(248,113,113,0.30)",
+    border: "rgba(248,113,113,0.35)",
   },
 };
 
@@ -268,10 +268,13 @@ export default async function IntelDetailPage({
   // Public lanes still get the headline, kind/severity tags, source byline,
   // and a teaser; the full body sits behind a connect-wallet wall. Original
   // and tip kinds stay fully public — those drive the audience funnel.
-  const isIncident = payload.kind === "incident";
-  const session = isIncident ? await getMagicSession() : null;
+  // Featured incidents bypass the wall: if we hand-picked it for the front
+  // page, the full article is the proof story — paywalling it defeats the
+  // purpose.
+  const requiresClearance = payload.kind === "incident" && !row.featured;
+  const session = requiresClearance ? await getMagicSession() : null;
   const currentTier = session?.clearanceTier ?? "open";
-  const isGated = isIncident && !meetsTier(currentTier, "contributor");
+  const isGated = requiresClearance && !meetsTier(currentTier, "contributor");
   // ~280 chars is enough to set the hook (one solid paragraph of context)
   // without giving away the timeline + addresses + payoff. Trim at the
   // nearest word boundary so the ellipsis doesn't split a word.
@@ -308,8 +311,9 @@ export default async function IntelDetailPage({
     image: payload.heroImageUrl ? [payload.heroImageUrl] : undefined,
     // Honest paywall signal for Google so we don't get flagged for cloaking
     // when the human-visible body is truncated. Incidents only — original
-    // and tip kinds stay fully public.
-    ...(isIncident
+    // and tip kinds stay fully public, and featured incidents are unlocked
+    // for everyone.
+    ...(requiresClearance
       ? {
           isAccessibleForFree: "False",
           hasPart: {
@@ -361,13 +365,13 @@ export default async function IntelDetailPage({
     secondary: {
       bg: "rgba(96,165,250,0.10)",
       fg: "var(--rex-info)",
-      border: "rgba(96,165,250,0.30)",
+      border: "rgba(96,165,250,0.35)",
       label: "Secondary source",
     },
     hearsay: {
       bg: "rgba(136,136,160,0.10)",
       fg: "var(--rex-text-muted)",
-      border: "rgba(136,136,160,0.30)",
+      border: "rgba(136,136,160,0.35)",
       label: "Hearsay",
     },
   };
@@ -390,23 +394,12 @@ export default async function IntelDetailPage({
         </Link>
 
         <article className="rex-card p-8">
-          <div className="flex items-center gap-2 mb-3 text-[10px] font-mono uppercase tracking-widest">
-            {row.featured && (
-              <span
-                className="px-2 py-0.5 rounded-sm"
-                style={{
-                  background: "rgba(95,185,31,0.12)",
-                  color: "var(--rex-accent)",
-                  border: "1px solid rgba(95,185,31,0.45)",
-                }}
-              >
-                ★ Featured
-              </span>
-            )}
+          <div className="flex flex-wrap items-center gap-2 mb-3 text-[10px] font-mono uppercase tracking-widest">
+            {row.featured && <FeaturedTag />}
             {payload.spicy && <SpicyTag />}
             {payload.kind === "original" && (
               <span
-                className="px-2 py-0.5 rounded-sm"
+                className="px-1.5 py-0.5 rounded-sm"
                 style={{
                   background: "rgba(95,185,31,0.10)",
                   color: "var(--rex-accent)",
@@ -418,7 +411,7 @@ export default async function IntelDetailPage({
             )}
             {payload.kind === "incident" && (
               <span
-                className="px-2 py-0.5 rounded-sm"
+                className="px-1.5 py-0.5 rounded-sm"
                 style={{
                   background: "rgba(248,113,113,0.10)",
                   color: "#f87171",
@@ -430,7 +423,7 @@ export default async function IntelDetailPage({
             )}
             {payload.severity && tone && (
               <span
-                className="px-2 py-0.5 rounded-sm"
+                className="px-1.5 py-0.5 rounded-sm"
                 style={{
                   background: tone.bg,
                   color: tone.fg,
@@ -442,7 +435,7 @@ export default async function IntelDetailPage({
             )}
             {grade && (
               <span
-                className="px-2 py-0.5 rounded-sm"
+                className="px-1.5 py-0.5 rounded-sm"
                 style={{
                   background: grade.bg,
                   color: grade.fg,
@@ -453,8 +446,15 @@ export default async function IntelDetailPage({
               </span>
             )}
             {payload.category && (
-              <span style={{ color: "var(--rex-text-dim)" }}>
-                · {payload.category}
+              <span
+                className="px-1.5 py-0.5 rounded-sm"
+                style={{
+                  background: "rgba(136,136,160,0.10)",
+                  color: "var(--rex-text-muted)",
+                  border: "1px solid rgba(136,136,160,0.35)",
+                }}
+              >
+                {payload.category}
               </span>
             )}
             {dateLabel && (
@@ -489,7 +489,7 @@ export default async function IntelDetailPage({
           <IntelArticleBody
             body={bodyForRender}
             format={isGated ? "plain" : payload.bodyFormat ?? "plain"}
-            className={`mb-6 ${isIncident ? "gated-body" : ""}`}
+            className={`mb-6 ${requiresClearance ? "gated-body" : ""}`}
           />
 
           {isGated && (

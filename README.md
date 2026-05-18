@@ -4,7 +4,7 @@
 
 Live at **[rexintelservices.com](https://rexintelservices.com)**.
 
-RexIntel is a self-hosted intelligence platform: a public-facing field guide of accelerators, fellowships, grants, capital, perks, residencies and pop-up cities — plus a community intel wire for tips, originals and incident reports — wrapped around a production-grade newsletter stack with subscriber management, campaign sending, bounce/complaint handling and an on-chain address graph.
+RexIntel is a self-hosted intelligence platform: a public-facing field guide of accelerators, fellowships, grants, capital, perks, residencies and pop-up cities — plus a community intel wire for tips, originals and investigative reporting — wrapped around a production-grade newsletter stack with subscriber management, campaign sending, bounce/complaint handling, an on-chain address attribution graph, a victim-trace tool, and a recovery-bounty board.
 
 Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
 
@@ -19,11 +19,11 @@ Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
 - **Intel detail** (`/intel/[publicId]`) — Public intel pages with kind kicker (tip / original / incident), source attribution, OG cards
 - **Address graph** (`/graph`) — Force-directed visualization of on-chain entity relationships; community-data toggle (industry-only vs industry + community)
 - **Address lookup** (`/intel/address/[chain]/[address]`) — Per-address attribution view fed by harvesters + community submissions
-- **Victim trace** (`/trace`) — Etherscan-driven 3-hop outbound BFS; counterparties land in the moat as `victim-trace`-sourced rows
+- **Victim trace** (`/trace`, `/trace/[publicId]`) — Etherscan-driven 3-hop outbound BFS with shareable result pages; counterparties land in the moat as `victim-trace`-sourced rows
 - **Recovery bounties** (`/bounties`, `/bounties/new`, `/bounties/[publicId]`) — Public bounty board with victim-verification via email OTP and white-hat claim submission
 - **Submit** (`/submit`, `/submit/edit/[token]`) — Public intake for intel, programs, capital, events, jobs, perks; token-gated edits for in-flight submissions
 - **Leaderboard** (`/intel/leaderboard`) — Contributor ranking + community prize pool balance
-- **Contributors** (`/contributors`, `/contributors/[handle]`) — Contributor profiles
+- **Contributors** (`/contributors`, `/contributors/[slug]`) — Contributor profiles
 - **Search** (`/search`) — Site-wide search across lanes + intel
 - **Hackathons / Events / Jobs / Pop-up cities / Accelerators / Fellowships / Grants / Capital / Perks / Residencies** — Directory routes
 - **Feed** (`/intel/feed.xml`) — RSS for the intel wire
@@ -108,13 +108,18 @@ cp .env.example .env
 ```
 
 Fill in:
-- `DATABASE_URL` — your Postgres URL
+- `DATABASE_URL` — your Postgres URL (Neon pooled endpoint, `sslmode=require`)
 - `RESEND_API_KEY` — from Resend
 - `APP_URL` — `http://localhost:3000` for dev, your domain for prod
 - `SESSION_PASSWORD` — `openssl rand -base64 32`
-- `RESEND_WEBHOOK_SECRET` — fill in after step 7
+- `RESEND_WEBHOOK_SECRET` — fill in after step 8
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — rate limiting on public endpoints
 - `CRON_SECRET` — shared secret for Vercel Cron headers
+- `DIGEST_FROM_EMAIL` / `DIGEST_FROM_NAME` — sender used by the weekly digest cron
+- `OPERATOR_EMAILS` — comma-separated allowlist for operator Magic-Link sign-in (defaults to `rexintelservices@proton.me`)
+- `NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY` / `MAGIC_SECRET_KEY` — Magic-Link auth (live `pk_live_`/`sk_live_`, test `pk_test_`/`sk_test_`)
+- `NEXT_PUBLIC_MAGIC_RPC_URL` / `NEXT_PUBLIC_MAGIC_CHAIN_ID` — chain Magic provisions contributor wallets on (defaults to Base mainnet, `8453`)
+- `ETHERSCAN_API_KEY` — powers `/trace` (free key from etherscan.io); optional `ETHERSCAN_RPS` override
 - `DIGEST_BYPASS_EDITORIAL_BAR` — `true` only when force-drafting an empty week (default off)
 
 ### 5. Database
@@ -123,11 +128,18 @@ Fill in:
 npm run db:push
 ```
 
-### 6. Create your admin
+### 6. Provision an operator
+
+Authentication is Magic-Link OTP — there are no passwords. The script below
+ensures the `users` row exists for an operator email so FK targets (review,
+award, etc.) resolve before the operator first signs in. The same row is
+upserted on first sign-in too, so this step is optional.
 
 ```bash
-npm run create-admin
+npm run create-admin -- you@yourdomain.com
 ```
+
+Then add that address to `OPERATOR_EMAILS` in your `.env` (and on Vercel).
 
 ### 7. Run it
 
@@ -135,12 +147,12 @@ npm run create-admin
 npm run dev
 ```
 
-Public landing at `http://localhost:3000`, log in at `/login`, admin at `/dashboard`.
+Public landing at `http://localhost:3000`, sign in at `/login` (Magic-Link OTP), admin at `/dashboard`.
 
 ### 8. Webhook (before sending real campaigns)
 
 1. Resend → **Webhooks → Add Endpoint**
-2. URL: `https://rexintelservices.com/api/webhooks/resend`
+2. URL: `https://<your-domain>/api/webhooks/resend`
 3. Events: `email.delivered`, `email.bounced`, `email.complained`
 4. Copy the signing secret into `.env` as `RESEND_WEBHOOK_SECRET`
 
@@ -173,42 +185,65 @@ npx tsx scripts/seed-intel-addresses.ts
 src/
 ├── app/
 │   ├── page.tsx                # Public landing
-│   ├── intel/                  # Lane-switcher + detail + leaderboard + address graph
+│   ├── intel/                  # Lane-switcher + detail + leaderboard + address views
 │   │   ├── page.tsx
-│   │   ├── _lanes/             # signals, accel, fellowships, grants, capital,
+│   │   ├── _lanes/             # signals, accelerators, fellowships, grants, capital,
 │   │   │                       # perks, cities, residencies
 │   │   ├── [publicId]/         # Intel detail page
-│   │   ├── address/            # Address graph view
+│   │   ├── address/            # Per-address attribution view
 │   │   ├── leaderboard/
 │   │   └── feed.xml/
+│   ├── graph/                  # Force-directed address graph + community toggle
+│   ├── trace/                  # Victim trace tool (3-hop outbound BFS)
+│   │   └── [publicId]/         # Shareable trace result page
+│   ├── bounties/               # Public bounty board + claim flow
+│   │   ├── new/                # Post a bounty
+│   │   └── [publicId]/         # Detail, victim-verify panel, claim form
+│   ├── search/                 # Site-wide search
+│   ├── contributors/           # Contributor profiles
 │   ├── accelerators|fellowships|grants|capital|perks|residencies|
-│   │   pop-up-cities|hackathons|events|jobs|contributors|graph|search/
-│   ├── submit/                 # Public submission intake
-│   ├── (admin)/                # Auth-protected admin
+│   │   pop-up-cities|hackathons|events|jobs/
+│   ├── submit/                 # Public submission intake + token-gated edit
+│   ├── (admin)/                # Operator-gated admin
 │   │   ├── dashboard/
-│   │   ├── subscribers/
-│   │   ├── campaigns/
-│   │   └── submissions/        # Moderation queue
+│   │   ├── subscribers/        # List, import, export, bulk
+│   │   ├── tags/               # Subscriber tags
+│   │   ├── suppressions/       # Suppression list
+│   │   ├── users/              # Contributors view
+│   │   ├── campaigns/          # CRUD + composer + send
+│   │   ├── submissions/        # Moderation queue
+│   │   ├── bounty-overview/    # Counters + failed/stuck payouts
+│   │   └── bounty-claims/      # Adjudication queue
 │   ├── api/
 │   │   ├── subscribe           # Public signup
 │   │   ├── submit              # Public submission intake
+│   │   ├── trace               # Victim trace (Etherscan-driven)
+│   │   ├── bounties            # Post/list/claim bounty
 │   │   ├── intel/vote          # Magic-link voting for prize pool
-│   │   ├── auth/{login,logout}
-│   │   ├── subscribers         # List + import
-│   │   ├── submissions         # Admin moderation
-│   │   ├── campaigns           # CRUD + send
+│   │   ├── auth/operator/      # Operator Magic-Link OTP
+│   │   ├── auth/magic/         # Contributor Magic-Link wallet auth
+│   │   ├── auth/email/         # Email-OTP (victim verification)
+│   │   ├── auth/logout
+│   │   ├── subscribers         # CRUD, bulk, import, export
+│   │   ├── tags, suppressions  # Admin CRUD
+│   │   ├── submissions         # Admin moderation (single + bulk + feature)
+│   │   ├── campaigns           # CRUD, schedule, send, test-send, duplicate
+│   │   ├── admin/              # contributors, bounties, bounty-claims
 │   │   ├── webhooks/resend     # Bounce + complaint handler
-│   │   ├── cron/               # Vercel Cron handlers
+│   │   ├── cron/               # 12 Vercel Cron handlers (see table above)
 │   │   ├── graph               # Address graph data
+│   │   ├── events/parse-url    # Event URL → structured payload
+│   │   ├── jobs/parse-url      # Job URL → structured payload
+│   │   ├── diag/otp-health     # OTP delivery diagnostic
 │   │   └── track/{open,click}  # Pixel + redirect
 │   ├── login/
 │   └── unsubscribe/[token]/
 ├── lib/
-│   ├── auth.ts                 # iron-session + bcrypt
+│   ├── auth.ts                 # iron-session, operator allowlist, Magic verification
 │   ├── db/                     # Drizzle schema + connection
 │   ├── email/                  # Merge tags, link rewriting, batched sender
 │   └── intel/                  # Kind taxonomy, editorial bar, voting
-├── components/                 # Shared UI (PublicShell, chips, icons)
+├── components/                 # Shared UI (PublicShell, chips, icons, vote, connect-wallet)
 └── middleware.ts               # Route protection
 ```
 
@@ -231,10 +266,14 @@ Every intel record carries a `kind`:
 - **Next.js 14** (App Router) on Node
 - **Drizzle ORM** + Postgres (Neon serverless driver)
 - **Resend** for transactional + campaign email, **svix** for webhook verification
-- **iron-session** + bcryptjs for admin auth
+- **Magic SDK** for Magic-Link OTP (operators) and Magic-Link wallet sign-in (contributors, Base mainnet)
+- **iron-session** encrypted-cookie sessions
 - **Upstash Redis** for rate limiting public endpoints
 - **react-force-graph-2d** for the address graph
+- **papaparse** + **exceljs** for subscriber CSV import / XLSX export
+- **Etherscan API** for the victim trace tool
 - **Tailwind** for styling, custom dark theme
+- **Vercel Analytics** + **Speed Insights**
 
 ---
 

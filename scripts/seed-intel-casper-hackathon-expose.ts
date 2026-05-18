@@ -440,6 +440,14 @@ const payload: IntelPayload = {
         "The CasperLink repository where the 3rd-place team identifies the apex bot-funder wallet as the project's owner.",
       credit: "GitHub",
     },
+    {
+      kind: "image",
+      url: "/casper.png",
+      alt: "Casper Hackathon 2026 — Final Round. Prize: $40,000 ($25K cash, $5K NodeOps credit, $10K ChainGPT API grant). Co-sponsored by Halborn, NowNodes, NodeOps, ChainGPT.",
+      caption:
+        "Casper Hackathon 2026 — Final Round. The official promotional artwork for the contest examined above.",
+      credit: "Casper Association",
+    },
   ],
   kind: "incident",
   category: "Hackathon fraud",

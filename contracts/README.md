@@ -3,32 +3,78 @@
 USDC prize pool with monthly top-5 waterfall distribution, settled by an
 off-chain cron and pulled by winners on-chain.
 
-## Deploy (Foundry)
+## One-time setup
 
 ```bash
-# Once: install Foundry
+# Install Foundry (~/.foundry/bin)
 curl -L https://foundry.paradigm.xyz | bash && foundryup
 
-# Set env
-export PRIVATE_KEY=0x...                # the initial settler EOA's key
-export BASE_RPC_URL=https://mainnet.base.org
-export USDC_BASE=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-export SETTLER=0x...                    # same as PRIVATE_KEY's address for v1
+# Install forge-std into contracts/lib
+cd contracts && forge install foundry-rs/forge-std --no-commit && cd ..
 
-# Deploy to Base mainnet
-forge create contracts/src/IntelPrizePool.sol:IntelPrizePool \
+# Sanity check the contract + tests pass before touching mainnet
+cd contracts && forge test -vv && cd ..
+```
+
+## Deploy to Base mainnet
+
+```bash
+cd contracts
+
+export PRIVATE_KEY=0x...                # NEW key — initial settler EOA
+export BASE_RPC_URL=https://mainnet.base.org
+export BASESCAN_API_KEY=...             # for source verification
+# USDC_ADDRESS and SETTLER fall back to defaults — USDC_ADDRESS=bridged USDC
+# on Base, SETTLER=$PRIVATE_KEY's address. Override only if needed.
+
+forge script script/DeployIntelPrizePool.s.sol \
   --rpc-url "$BASE_RPC_URL" \
   --private-key "$PRIVATE_KEY" \
-  --constructor-args "$USDC_BASE" "$SETTLER" \
-  --verify --verifier blockscout \
-  --verifier-url https://base.blockscout.com/api
-
-# Set the deployed address in Vercel
-vercel env add PRIZE_POOL_CONTRACT_ADDRESS production
-vercel env add PRIZE_POOL_ADDRESS production  # same value, for the leaderboard balance reader
-vercel env add PRIZE_POOL_CHAIN production    # "base"
-vercel env add PRIZE_POOL_ASSET production    # "USDC"
+  --broadcast \
+  --verify \
+  --etherscan-api-key "$BASESCAN_API_KEY" \
+  -vvv
 ```
+
+Grep the printed `IntelPrizePool deployed at: 0x...` line for the address.
+
+## Wire the address into the app
+
+```bash
+# Production envs (Vercel)
+vercel env add PRIZE_POOL_ADDRESS production       # the deployed 0x… address
+vercel env add PRIZE_POOL_CHAIN production         # base
+vercel env add PRIZE_POOL_ASSET production         # USDC
+vercel env add PRIZE_POOL_RPC_URL production       # https://mainnet.base.org
+vercel env add SETTLER_PRIVATE_KEY production      # same key used to deploy
+
+# Important: remove or empty PRIZE_POOL_MOCK_BALANCE — in production it's
+# ignored anyway, but clearing it avoids confusion in staging.
+vercel env rm PRIZE_POOL_MOCK_BALANCE production   # if it exists
+
+# Redeploy so the new envs land
+vercel --prod
+```
+
+## Verify end-to-end
+
+1. Visit `/intel/leaderboard` — pool balance reads $0.00 USDC live from
+   the new contract.
+2. Send a small USDC amount (e.g. $5) to the contract from any wallet.
+   Refresh the leaderboard — the balance updates within ~60s (RPC cache).
+3. Manually trigger the settlement cron for testing:
+   `curl -H "Authorization: Bearer $CRON_SECRET" \
+     https://rexintelservices.com/api/cron/settle-monthly-prizes`
+   The first run picks up the current backlog (April 2026 onwards, all
+   empty months get rows). Pool balance hasn't been split yet because we
+   only settle *prior* months.
+4. On the 1st of the next month at 01:00 UTC: the same cron fires
+   automatically, computes top-5, calls `distribute()`, and emits the
+   `Distributed` event. The monthly_prizes row gets each winner's txHash
+   written into the JSONB payouts.
+5. Winners visit `/intel/prizes`, sign in via Magic, click "Claim USDC".
+   Their Magic-held key signs `claim(202605)`, the contract transfers USDC
+   to their wallet, and the row flips to "Claimed".
 
 ## How a month plays out
 

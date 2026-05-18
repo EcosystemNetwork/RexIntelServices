@@ -1,7 +1,7 @@
-import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import { db, bounties, bountyClaims, bountyPayouts } from "@/lib/db";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 /**
  * GET /api/cron/sweep-expired-bounties
@@ -24,32 +24,8 @@ import { db, bounties, bountyClaims, bountyPayouts } from "@/lib/db";
  */
 
 export async function GET(req: Request) {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { ok: false, error: "CRON_SECRET not configured" },
-      { status: 500 },
-    );
-  }
-  // Timing-safe header check — a naive === leaks one byte at a time on a
-  // remote timing oracle. Length-mismatched headers fall through to a
-  // dummy compare so the failure latency doesn't reveal a length match.
-  const expectedHeader = `Bearer ${expected}`;
-  const presented = req.headers.get("authorization") ?? "";
-  const a = Buffer.from(expectedHeader);
-  const b = Buffer.from(
-    presented.length === expectedHeader.length
-      ? presented
-      : expectedHeader,
-  );
-  const headerOk =
-    presented.length === expectedHeader.length && timingSafeEqual(a, b);
-  if (!headerOk) {
-    return NextResponse.json(
-      { ok: false, error: "unauthorized" },
-      { status: 401 },
-    );
-  }
+  const fail = verifyCronSecret(req);
+  if (fail) return NextResponse.json(fail.body, { status: fail.status });
 
   const now = new Date();
 
