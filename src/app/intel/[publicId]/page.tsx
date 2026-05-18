@@ -37,6 +37,7 @@ type LoadedIntel = {
   submitterHandle: string | null;
   submitterSlug: string | null;
   publishedAt: Date | null;
+  featured: boolean;
   addresses: LinkedAddress[];
   voteCount: number;
 };
@@ -110,6 +111,7 @@ const loadIntel = cache(
         submitterHandle: submissions.submitterHandle,
         submitterSlug: submitters.slug,
         publishedAt: submissions.publishedAt,
+        featured: submissions.featured,
       })
       .from(submissions)
       .leftJoin(submitters, eq(submitters.id, submissions.submitterId))
@@ -146,6 +148,7 @@ const loadIntel = cache(
       submitterHandle: row.submitterHandle,
       submitterSlug: row.submitterSlug,
       publishedAt: row.publishedAt,
+      featured: row.featured ?? false,
       addresses: addrRows,
       voteCount: voteRow?.count ?? 0,
     };
@@ -387,6 +390,18 @@ export default async function IntelDetailPage({
 
         <article className="rex-card p-8">
           <div className="flex items-center gap-2 mb-3 text-[10px] font-mono uppercase tracking-widest">
+            {row.featured && (
+              <span
+                className="px-2 py-0.5 rounded-sm"
+                style={{
+                  background: "rgba(95,185,31,0.12)",
+                  color: "var(--rex-accent)",
+                  border: "1px solid rgba(95,185,31,0.45)",
+                }}
+              >
+                ★ Featured
+              </span>
+            )}
             {payload.kind === "original" && (
               <span
                 className="px-2 py-0.5 rounded-sm"

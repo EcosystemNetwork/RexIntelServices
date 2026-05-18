@@ -66,6 +66,39 @@ export function IntelArticleBody({
   );
 }
 
+/**
+ * Map a full chain address to the appropriate public block-explorer URL.
+ * Only full-length addresses match — truncated/elided forms like
+ * `0xabcd…1234` stay plain text. Returns null when the input isn't a
+ * recognizable address pattern (so most inline code stays unlinked).
+ *
+ * Chain selection is deliberately conservative: EVM addresses default to
+ * Etherscan even though they could be valid on Polygon/Base/Arbitrum/etc.
+ * — the body usually surrounds the address with chain context, and the
+ * Sources/Links block at the article tail has the chain-specific link.
+ * Solana base58 → Solscan. BTC bech32 + base58 → mempool.space.
+ */
+function addressExplorerHref(text: string): string | null {
+  const trimmed = text.trim();
+  // EVM: 0x + 40 hex chars
+  if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return `https://etherscan.io/address/${trimmed}`;
+  }
+  // BTC bech32 (segwit / taproot)
+  if (/^bc1[a-z0-9]{38,87}$/.test(trimmed)) {
+    return `https://mempool.space/address/${trimmed}`;
+  }
+  // BTC base58 (P2PKH starts with 1, P2SH starts with 3)
+  if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(trimmed)) {
+    return `https://mempool.space/address/${trimmed}`;
+  }
+  // Solana base58 (43-44 chars, base58 charset excludes 0/O/I/l)
+  if (/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(trimmed)) {
+    return `https://solscan.io/account/${trimmed}`;
+  }
+  return null;
+}
+
 const INTEL_MD_COMPONENTS: Components = {
   a: ({ href, children, ...rest }) => (
     <a
@@ -147,7 +180,18 @@ const INTEL_MD_COMPONENTS: Components = {
         <code className="font-mono text-xs leading-relaxed">{children}</code>
       );
     }
-    return (
+    // Auto-link inline code that looks like a full chain address. Truncated
+    // forms (`0xabcd…1234`) aren't valid lookup targets so they stay plain.
+    const text =
+      typeof children === "string"
+        ? children
+        : Array.isArray(children) &&
+            children.length === 1 &&
+            typeof children[0] === "string"
+          ? children[0]
+          : "";
+    const href = addressExplorerHref(text);
+    const codeEl = (
       <code
         className="font-mono text-[0.9em] px-1 py-[1px] rounded-sm"
         style={{
@@ -158,6 +202,17 @@ const INTEL_MD_COMPONENTS: Components = {
       >
         {children}
       </code>
+    );
+    if (!href) return codeEl;
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="no-underline hover:opacity-80"
+      >
+        {codeEl}
+      </a>
     );
   },
   pre: ({ children }) => (
