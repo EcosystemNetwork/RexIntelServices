@@ -75,6 +75,11 @@ export const CONTRIBUTION_POINTS: Record<ContributionEventKind, number> = {
   // and lets a victim's queued attributions flow into the graph.
   loss_report_accepted: 3,
   retraction_clawback: 0, // rejected at runtime — kept here so the enum type is exhaustive
+  // Accepted white-hat bounty claim. Bar is real money + curator + victim
+  // ack, so rewards above incident_accepted (50) but below curator_award
+  // territory. One accepted claim moves a new contributor most of the way
+  // to trusted (50→125, threshold 250 for inner_circle).
+  bounty_claim_accepted: 75,
 };
 
 /**

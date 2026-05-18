@@ -197,6 +197,27 @@
       "when": 1780700000000,
       "tag": "0027_loss_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1780800000000,
+      "tag": "0028_hack_traces",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1780900000000,
+      "tag": "0029_recovery_bounties",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0030_bounty_victim_verify",
+      "breakpoints": true
     }
   ]
 }

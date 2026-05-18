@@ -190,6 +190,7 @@ const SOURCE_LABEL: Record<AddressAttributionSource, string> = {
   incident: "Intel incident",
   "community-loss-report": "User-reported loss",
   "victim-trace": "Victim trace (on-chain)",
+  "bounty-claim": "Bounty claim (accepted)",
 };
 
 const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> = {
@@ -219,6 +220,13 @@ const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> 
   "victim-trace": {
     bg: "rgba(251,191,36,0.10)",
     fg: "#fbbf24",
+  },
+  // Accepted bounty claim — curator + victim ack on top of on-chain evidence,
+  // so brightest of the community-class sources. Greener tint to telegraph
+  // "white-hat verified" vs. raw self-reported amber.
+  "bounty-claim": {
+    bg: "rgba(95,185,31,0.10)",
+    fg: "#86efac",
   },
 };
 

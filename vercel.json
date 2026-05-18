@@ -36,6 +36,14 @@
     {
       "path": "/api/cron/import-rekt-leaderboard",
       "schedule": "0 2 * * 1"
+    },
+    {
+      "path": "/api/cron/sweep-expired-bounties",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-bounty-payouts",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

@@ -1073,6 +1073,120 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
   },
 
   // ============================================================
+  // WALLET DRAINER GROUPS — Drainer-as-a-Service (DaaS) operators
+  // that lease phishing infrastructure to affiliates and take a cut
+  // of stolen funds. Every address below carries an Etherscan public
+  // label ("Pink Drainer: Wallet 1", "Inferno Drainer", etc.) — the
+  // strongest available off-chain attribution short of an OFAC
+  // listing. Confidence 95.
+  // ============================================================
+  {
+    chain: "ethereum",
+    address: "0x63605e53d422c4f1ac0e01390ac59aaf84c44a51",
+    sourceRef: "pink-drainer-wallet-1",
+    category: "scam",
+    ownerName: "Pink Drainer",
+    ownerKind: "criminal-group",
+    label: "Pink Drainer: Wallet 1",
+    notes: "DaaS operator active 2023-2024. ScamSniffer attributed ~$75M+ across 20k+ victims before announced shutdown 2024-Q2. Known for impersonating journalists and hijacking Discord/Twitter accounts (incl. OpenAI CTO, Orbiter Finance).",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x00001f78189be22c3498cff1b8e02272c3220000",
+    sourceRef: "inferno-drainer-main",
+    category: "scam",
+    ownerName: "Inferno Drainer",
+    ownerKind: "criminal-group",
+    label: "Inferno Drainer",
+    notes: "DaaS operator that drained ~$80M+ from 100k+ victims 2022-2023. Announced shutdown Nov 2023; reloaded variant tracked by Check Point Research 2025. Affiliates kept 70-80% / Inferno took 20-30%.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x0000daf60a1becf1bd617c584dea964455890000",
+    sourceRef: "inferno-drainer-phishing-2",
+    category: "scam",
+    ownerName: "Inferno Drainer",
+    ownerKind: "criminal-group",
+    label: "Inferno Drainer: Phishing Contract 2",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0xfb4d3eb37bde8fa4b52c60aabe55b3cd9908ec73",
+    sourceRef: "inferno-drainer-2-ens",
+    category: "scam",
+    ownerName: "Inferno Drainer",
+    ownerKind: "criminal-group",
+    label: "inferno-drainer-2.eth",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x0000553f880ffa3728b290e04e819053a3590000",
+    sourceRef: "inferno-drainer-4-ens",
+    category: "scam",
+    ownerName: "Inferno Drainer",
+    ownerKind: "criminal-group",
+    label: "inferno-drainer-4.eth",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x412f10aad96fd78da6736387e2c84931ac20313f",
+    sourceRef: "angel-drainer-412f",
+    category: "scam",
+    ownerName: "Angel Drainer",
+    ownerKind: "criminal-group",
+    label: "Angel Drainer: 0x412f",
+    notes: "DaaS successor to Inferno Drainer (Nov 2023+). Upgraded to AngelX Sep 2024 — deployed 300+ phishing dApps in 4 days. Accounted for ~42% of drainer losses in Q1-Q2 2024 per ScamSniffer.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x0000c3ace9e31a26ce1870d418cb045d73b30000",
+    sourceRef: "angel-drainer-phishing-3",
+    category: "scam",
+    ownerName: "Angel Drainer",
+    ownerKind: "criminal-group",
+    label: "Angel Drainer: Phishing Contract 3",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x0000626d6dc72989e3809920c67d01a7fe030000",
+    sourceRef: "angel-drainer-phishing-9",
+    category: "scam",
+    ownerName: "Angel Drainer",
+    ownerKind: "criminal-group",
+    label: "Angel Drainer: Phishing Contract 9",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x9fc8265f2b376084423a1a348a89ecd894a9d106",
+    sourceRef: "monkey-drainer-ens",
+    category: "scam",
+    ownerName: "Monkey Drainer",
+    ownerKind: "criminal-group",
+    label: "monkey-drainer.eth",
+    notes: "One of the earliest DaaS operators (late 2022). Drained ~$13M before announcing retirement 2023-03-01 after CertiK doxxed at least one operator. Venom Drainer believed to be successor toolkit.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0xaa336c6c9d11fa74eae5625467fd095c31bd1129",
+    sourceRef: "venom-drainer-eth-pool",
+    category: "scam",
+    ownerName: "Venom Drainer",
+    ownerKind: "criminal-group",
+    label: "VenomDrainerr: ETH Pool",
+    notes: "Successor toolkit to Monkey Drainer. Drained ~$27.5M starting Feb 2023 per Cointelegraph / ScamSniffer.",
+    confidence: 95,
+  },
+
+  // ============================================================
   // MAJOR HACK INCIDENTS (extended) — high-graph-value nodes that
   // typically connect into mixers, exchanges, and bridges.
   // ============================================================

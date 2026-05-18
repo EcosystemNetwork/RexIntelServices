@@ -10,8 +10,8 @@
  * Idempotent: matched by payload->>'url'.
  */
 import "dotenv/config";
-import { sql } from "drizzle-orm";
-import { db } from "../src/lib/db";
+import { and, eq, sql } from "drizzle-orm";
+import { db, submissions } from "../src/lib/db";
 import type { EventPayload } from "../src/lib/db/schema";
 import { parseEventUrl, isTrustedEventUrl } from "../src/lib/event-parser";
 
@@ -48,48 +48,47 @@ async function seedOne(rawUrl: string) {
   const eventStartsAt = new Date(payload.startsAt);
   const eventEndsAt = payload.endsAt ? new Date(payload.endsAt) : null;
 
-  // Raw SQL on purpose: production DB is behind on migration 0027 which
-  // adds submissions.graph_attribution_status — Drizzle's prepared-statement
-  // shape against the current schema trips that column reference even though
-  // the insert doesn't set it. Naming columns explicitly avoids the drift.
-  const reviewNotes = `seeded via seed-event-from-url: ${canonicalUrl}`;
-  const publishedAt = status === "approved" ? new Date() : null;
-  const payloadJson = JSON.stringify(payload);
+  const existing = await db
+    .select({ id: submissions.id, publicId: submissions.publicId })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "event"),
+        sql`${submissions.payload}->>'url' = ${canonicalUrl}`,
+      ),
+    )
+    .limit(1);
 
-  const existing = await db.execute(sql`
-    SELECT id, public_id
-    FROM submissions
-    WHERE type = 'event'
-      AND payload->>'url' = ${canonicalUrl}
-    LIMIT 1
-  `);
-
-  const existingRows = existing.rows as Array<{ id: string; public_id: string }>;
-  if (existingRows.length > 0) {
-    const id = existingRows[0].id;
-    const updated = await db.execute(sql`
-      UPDATE submissions
-      SET payload = ${payloadJson}::jsonb,
-          event_starts_at = ${eventStartsAt},
-          event_ends_at = ${eventEndsAt},
-          status = ${status},
-          published_at = ${publishedAt},
-          updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING public_id
-    `);
-    const pubId = (updated.rows[0] as { public_id: string }).public_id;
-    console.log(`updated  ${status.padEnd(8)}  /events/${pubId}  ${payload.name}`);
+  if (existing.length > 0) {
+    const [row] = await db
+      .update(submissions)
+      .set({
+        payload,
+        eventStartsAt,
+        eventEndsAt,
+        status,
+        publishedAt: status === "approved" ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(submissions.id, existing[0].id))
+      .returning({ publicId: submissions.publicId });
+    console.log(`updated  ${status.padEnd(8)}  /events/${row.publicId}  ${payload.name}`);
     return;
   }
 
-  const inserted = await db.execute(sql`
-    INSERT INTO submissions (type, status, payload, event_starts_at, event_ends_at, published_at, review_notes)
-    VALUES ('event', ${status}, ${payloadJson}::jsonb, ${eventStartsAt}, ${eventEndsAt}, ${publishedAt}, ${reviewNotes})
-    RETURNING public_id
-  `);
-  const pubId = (inserted.rows[0] as { public_id: string }).public_id;
-  console.log(`inserted ${status.padEnd(8)}  /events/${pubId}  ${payload.name}`);
+  const [row] = await db
+    .insert(submissions)
+    .values({
+      type: "event",
+      status,
+      payload,
+      eventStartsAt,
+      eventEndsAt,
+      publishedAt: status === "approved" ? new Date() : null,
+      reviewNotes: `seeded via seed-event-from-url: ${canonicalUrl}`,
+    })
+    .returning({ publicId: submissions.publicId });
+  console.log(`inserted ${status.padEnd(8)}  /events/${row.publicId}  ${payload.name}`);
 }
 
 async function main() {

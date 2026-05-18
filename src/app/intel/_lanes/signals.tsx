@@ -68,7 +68,7 @@ const getSignalsRows = unstable_cache(
         })
         .from(submissions)
         .where(and(...filters))
-        .orderBy(desc(submissions.publishedAt))
+        .orderBy(desc(submissions.featured), desc(submissions.publishedAt))
         .limit(200),
       db.execute<{ category: string }>(sql`
         SELECT DISTINCT LOWER(${submissions.payload}->>'category') AS category

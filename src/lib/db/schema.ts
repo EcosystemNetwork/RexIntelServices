@@ -159,6 +159,11 @@ export const addressAttributionSourceEnum = pgEnum(
     // confidence than a self-reported story — but still community-class and
     // hidden behind the same toggle.
     "victim-trace",
+    // Address surfaced in an accepted white-hat bounty claim. Carries an
+    // adjudication audit trail (curator + victim ack) so it sits one step
+    // above raw victim-trace in trust, but stays in the community class
+    // and respects the industry-only toggle.
+    "bounty-claim",
   ],
 );
 
@@ -202,6 +207,10 @@ export const contributionEventKindEnum = pgEnum("contribution_event_kind", [
   // moderation handles bad actors via clearance freeze/ban, not score
   // deduction. awardContributionPoints rejects this kind at runtime.
   "retraction_clawback",
+  // White-hat bounty claim accepted (funds recovered or arrest-leading info
+  // verified). Higher reward than original/incident because the bar is real
+  // money + curator + victim ack; see CONTRIBUTION_POINTS.
+  "bounty_claim_accepted",
 ]);
 
 // =====================================================================
@@ -977,6 +986,12 @@ export const submitters = pgTable(
     // sign-in. Powers the admin Contributors analytics view.
     loginCount: integer("login_count").notNull().default(0),
     lastLoginAt: timestamp("last_login_at"),
+    // Bounty-surface strike count. Bad-faith / doxx-attempt bounty claim
+    // verdicts increment this; reaching 2 sets bountyBannedAt and blocks
+    // future claim submissions. Scoped to the bounty surface — a banned
+    // claimant can still submit intel. See project_bounty_bad_faith_policy.md.
+    bountyStrikes: integer("bounty_strikes").notNull().default(0),
+    bountyBannedAt: timestamp("bounty_banned_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -1420,6 +1435,266 @@ export const hackTraceHopsRelations = relations(hackTraceHops, ({ one }) => ({
   }),
 }));
 
+// =====================================================================
+// RECOVERY BOUNTIES — victim-posted USDC bounties for white-hat info that
+// leads to fund recovery (or, with a filed police report, arrest). Custodial
+// escrow via the same Circle wallet rail the monthly prize pool uses; claims
+// gated to trusted+ tier; 2-strike bad-faith ban per
+// project_bounty_bad_faith_policy.md. Accepted-claim target addresses land
+// in address_attributions with source='bounty-claim'.
+// =====================================================================
+
+export const bountyStatusEnum = pgEnum("bounty_status", [
+  "draft",        // victim created, not yet funded
+  "funded",       // USDC arrived in custodial escrow wallet
+  "open",         // accepting claims
+  "adjudicating", // ≥1 claim under curator review
+  "paid",         // payout complete (full or partial)
+  "refunded",     // expired/cancelled; victim refunded
+  "expired",      // past expires_at with no valid claims
+]);
+
+export const bountyKindEnum = pgEnum("bounty_kind", [
+  "recovery",      // % of recovered funds returned to victim
+  "info_recovery", // flat USDC for info that leads to recovery
+  "info_arrest",   // flat USDC, requires police-report attestation
+]);
+
+export const bountyClaimStatusEnum = pgEnum("bounty_claim_status", [
+  "submitted",
+  "under_review",
+  "needs_info",
+  "accepted",
+  "partial", // partial recovery confirmed
+  "rejected",
+  "withdrawn",
+]);
+
+// Strike-issuing reasons are `bad_faith` and `doxx_attempt`. Everything else
+// is a good-faith failure with no penalty. Source of truth is
+// BOUNTY_CLAIM_STRIKE_REASONS in lib/bounty.ts.
+export const bountyClaimRejectionReasonEnum = pgEnum(
+  "bounty_claim_rejection_reason",
+  [
+    "insufficient_evidence",
+    "duplicate",
+    "out_of_scope",
+    "bad_faith",
+    "doxx_attempt",
+  ],
+);
+
+// Sealed evidence package the claimant submits. Only curator + victim should
+// read this — the public bounty page never renders it. Validated in
+// lib/bounty.ts before insert.
+export type BountyClaimEvidence = {
+  targetAddresses: string[]; // 0x… hex, lowercased
+  suspectedEntity?: string;
+  narrative: string;
+  citedSubmissionIds?: string[];
+  attachmentUrls?: string[];
+  chain?: string; // defaults to "ethereum" downstream
+};
+
+export const bounties = pgTable(
+  "bounties",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicId: text("public_id")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(8), 'hex')`),
+    // Hangs off a hack_trace for provenance. Nullable for free-standing
+    // loss-report bounties (v2).
+    hackTraceId: uuid("hack_trace_id").references(() => hackTraces.id, {
+      onDelete: "set null",
+    }),
+    victimEmail: text("victim_email").notNull(),
+    victimSubmitterId: uuid("victim_submitter_id").references(
+      () => submitters.id,
+      { onDelete: "set null" },
+    ),
+    kind: bountyKindEnum("kind").notNull(),
+    // Basis points (1–10000). NULL unless kind=recovery.
+    recoveryPercentBps: integer("recovery_percent_bps"),
+    // Flat USDC amount. NULL unless kind ∈ {info_recovery, info_arrest}.
+    flatAmountUsdc: numeric("flat_amount_usdc", { precision: 18, scale: 2 }),
+    escrowedAmountUsdc: numeric("escrowed_amount_usdc", {
+      precision: 18,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+    circleWalletId: text("circle_wallet_id"),
+    fundingTxHash: text("funding_tx_hash"),
+    status: bountyStatusEnum("status").notNull().default("draft"),
+    policeReportFiled: boolean("police_report_filed").notNull().default(false),
+    policeReportRef: text("police_report_ref"),
+    termsAcceptedAt: timestamp("terms_accepted_at"),
+    expiresAt: timestamp("expires_at").notNull(),
+    description: text("description").notNull(),
+    // Victim email-ownership proof. Set when the creator (a) has a Circle
+    // session whose email matches victimEmail, or (b) completes an
+    // email-OTP round and the cookie is consumed at create-time or via
+    // /verify-victim. The /fund route refuses to flip draft → open while
+    // this is null — funds may sit in escrow but the bounty stays private
+    // until the actual victim attests.
+    victimVerifiedAt: timestamp("victim_verified_at"),
+    // SHA-256 of a 32-byte random token returned only in the create
+    // response (and the funding-instructions email). Gates anon-victim
+    // access to their own draft without requiring a Circle account.
+    victimAccessTokenHash: text("victim_access_token_hash"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    publicIdIdx: uniqueIndex("bounties_public_id_idx").on(t.publicId),
+    statusIdx: index("bounties_status_idx").on(t.status),
+    hackTraceIdx: index("bounties_hack_trace_idx").on(t.hackTraceId),
+    victimSubmitterIdx: index("bounties_victim_submitter_idx").on(
+      t.victimSubmitterId,
+    ),
+    expiresAtIdx: index("bounties_expires_at_idx").on(t.expiresAt),
+    victimVerifiedIdx: index("bounties_victim_verified_idx").on(
+      t.victimVerifiedAt,
+    ),
+    victimTokenHashIdx: index("bounties_victim_token_hash_idx").on(
+      t.victimAccessTokenHash,
+    ),
+  }),
+);
+
+export const bountyClaims = pgTable(
+  "bounty_claims",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicId: text("public_id")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(8), 'hex')`),
+    bountyId: uuid("bounty_id")
+      .notNull()
+      .references(() => bounties.id, { onDelete: "cascade" }),
+    claimantSubmitterId: uuid("claimant_submitter_id")
+      .notNull()
+      .references(() => submitters.id, { onDelete: "restrict" }),
+    // Snapshot for audit — survives subsequent tier moves.
+    claimantTierAtSubmit: clearanceTierEnum("claimant_tier_at_submit").notNull(),
+    evidencePayload: jsonb("evidence_payload")
+      .$type<BountyClaimEvidence>()
+      .notNull(),
+    bondAmountUsdc: numeric("bond_amount_usdc", { precision: 18, scale: 2 })
+      .notNull()
+      .default("0"),
+    bondTxHash: text("bond_tx_hash"),
+    bondRefundedTxHash: text("bond_refunded_tx_hash"),
+    status: bountyClaimStatusEnum("status").notNull().default("submitted"),
+    rejectionReason: bountyClaimRejectionReasonEnum("rejection_reason"),
+    strikeIssued: boolean("strike_issued").notNull().default(false),
+    curatorNotes: text("curator_notes"),
+    victimAckedAt: timestamp("victim_acked_at"),
+    reviewedByUserId: uuid("reviewed_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at"),
+    submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    publicIdIdx: uniqueIndex("bounty_claims_public_id_idx").on(t.publicId),
+    bountyIdx: index("bounty_claims_bounty_idx").on(t.bountyId),
+    claimantIdx: index("bounty_claims_claimant_idx").on(t.claimantSubmitterId),
+    statusIdx: index("bounty_claims_status_idx").on(t.status),
+    // One claim per (bounty, claimant) — revisions reuse the row.
+    bountyClaimantIdx: uniqueIndex("bounty_claims_bounty_claimant_idx").on(
+      t.bountyId,
+      t.claimantSubmitterId,
+    ),
+  }),
+);
+
+// Payee kinds. Free-form text in the DB (no enum churn for new payee types
+// in the future); validated against this list in lib/bounty.ts at insert time.
+export const BOUNTY_PAYOUT_PAYEE_KINDS = [
+  "claimant",
+  "victim_refund",
+  "platform_fee",
+  "bond_refund",
+  "bond_slash",
+] as const;
+export type BountyPayoutPayeeKind = (typeof BOUNTY_PAYOUT_PAYEE_KINDS)[number];
+
+export const bountyPayouts = pgTable(
+  "bounty_payouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bountyId: uuid("bounty_id")
+      .notNull()
+      .references(() => bounties.id, { onDelete: "cascade" }),
+    bountyClaimId: uuid("bounty_claim_id").references(() => bountyClaims.id, {
+      onDelete: "set null",
+    }),
+    amountUsdc: numeric("amount_usdc", { precision: 18, scale: 2 }).notNull(),
+    payoutTxHash: text("payout_tx_hash"),
+    circleTransferId: text("circle_transfer_id"),
+    payeeKind: text("payee_kind").$type<BountyPayoutPayeeKind>().notNull(),
+    payeeSubmitterId: uuid("payee_submitter_id").references(
+      () => submitters.id,
+      { onDelete: "set null" },
+    ),
+    status: text("status").notNull().default("pending"), // pending | sent | failed
+    failureReason: text("failure_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    sentAt: timestamp("sent_at"),
+  },
+  (t) => ({
+    bountyIdx: index("bounty_payouts_bounty_idx").on(t.bountyId),
+    claimIdx: index("bounty_payouts_claim_idx").on(t.bountyClaimId),
+    statusIdx: index("bounty_payouts_status_idx").on(t.status),
+  }),
+);
+
+export const bountiesRelations = relations(bounties, ({ one, many }) => ({
+  hackTrace: one(hackTraces, {
+    fields: [bounties.hackTraceId],
+    references: [hackTraces.id],
+  }),
+  victimSubmitter: one(submitters, {
+    fields: [bounties.victimSubmitterId],
+    references: [submitters.id],
+  }),
+  claims: many(bountyClaims),
+  payouts: many(bountyPayouts),
+}));
+
+export const bountyClaimsRelations = relations(bountyClaims, ({ one, many }) => ({
+  bounty: one(bounties, {
+    fields: [bountyClaims.bountyId],
+    references: [bounties.id],
+  }),
+  claimant: one(submitters, {
+    fields: [bountyClaims.claimantSubmitterId],
+    references: [submitters.id],
+  }),
+  reviewer: one(users, {
+    fields: [bountyClaims.reviewedByUserId],
+    references: [users.id],
+  }),
+  payouts: many(bountyPayouts),
+}));
+
+export const bountyPayoutsRelations = relations(bountyPayouts, ({ one }) => ({
+  bounty: one(bounties, {
+    fields: [bountyPayouts.bountyId],
+    references: [bounties.id],
+  }),
+  claim: one(bountyClaims, {
+    fields: [bountyPayouts.bountyClaimId],
+    references: [bountyClaims.id],
+  }),
+  payee: one(submitters, {
+    fields: [bountyPayouts.payeeSubmitterId],
+    references: [submitters.id],
+  }),
+}));
+
 // Type exports for use in app code
 export type Subscriber = typeof subscribers.$inferSelect;
 export type NewSubscriber = typeof subscribers.$inferInsert;
@@ -1457,6 +1732,18 @@ export type HackTrace = typeof hackTraces.$inferSelect;
 export type NewHackTrace = typeof hackTraces.$inferInsert;
 export type HackTraceHop = typeof hackTraceHops.$inferSelect;
 export type NewHackTraceHop = typeof hackTraceHops.$inferInsert;
+export type Bounty = typeof bounties.$inferSelect;
+export type NewBounty = typeof bounties.$inferInsert;
+export type BountyStatus = (typeof bountyStatusEnum.enumValues)[number];
+export type BountyKind = (typeof bountyKindEnum.enumValues)[number];
+export type BountyClaim = typeof bountyClaims.$inferSelect;
+export type NewBountyClaim = typeof bountyClaims.$inferInsert;
+export type BountyClaimStatus =
+  (typeof bountyClaimStatusEnum.enumValues)[number];
+export type BountyClaimRejectionReason =
+  (typeof bountyClaimRejectionReasonEnum.enumValues)[number];
+export type BountyPayout = typeof bountyPayouts.$inferSelect;
+export type NewBountyPayout = typeof bountyPayouts.$inferInsert;
 export type HackTraceStatus = "pending" | "running" | "complete" | "failed";
 export type HackTraceTerminalReason =
   | "attribution_match"

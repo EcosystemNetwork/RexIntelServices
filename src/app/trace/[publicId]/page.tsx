@@ -162,6 +162,27 @@ export default async function TraceResultPage({
 
         <StatusPanel trace={trace} hops={hops} terminals={terminals} />
 
+        {trace.status === "complete" ? (
+          <section className="rex-card p-4 sm:p-5 border border-[var(--rex-accent)]/30 space-y-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
+              ● Escalate — post a recovery bounty
+            </div>
+            <div className="text-sm text-[var(--rex-text-muted)] leading-relaxed">
+              Trace gave you the where; a bounty gives you the who. Escrow
+              USDC on Base — trusted-tier white-hats submit sealed evidence
+              packages, curator + you adjudicate, paid out only on
+              recovery (or, with a filed police report, info leading to
+              arrest).
+            </div>
+            <Link
+              href={`/bounties/new?trace=${encodeURIComponent(trace.publicId)}`}
+              className="inline-block text-[11px] font-mono uppercase tracking-widest px-3 py-2 rounded border border-[var(--rex-accent)]/40 text-[var(--rex-accent)] hover:bg-[var(--rex-accent)]/10 transition"
+            >
+              Post a bounty against this wallet →
+            </Link>
+          </section>
+        ) : null}
+
         {trace.status === "failed" ? (
           <section className="rex-card p-4 sm:p-5 border border-[var(--rex-warning)]/60">
             <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-warning)]">
