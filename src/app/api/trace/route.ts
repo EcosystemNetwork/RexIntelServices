@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db, hackTraces } from "@/lib/db";
 import { runTrace } from "@/lib/tracer";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 // Worst-case: 3 hops × ~6 expanded addresses × 3 Etherscan calls @ 4 rps +
@@ -54,12 +55,22 @@ export async function POST(req: NextRequest) {
     lossUsd?: number;
     lossTokenSymbol?: string;
     maxHops?: number;
+    turnstileToken?: string;
   };
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // Turnstile bot-defense — same shape as /submit, /subscribe, /vote/start.
+  // /trace is the most Etherscan-budget-expensive endpoint we expose (100k
+  // free-tier req/day). A botnet without Turnstile drains the daily quota
+  // in an hour; with it, the attacker has to solve a challenge per trace.
+  const captcha = await verifyTurnstileToken(body.turnstileToken, ip);
+  if (!captcha.ok) {
+    return NextResponse.json({ error: captcha.error }, { status: 400 });
   }
 
   const chain = (body.chain ?? "ethereum").toLowerCase();
@@ -98,6 +109,38 @@ export async function POST(req: NextRequest) {
     typeof body.lossUsd === "number" && Number.isFinite(body.lossUsd)
       ? Math.max(0, body.lossUsd)
       : null;
+
+  // 24-hour dedupe on (chain, rootAddress, submitterEmail). Without this,
+  // refresh-on-result-page or accidental form-resubmit creates an
+  // ever-growing pile of identical traces — each one burns Etherscan budget
+  // and clutters the public /trace listing. If we find a recent live trace,
+  // return its publicId so the client lands on the same result page.
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [existing] = await db
+    .select({ id: hackTraces.id, publicId: hackTraces.publicId })
+    .from(hackTraces)
+    .where(
+      and(
+        eq(hackTraces.chain, chain),
+        sql`lower(${hackTraces.rootAddress}) = ${rootAddress}`,
+        sql`lower(${hackTraces.submitterEmail}) = ${email}`,
+        gt(hackTraces.createdAt, dayAgo),
+        inArray(hackTraces.status, [
+          "pending",
+          "running",
+          "complete",
+        ] as const),
+      ),
+    )
+    .limit(1);
+  if (existing) {
+    return NextResponse.json({
+      ok: true,
+      publicId: existing.publicId,
+      resultUrl: `/trace/${existing.publicId}`,
+      deduped: true,
+    });
+  }
 
   // Insert the trace row first so we always have a publicId to return even
   // if the runner blows up. The runner is awaited below; the row gets

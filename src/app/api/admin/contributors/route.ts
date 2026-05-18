@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, ilike, or, sql, eq } from "drizzle-orm";
+import { desc, ilike, or, sql, eq } from "drizzle-orm";
 import {
   db,
   submitters,
   submissions,
   contributionEvents,
 } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
-// Admin-only listing of Circle-authenticated contributors. Joins in
-// per-submitter submission counts and a most-recent contribution timestamp
-// so the admin panel can show signup volume + engagement without N+1
-// queries. Auth is enforced by middleware (PROTECTED_PREFIXES includes
-// /api/admin).
+// Admin-only listing of Circle-authenticated contributors. Middleware
+// already gates /api/admin behind newsletter_session, but defense in
+// depth: a future middleware refactor or a manual matcher tweak should
+// not be the only thing standing between a public request and every
+// contributor's email/wallet/points/login stats.
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim();
   const tier = sp.get("tier")?.trim();
@@ -50,6 +55,9 @@ export async function GET(req: NextRequest) {
           ? sql`${submitters.points} DESC NULLS LAST`
           : desc(submitters.createdAt);
 
+  // Single grouped query — replaces a per-row correlated subquery for
+  // submissionCount + lastContributionAt that scaled O(limit) at page load.
+  // At 500 rows the dashboard was issuing 1001 queries; this collapses to 1.
   const [rows, [{ count }], [totals]] = await Promise.all([
     db
       .select({
@@ -64,17 +72,29 @@ export async function GET(req: NextRequest) {
         loginCount: submitters.loginCount,
         lastLoginAt: submitters.lastLoginAt,
         createdAt: submitters.createdAt,
-        submissionCount: sql<number>`(
-          SELECT count(*)::int FROM ${submissions}
-          WHERE ${submissions.submitterId} = ${submitters.id}
-        )`,
-        lastContributionAt: sql<Date | null>`(
-          SELECT max(${contributionEvents.awardedAt}) FROM ${contributionEvents}
-          WHERE ${contributionEvents.submitterId} = ${submitters.id}
-        )`,
+        submissionCount: sql<number>`count(distinct ${submissions.id})::int`,
+        lastContributionAt: sql<Date | null>`max(${contributionEvents.awardedAt})`,
       })
       .from(submitters)
+      .leftJoin(submissions, eq(submissions.submitterId, submitters.id))
+      .leftJoin(
+        contributionEvents,
+        eq(contributionEvents.submitterId, submitters.id),
+      )
       .where(where)
+      .groupBy(
+        submitters.id,
+        submitters.email,
+        submitters.slug,
+        submitters.displayHandle,
+        submitters.walletAddress,
+        submitters.walletChain,
+        submitters.clearanceTier,
+        submitters.points,
+        submitters.loginCount,
+        submitters.lastLoginAt,
+        submitters.createdAt,
+      )
       .orderBy(orderClause)
       .limit(limit)
       .offset(offset),

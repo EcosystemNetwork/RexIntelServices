@@ -360,8 +360,11 @@ const CHAIN_ALIASES: Record<string, string> = {
   usdt_eth: "ethereum",
   usdc_eth: "ethereum",
   // OFAC tags sanctioned token-holding wallets by token symbol, not chain.
-  // USDT/USDC are predominantly ERC-20 — wallets dedupe on the unique
-  // (chain, lower(address)) index, so over-claiming Ethereum is safe.
+  // USDT/USDC default to Ethereum because that's the majority of issuance;
+  // resolveChainAlias has a shape-detect override that routes T-prefixed
+  // base58 addresses to Tron, which is where most TRC-20 USDT lives. Same
+  // for Solana base58 (currency hint required because there's no
+  // structural distinguisher from generic alphabets).
   usdt: "ethereum",
   usdc: "ethereum",
   // Bitcoin family
@@ -405,5 +408,24 @@ export function resolveChainAlias(raw: string): string | null {
   const slug = CHAIN_ALIASES[key];
   if (slug && CHAIN_SLUG_SET.has(slug)) return slug;
   if (CHAIN_SLUG_SET.has(key)) return key;
+  return null;
+}
+
+/**
+ * Some OFAC SDN entries tag wallets by token symbol ("Digital Currency
+ * Address - USDT") not by chain. TRC-20 USDT is the second-largest issuance
+ * after ERC-20 and routinely shows up in those entries. Without a shape
+ * check, the resolver coerces every USDT/USDC tagged wallet to Ethereum,
+ * stranding Tron-native sanctioned wallets under chain=ethereum where any
+ * downstream query filtering by chain="tron" misses them.
+ *
+ * Tron addresses are base58 starting with 'T' and exactly 34 chars. Pre-
+ * check the address shape and override the chain when it's clearly Tron.
+ * Returns null when the heuristic doesn't apply, so callers fall through
+ * to the regular alias map.
+ */
+const TRON_ADDRESS_RE = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+export function resolveChainFromAddressShape(address: string): string | null {
+  if (TRON_ADDRESS_RE.test(address)) return "tron";
   return null;
 }

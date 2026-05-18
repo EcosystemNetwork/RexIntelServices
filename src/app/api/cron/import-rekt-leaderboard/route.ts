@@ -285,13 +285,14 @@ export async function GET(req: Request) {
       body,
       sources,
       personas: IMPORT_DEFAULT_PERSONAS,
+      sourceHarvester: "rekt",
     };
 
     const publishedAt =
       parseDate(e.rekt.date) ?? parseDate(e.date) ?? new Date();
 
     const existing = await db
-      .select({ id: submissions.id })
+      .select({ id: submissions.id, payload: submissions.payload })
       .from(submissions)
       .where(
         and(
@@ -302,6 +303,14 @@ export async function GET(req: Request) {
       .limit(1);
 
     if (existing.length > 0) {
+      // Curator-overwrite guard: skip if this row wasn't last touched by
+      // the rekt harvester. Hand-edited postmortems whose headline matches
+      // the cron's generated headline would otherwise get clobbered.
+      const prev = existing[0].payload as IntelPayload;
+      if (prev.sourceHarvester !== "rekt") {
+        skippedHandled++;
+        continue;
+      }
       await db
         .update(submissions)
         .set({

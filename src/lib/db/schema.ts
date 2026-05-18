@@ -480,6 +480,13 @@ export type IntelPayload = {
   // digest routing (see /api/cron/draft-digest). Empty/undefined = goes to
   // all personas, same grace rule as ungraded sourceGrade.
   personas?: PersonaSlug[];
+  // Provenance tag for harvester-imported rows so a curator's hand-edited
+  // postmortem isn't clobbered the next time the importer's headline
+  // happens to match. Populated by import-defillama-hacks and
+  // import-rekt-leaderboard; absent on community-submitted intel. The
+  // UPDATE branches in those importers refuse to overwrite a row unless
+  // sourceHarvester matches.
+  sourceHarvester?: "defillama" | "rekt";
 };
 
 export type EventPayload = {

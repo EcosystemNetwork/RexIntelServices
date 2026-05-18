@@ -35,15 +35,17 @@ export async function POST(req: NextRequest) {
 
   const result = await verifyEmailOtp({ email, code });
   if (!result.ok) {
-    const msg =
-      result.reason === "expired"
-        ? "Code expired. Request a new one."
-        : result.reason === "locked"
-          ? "Too many attempts on that code. Request a new one."
-          : result.reason === "not_found"
-            ? "No active code for that email. Request one first."
-            : "That code didn't match.";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    // Single generic message so an attacker can't distinguish "no active
+    // code for this email" (= unregistered email) from "code didn't match"
+    // (= registered email with a pending OTP). Returning the failure
+    // reason would let a determined attacker enumerate registered emails
+    // at OTP-verify rate-limit speed (~20/30min/IP). The locked/expired
+    // states are not actionable to the client either — the right next
+    // action is always "request a new code."
+    return NextResponse.json(
+      { error: "Code expired, invalid, or already used. Request a new one." },
+      { status: 400 },
+    );
   }
   return NextResponse.json({ ok: true });
 }

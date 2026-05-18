@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
 
-export async function GET() {
-  const rows = await db
-    .select()
-    .from(campaigns)
-    .orderBy(desc(campaigns.createdAt));
-  return NextResponse.json({ campaigns: rows });
+export async function GET(req: NextRequest) {
+  // Pagination: cap each page at 100 and require explicit offset for older
+  // pages. Without this, the dashboard query selects every campaign ever
+  // and serializes ~200KB of HTML per row — the admin list grinds as the
+  // campaign archive grows.
+  const sp = req.nextUrl.searchParams;
+  const limit = Math.min(100, Math.max(1, parseInt(sp.get("limit") ?? "50", 10) || 50));
+  const offset = Math.max(0, parseInt(sp.get("offset") ?? "0", 10) || 0);
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(campaigns)
+      .orderBy(desc(campaigns.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: sql<number>`count(*)::int` }).from(campaigns),
+  ]);
+  return NextResponse.json({ campaigns: rows, total, limit, offset });
 }
 
 export async function POST(req: NextRequest) {

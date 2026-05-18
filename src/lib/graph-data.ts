@@ -174,7 +174,7 @@ export async function fetchValueStats(
   // and silently drops them. Both `community-loss-report` (self-reported
   // story) and `victim-trace` (on-chain-evidenced auto-trace) are community
   // class — the toggle hides both.
-  const notCommunity = sql`(${addresses.primarySource} IS NULL OR ${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace'))`;
+  const notCommunity = sql`(${addresses.primarySource} IS NULL OR ${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace', 'bounty-claim'))`;
 
   const totalCountRow = await db
     .select({ n: sql<number>`count(*)::int` })
@@ -277,7 +277,7 @@ export async function fetchLostCryptoStats(
   opts: { includeUserReported?: boolean } = {},
 ): Promise<LostCryptoStats> {
   const includeUserReported = opts.includeUserReported === true;
-  const notCommunity = sql`(${addresses.primarySource} IS NULL OR ${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace'))`;
+  const notCommunity = sql`(${addresses.primarySource} IS NULL OR ${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace', 'bounty-claim'))`;
 
   const rows = await db
     .select({
@@ -573,7 +573,7 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
             ...(includeUserReported
               ? []
               : [
-                  sql`${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace')`,
+                  sql`${addresses.primarySource} NOT IN ('community-loss-report', 'victim-trace', 'bounty-claim')`,
                 ]),
           ),
         )

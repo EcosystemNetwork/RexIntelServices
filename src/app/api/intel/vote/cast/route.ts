@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
-import { db, submissions, subscribers, intelVotes, submitters } from "@/lib/db";
+import {
+  db,
+  submissions,
+  subscribers,
+  intelVotes,
+  submitters,
+  suppressions,
+} from "@/lib/db";
 import { verifyVoterCookie, VOTER_COOKIE_NAME } from "@/lib/voter-cookie";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
@@ -85,6 +92,25 @@ export async function POST(req: NextRequest) {
       { error: "Voter not eligible." },
       { status: 401 },
     );
+  }
+
+  // Suppression list — last-line check. A subscriber may pass the row-
+  // status gate above but still be in `suppressions` (Resend webhook bounces
+  // a single message → adds to suppressions but leaves the subscriber row
+  // alone, etc.). Voting must not use an identity that we've already
+  // committed to never email again. Collapses to the same generic 401.
+  if (sub.email) {
+    const [hit] = await db
+      .select({ email: suppressions.email })
+      .from(suppressions)
+      .where(sql`lower(${suppressions.email}) = lower(${sub.email})`)
+      .limit(1);
+    if (hit) {
+      return NextResponse.json(
+        { error: "Voter not eligible." },
+        { status: 401 },
+      );
+    }
   }
 
   let body: { publicId?: string };

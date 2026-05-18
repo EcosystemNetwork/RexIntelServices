@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import {
   upsertAttributionsBatch,
   resolveChainAlias,
+  resolveChainFromAddressShape,
   type AttributionClaim,
 } from "../address-attribution";
 
@@ -100,14 +101,20 @@ export async function harvestOfac(): Promise<OfacHarvestResult> {
 
     for (const id of cryptoIds) {
       const symbol = id.idType!.slice(DIGITAL_CURRENCY_PREFIX.length).trim();
-      const chain = resolveChainAlias(symbol);
+      const address = id.idNumber!.trim();
+      // Shape-detect override: OFAC SDN entries tag wallets by token
+      // symbol (USDT, USDC, etc.) — without this, TRC-20 USDT wallets get
+      // routed to ethereum and disappear from chain="tron" investigative
+      // queries. Trust the address shape over the (ambiguous) token tag.
+      const chain =
+        resolveChainFromAddressShape(address) ?? resolveChainAlias(symbol);
       if (!chain) {
         unmappedChains.add(symbol);
         continue;
       }
       claims.push({
         chain,
-        address: id.idNumber!.trim(),
+        address,
         source: "ofac",
         sourceRef: id.uid ? String(id.uid) : String(entry.uid ?? ""),
         sourceUrl: `https://sanctionssearch.ofac.treas.gov/Details.aspx?id=${entry.uid}`,

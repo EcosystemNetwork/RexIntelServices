@@ -101,7 +101,15 @@ export async function fetchPoolBalance(opts?: {
 
   const config = getPrizePoolConfig();
   const mock = process.env.PRIZE_POOL_MOCK_BALANCE;
-  if (mock) {
+  // Production safety: a stale staging env var carrying PRIZE_POOL_MOCK_BALANCE
+  // would publish a fake pool size to the leaderboard — donors might donate
+  // real funds against a number that doesn't exist on-chain. Hard-ignore the
+  // mock in prod and log loudly so the operator notices.
+  if (mock && process.env.NODE_ENV === "production") {
+    console.error(
+      "[prize-pool] PRIZE_POOL_MOCK_BALANCE is set in production — ignoring; remove the env var to silence this warning",
+    );
+  } else if (mock) {
     const value: PoolBalance = {
       amount: mock,
       asset: config.asset,
@@ -242,17 +250,51 @@ export function computePayouts(poolAmount: string): {
   place3: string;
   rollover: string;
 } {
-  const n = Number(poolAmount);
-  if (!Number.isFinite(n) || n <= 0) {
-    return { place1: "0", place2: "0", place3: "0", rollover: "0" };
+  // Exact decimal math via bigint cents. Float math + .toFixed(2) is enough
+  // for a $100 pool but starts drifting near the (38,6) numeric precision
+  // the schema stores, and at settlement the leaderboard's displayed amount
+  // must equal exactly what's about to be paid out — IEEE-754 splits like
+  // 60/30/10-of-80% don't cleanly land on cents. Bigint guarantees
+  // place1+place2+place3+rollover === poolAmount to the cent, with any
+  // residual rounding distributed into rollover.
+  const cents = parseDecimalToCents(poolAmount);
+  if (cents === null || cents <= 0n) {
+    return { place1: "0.00", place2: "0.00", place3: "0.00", rollover: "0.00" };
   }
-  const payable = n * 0.8;
+  // 80% of pool is payable; 20% rolls over. Integer-divide to avoid
+  // rounding-up the payable share.
+  const payable = (cents * 80n) / 100n;
+  const place1 = (payable * 60n) / 100n;
+  const place2 = (payable * 30n) / 100n;
+  const place3 = (payable * 10n) / 100n;
+  // Any residual from the three integer divides flows into rollover so
+  // place1+place2+place3+rollover === cents exactly.
+  const rollover = cents - place1 - place2 - place3;
   return {
-    place1: (payable * 0.6).toFixed(2),
-    place2: (payable * 0.3).toFixed(2),
-    place3: (payable * 0.1).toFixed(2),
-    rollover: (n * 0.2).toFixed(2),
+    place1: formatCents(place1),
+    place2: formatCents(place2),
+    place3: formatCents(place3),
+    rollover: formatCents(rollover),
   };
+}
+
+function parseDecimalToCents(s: string): bigint | null {
+  if (!/^[0-9]+(\.[0-9]+)?$/.test(s.trim())) return null;
+  const [whole, frac = ""] = s.trim().split(".");
+  const fracPadded = (frac + "00").slice(0, 2);
+  try {
+    return BigInt(whole) * 100n + BigInt(fracPadded);
+  } catch {
+    return null;
+  }
+}
+
+function formatCents(cents: bigint): string {
+  const sign = cents < 0n ? "-" : "";
+  const abs = cents < 0n ? -cents : cents;
+  const whole = abs / 100n;
+  const frac = (abs % 100n).toString().padStart(2, "0");
+  return `${sign}${whole}.${frac}`;
 }
 
 /** UTC "YYYY-MM" — the canonical leaderboard month bucket. */

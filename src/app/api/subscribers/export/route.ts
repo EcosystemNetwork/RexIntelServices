@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
 
   const where = conditions.length ? and(...conditions) : sql`true`;
 
+  // Hard cap on rows to keep the function from OOM-ing on a 1M-subscriber
+  // export. Operators needing a full dump should run a paginated export
+  // (set ?offset=N) or use the DB directly.
+  const EXPORT_MAX_ROWS = 50_000;
+  const offset = Math.max(0, parseInt(sp.get("offset") ?? "0", 10) || 0);
+
   const rows = await db
     .select({
       email: subscribers.email,
@@ -39,7 +45,9 @@ export async function GET(req: NextRequest) {
     })
     .from(subscribers)
     .where(where)
-    .orderBy(desc(subscribers.createdAt));
+    .orderBy(desc(subscribers.createdAt))
+    .limit(EXPORT_MAX_ROWS)
+    .offset(offset);
 
   const header = "email,first_name,last_name,status,source,added_at\n";
   const body = rows
@@ -66,6 +74,15 @@ export async function GET(req: NextRequest) {
 }
 
 function csv(v: string): string {
-  if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-  return v;
+  // CSV-injection defense: cells whose first byte is = + - @ \t \r let
+  // Excel/Sheets interpret the cell as a formula (=cmd|' /C calc'!A0 →
+  // RCE on Windows when the analyst opens the file). Prefix a single quote
+  // to neutralize. Combined with the existing escape for quote/comma/CR/LF
+  // this covers both the formula-injection and the quoting cases.
+  let s = v;
+  if (s.length > 0 && /^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+  }
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }

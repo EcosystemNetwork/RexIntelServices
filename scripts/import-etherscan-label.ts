@@ -165,7 +165,7 @@ function buildClaims(spec: LabelFile): AttributionClaim[] {
     claims.push({
       chain: spec.chain ?? "ethereum",
       address,
-      source: "rexintel-curated",
+      source: "etherscan",
       sourceRef,
       sourceUrl: spec.sourceUrlTemplate?.replace("{address}", address) ?? null,
       category: spec.category as AttributionClaim["category"],

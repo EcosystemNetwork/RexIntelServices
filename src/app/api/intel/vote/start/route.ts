@@ -104,6 +104,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid intel reference." }, { status: 400 });
   }
 
+  // Per-(email, intel) ceiling — one token request per email per intel per
+  // 24h. Closes a vote-quota denial attack where a single IP scripts
+  // distinct emails to burn the per-email daily quota of N strangers across
+  // the leaderboard. With this, the worst they can do is one token to one
+  // specific intel from each canonical address.
+  const perEmailIntelLimit = await rateLimit(
+    `vote-start-email-intel:${canonical}:${publicId}`,
+    1,
+    24 * 60 * 60 * 1000,
+  );
+  if (!perEmailIntelLimit.ok) {
+    return NextResponse.json(
+      { error: "You already requested a vote link for this intel today." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(perEmailIntelLimit.retryAfterSec),
+        },
+      },
+    );
+  }
+
   // Validate the intel BEFORE the suppression check so a non-suppressed and
   // a suppressed email at the same valid intel do roughly equal DB work.
   // (Some residual timing leak remains because only the non-suppressed path

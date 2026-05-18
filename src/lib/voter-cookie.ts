@@ -21,7 +21,18 @@ export const VOTER_COOKIE_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
 
 function getSecret(): string | null {
   const s = process.env.VOTER_COOKIE_SECRET;
-  if (!s || s.length < 16) return null;
+  if (!s || s.length < 16) {
+    if (process.env.NODE_ENV === "production") {
+      // Loud throw in production — silently disabling the cookie path
+      // makes voting feel broken to users ("magic link every time") and
+      // there's no admin surface that flags the misconfig. Crash at first
+      // use so the deploy fails health checks instead.
+      throw new Error(
+        "VOTER_COOKIE_SECRET must be set and >= 32 chars in production. Generate with `openssl rand -hex 32`.",
+      );
+    }
+    return null;
+  }
   return s;
 }
 

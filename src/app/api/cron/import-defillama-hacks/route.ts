@@ -254,10 +254,11 @@ export async function GET(req: Request) {
       body,
       sources,
       personas: IMPORT_DEFAULT_PERSONAS,
+      sourceHarvester: "defillama",
     };
 
     const existing = await db
-      .select({ id: submissions.id })
+      .select({ id: submissions.id, payload: submissions.payload })
       .from(submissions)
       .where(
         and(
@@ -268,6 +269,14 @@ export async function GET(req: Request) {
       .limit(1);
 
     if (existing.length > 0) {
+      // Curator-overwrite guard: only re-stamp rows we know came from this
+      // harvester. A row whose headline happens to match a curator-edited
+      // postmortem would otherwise be clobbered on every Sunday tick.
+      const prev = existing[0].payload as IntelPayload;
+      if (prev.sourceHarvester !== "defillama") {
+        skippedHandled++;
+        continue;
+      }
       await db
         .update(submissions)
         .set({

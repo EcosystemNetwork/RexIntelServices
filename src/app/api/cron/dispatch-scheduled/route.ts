@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/cron-auth";
-import { and, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lt, lte, or, sql } from "drizzle-orm";
 import { db, campaigns } from "@/lib/db";
 import { sendCampaign } from "@/lib/email/sender";
 
@@ -21,17 +21,50 @@ import { sendCampaign } from "@/lib/email/sender";
  */
 export const maxDuration = 300; // sendCampaign can run a few minutes for 5k+ lists
 
+// Stuck-send recovery: if a campaign has been "sending" for longer than
+// this and nothing has bumped its updatedAt, the cron that started it
+// probably timed out. Reset to "scheduled" so the next tick re-claims it.
+// Cap is generous (60min) — sendCampaign for 50k recipients can legitimately
+// take 15–30min, and we want false-positives near zero.
+const STUCK_SENDING_MAX_MS = 60 * 60 * 1000;
+// One campaign per tick. Sparse schedules don't accumulate fast enough to
+// need batching; a backlog of 10+ campaigns at once is itself a signal an
+// admin should investigate.
+const DISPATCH_PER_TICK = 1;
+
 export async function GET(req: Request) {
   const fail = verifyCronSecret(req);
   if (fail) return NextResponse.json(fail.body, { status: fail.status });
 
   const now = new Date();
+  const stuckCutoff = new Date(now.getTime() - STUCK_SENDING_MAX_MS);
+
+  // Sweep stuck "sending" rows back to "scheduled" so they re-enter the
+  // pickup pool. Guarded UPDATE — a row whose updatedAt has been bumped
+  // recently (because send is actively running) won't match the WHERE.
+  const swept = await db
+    .update(campaigns)
+    .set({ status: "scheduled", updatedAt: now })
+    .where(
+      and(
+        eq(campaigns.status, "sending"),
+        lt(campaigns.updatedAt, stuckCutoff),
+      ),
+    )
+    .returning({ id: campaigns.id });
+
+  // One due campaign per tick, oldest first. Without this LIMIT, one slow
+  // cron paused for hours picks up every due campaign on resume and runs
+  // them sequentially inside one 300s slot — guaranteed timeout, leaving
+  // the entire backlog in "sending" forever.
   const due = await db
     .select({ id: campaigns.id, name: campaigns.name })
     .from(campaigns)
     .where(
       and(eq(campaigns.status, "scheduled"), lte(campaigns.scheduledFor, now)),
-    );
+    )
+    .orderBy(asc(campaigns.scheduledFor))
+    .limit(DISPATCH_PER_TICK);
 
   const results: Array<{
     id: string;
@@ -63,6 +96,7 @@ export async function GET(req: Request) {
     ok: true,
     checkedAt: now.toISOString(),
     dispatched: results.length,
+    sweptStuck: swept.length,
     results,
   });
 }

@@ -39,6 +39,11 @@ const PRIORITY_PERSONAS: readonly PersonaSlug[] = [
  * re-triggered manually for debugging — a persona that already shipped a
  * draft is left untouched while missing personas are filled in.
  */
+// 3 personas × 5 collection queries × jsonb filtering can exceed the 60s
+// default. Pin to the long-cron tier so a partial run doesn't leave drafts
+// half-created.
+export const maxDuration = 300;
+
 export async function GET(req: Request) {
   const fail = verifyCronSecret(req);
   if (fail) return NextResponse.json(fail.body, { status: fail.status });
