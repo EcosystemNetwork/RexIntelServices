@@ -1,0 +1,17 @@
+{
+  "_comment": "Pink Drainer 'Customer' wallets are affiliates that lease the Pink Drainer toolkit. Distinct from the Pink Drainer operator addresses already in src/lib/harvesters/curated-seed.ts. To extend: open https://etherscan.io/accounts/label/pink-drainer in your browser, copy more 'Customer' rows, append below.",
+  "label": "Pink Drainer Customer",
+  "ownerName": "Pink Drainer (affiliate)",
+  "ownerKind": "criminal-group",
+  "category": "scam",
+  "chain": "ethereum",
+  "confidence": 90,
+  "notes": "Affiliate of Pink Drainer DaaS — leased the toolkit and took 70-80% of victim funds while Pink Drainer kept the rest. Etherscan labels each affiliate wallet as 'Pink Drainer Customer 0x….",
+  "sourceRefPrefix": "etherscan-pink-drainer-customer",
+  "addresses": [
+    { "address": "0x5ae0804177de852b5524d6628544560bdb2a0aae", "subLabel": "0x5ae0" },
+    { "address": "0xd7d1d6692e0612a632a78fab5a82e9c767d518bf", "subLabel": "0xd7d1" },
+    { "address": "0x842ed411f832a8f9dcfe1c6d520e0f0eb145d96e", "subLabel": "0x842e" },
+    { "address": "0x5408eb7d0c5dd4a4073565cc009c0e04f922858d", "subLabel": "0x5408" }
+  ]
+}

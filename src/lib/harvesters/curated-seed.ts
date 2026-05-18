@@ -807,13 +807,24 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
   },
   {
     chain: "ethereum",
-    address: "0x59abf3837fa962d6853b4cc0a19513aa031fd32b",
-    sourceRef: "beanstalk-hack",
+    address: "0x1c5dcdd006ea78a7e4783f9e6021c32935a10fb4",
+    sourceRef: "beanstalk-flashloan-exploiter",
     category: "hack-source",
-    ownerName: "Beanstalk Flash Loan Exploit",
+    ownerName: "Beanstalk Farms Governance Exploit",
     ownerKind: "criminal-group",
-    label: "Beanstalk Exploiter",
-    notes: "$182M Beanstalk Farms governance exploit 2022-04-17",
+    label: "Beanstalk Flashloan Exploiter",
+    notes: "$182M Beanstalk Farms flash-loan governance exploit 2022-04-17. Attacker net profit ~$76M (24,930 ETH). Etherscan public label.",
+    confidence: 100,
+  },
+  {
+    chain: "ethereum",
+    address: "0x59abf3837fa962d6853b4cc0a19513aa031fd32b",
+    sourceRef: "ftx-accounts-drainer",
+    category: "hack-source",
+    ownerName: "FTX Accounts Drainer",
+    ownerKind: "unknown",
+    label: "FTX Accounts Drainer",
+    notes: "$477M drained from FTX wallets during 2022-11-12 bankruptcy. Etherscan public label; attribution still debated (insider vs. external). Previously misattributed in this seed as Beanstalk Exploiter.",
     confidence: 100,
   },
   {
@@ -1727,6 +1738,138 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
   },
 
   // ============================================================
+  // HISTORICAL DEFI EXPLOITS (2020-2023) — older incidents with
+  // long Etherscan labelcloud presence. Useful for trace work that
+  // follows funds across half a decade of laundering.
+  // ============================================================
+  {
+    chain: "ethereum",
+    address: "0x148426fdc4c8a51b96b4bed827907b5fa6491ad0",
+    sourceRef: "bzx-exploiter-1-feb2020",
+    category: "hack-source",
+    ownerName: "bZx Oracle Exploit (Feb 2020)",
+    ownerKind: "criminal-group",
+    label: "bZx Exploiter 1",
+    notes: "First mainnet flash-loan attack on a DeFi protocol — Feb 2020 oracle manipulation. ~$1M across two attacks 2020-02-14 and 2020-02-18. Set the template for every flash-loan exploit since.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0xb8c6ad5fe7cb6cc72f2c4196dca11fbb272a8cbf",
+    sourceRef: "bzx-exploiter-2-feb2020",
+    category: "hack-source",
+    ownerName: "bZx Oracle Exploit (Feb 2020)",
+    ownerKind: "criminal-group",
+    label: "bZx Exploiter 2",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x0acc0e5faa09cb1976237c3a9af3d3d4b2f35fa5",
+    sourceRef: "bzx-privkey-2-nov2021",
+    category: "hack-source",
+    ownerName: "bZx Private Key Compromise (Nov 2021)",
+    ownerKind: "criminal-group",
+    label: "bZx PrivKey Exploiter 2",
+    notes: "Separate ~$55M Nov 2021 bZx hack via developer private key phish — distinct incident from the Feb 2020 oracle attacks above.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x967bb571f0fc9ee79c892abf9f99233aa1737e31",
+    sourceRef: "bzx-privkey-3-nov2021",
+    category: "hack-source",
+    ownerName: "bZx Private Key Compromise (Nov 2021)",
+    ownerKind: "criminal-group",
+    label: "bZx PrivKey Exploiter 3",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0xafad9352eb6bcd085dd68268d353d0ed2571af89",
+    sourceRef: "bzx-privkey-5-nov2021",
+    category: "hack-source",
+    ownerName: "bZx Private Key Compromise (Nov 2021)",
+    ownerKind: "criminal-group",
+    label: "bZx PrivKey Exploiter 5",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0xcacf2d28b2a5309e099f0c6e8c60ec3ddf656642",
+    sourceRef: "bonqdao-exploiter",
+    category: "hack-source",
+    ownerName: "BonqDAO Oracle Manipulation",
+    ownerKind: "criminal-group",
+    label: "BonqDAO Exploiter",
+    notes: "$120M+ notional drain 2023-02-02 (Polygon). Cheap Tellor oracle update (10 TRB ≈ $175 stake) let attacker mint 100M BEUR + 120M wALBT against manipulated collateral.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x3dabf5e36df28f6064a7c5638d0c4e01539e35f1",
+    sourceRef: "orion-protocol-exploiter-1",
+    category: "hack-source",
+    ownerName: "Orion Protocol Reentrancy",
+    ownerKind: "criminal-group",
+    label: "Orion Protocol Exploiter",
+    notes: "~$3M Orion Protocol reentrancy 2023-02-02 (ETH + BNB). Double-credit token transfers via malicious pair contracts.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x837962b686fd5a407fb4e5f92e8be86a230484bd",
+    sourceRef: "orion-protocol-exploiter-2",
+    category: "hack-source",
+    ownerName: "Orion Protocol Reentrancy",
+    ownerKind: "criminal-group",
+    label: "Orion Protocol Exploiter 2",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x085bdff2c522e8637d4154039db8746bb8642bff",
+    sourceRef: "onyx-exploiter-1",
+    category: "hack-source",
+    ownerName: "Onyx Protocol Empty-Pool Exploit",
+    ownerKind: "criminal-group",
+    label: "Onyx Protocol Exploiter",
+    notes: "$2.1M Onyx Protocol exploit 2023-11-01 — classic Compound v2 fork empty-pool attack against an unfunded PEPE market.",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x4c9c8661243e9e9a15a35b8873317eb881330c98",
+    sourceRef: "onyx-exploiter-2",
+    category: "hack-source",
+    ownerName: "Onyx Protocol Empty-Pool Exploit",
+    ownerKind: "criminal-group",
+    label: "Onyx Protocol Exploiter 2",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x5083956303a145f70ba9f3d80c5e6cb5ac842706",
+    sourceRef: "onyx-exploiter-3",
+    category: "hack-source",
+    ownerName: "Onyx Protocol Empty-Pool Exploit",
+    ownerKind: "criminal-group",
+    label: "Onyx Protocol Exploiter 3",
+    confidence: 95,
+  },
+  {
+    chain: "ethereum",
+    address: "0x70285a11489bed93686410ebc727057cafb8129d",
+    sourceRef: "tapioca-dao-exploiter",
+    category: "hack-source",
+    ownerName: "Tapioca DAO Hack (DPRK, Oct 2024)",
+    ownerKind: "criminal-group",
+    label: "Tapioca DAO Exploiter",
+    notes: "$4.4M Tapioca DAO compromise 2024-10-18 via social-engineering of an engineer (malware). Token vesting contract takeover; 30M TAP minted. Protocol counter-exploited to recover 996 ETH. Attributed to a DPRK group.",
+    confidence: 95,
+  },
+
+  // ============================================================
   // SOLANA DRAINER GROUPS — first non-EVM cluster on the graph.
   // Solscan public labels are noisier than Etherscan's, so we
   // anchor on Mandiant / Google Cloud Threat Intelligence and
@@ -1748,17 +1891,10 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
   // MAJOR HACK INCIDENTS (extended) — high-graph-value nodes that
   // typically connect into mixers, exchanges, and bridges.
   // ============================================================
-  {
-    chain: "ethereum",
-    address: "0x489a8756c18c0b8b24ec2a2b9ff3d4d447f79bec",
-    sourceRef: "kyber-2023-hack",
-    category: "hack-source",
-    ownerName: "KyberSwap Elastic Exploit",
-    ownerKind: "criminal-group",
-    label: "KyberSwap $48M Hack",
-    notes: "$48M exploit of KyberSwap Elastic on multiple chains 2023-11-22.",
-    confidence: 100,
-  },
+  // kyber-2023-hack entry removed: address 0x489a8756... did not
+  // match Etherscan's "KyberSwap Exploiter" label. Correct addresses
+  // (Exploiter 1 + 2) are attributed above in the VERIFIED HACK
+  // EXPLOITERS section.
   {
     chain: "ethereum",
     address: "0x6b6c47c2c34d1c2c5f3c0c4dc8a5c34c3a1f7a96",
@@ -1803,17 +1939,12 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
     notes: "$100M Harmony Horizon Bridge exploit 2022-06-23. Attributed to Lazarus by FBI and TRM Labs.",
     confidence: 100,
   },
-  {
-    chain: "ethereum",
-    address: "0x098b716b8aaf21512996dc57eb0615e2383e2f96",
-    sourceRef: "atomic-wallet-2023",
-    category: "hack-source",
-    ownerName: "Atomic Wallet Exploit",
-    ownerKind: "criminal-group",
-    label: "Atomic Wallet $100M Hack (Lazarus)",
-    notes: "$100M Atomic Wallet drained 2023-06-03. FBI attributed to Lazarus.",
-    confidence: 95,
-  },
+  // Atomic Wallet 2023 entry removed: the address 0x098b716b... is
+  // already attributed (correctly) above as "Ronin Bridge Hacker
+  // (DPRK Lazarus)". No verified Atomic Wallet exploiter address has
+  // been Etherscan-labeled — Lazarus dispersed proceeds across many
+  // short-lived wallets. Re-add via a community submission when a
+  // primary-source attribution surfaces.
   {
     chain: "ethereum",
     address: "0x7f268357a8c2552623316e2562d90e642bb538e5",
@@ -1851,16 +1982,8 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
   // ============================================================
   // ADDITIONAL EXCHANGES — second-tier CEX + EU/Asia coverage
   // ============================================================
-  {
-    chain: "ethereum",
-    address: "0x46340b20830761efd32832a74d7169b29feb9758",
-    sourceRef: "crypto-com-3",
-    category: "exchange",
-    ownerName: "Crypto.com",
-    ownerKind: "exchange",
-    label: "Crypto.com Hot 3",
-    confidence: 95,
-  },
+  // crypto-com-3 entry removed: duplicate of crypto-com-2 above
+  // (both at 0x46340b20...feb9758).
   {
     chain: "ethereum",
     address: "0x4862733b5fddfd35f35ea8ccf08f5045e57388b3",

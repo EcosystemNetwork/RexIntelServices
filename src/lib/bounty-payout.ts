@@ -251,6 +251,137 @@ function getCircleBaseUrl(): string {
   return process.env.CIRCLE_BASE_URL ?? DEFAULT_CIRCLE_BASE;
 }
 
+// ---------------------------------------------------------------------------
+// Per-bounty wallet provisioning
+//
+// Called at bounty create time when CIRCLE_BOUNTY_WALLET_SET_ID is set.
+// Provisions one EOA wallet inside that wallet set on the configured
+// blockchain. Returns the wallet id + on-chain address; the create-bounty
+// route writes both onto the bounties row so the inbound Circle webhook
+// can reverse-lookup deposit address → bounty.
+// ---------------------------------------------------------------------------
+
+export type ProvisionResult =
+  | { kind: "provisioned"; walletId: string; address: string }
+  | { kind: "skipped"; reason: string }
+  | { kind: "failed"; reason: string };
+
+export async function provisionBountyWallet(args: {
+  refId: string; // bounty publicId — Circle preserves this for audit trace
+}): Promise<ProvisionResult> {
+  const apiKey = process.env.CIRCLE_API_KEY;
+  const entitySecretHex = process.env.CIRCLE_ENTITY_SECRET;
+  const walletSetId = process.env.CIRCLE_BOUNTY_WALLET_SET_ID;
+  const blockchain =
+    process.env.CIRCLE_BOUNTY_BLOCKCHAIN ?? DEFAULT_BLOCKCHAIN;
+
+  if (!apiKey || !entitySecretHex || !walletSetId) {
+    return {
+      kind: "skipped",
+      reason: [
+        !apiKey && "CIRCLE_API_KEY",
+        !entitySecretHex && "CIRCLE_ENTITY_SECRET",
+        !walletSetId && "CIRCLE_BOUNTY_WALLET_SET_ID",
+      ]
+        .filter(Boolean)
+        .join(", "),
+    };
+  }
+
+  try {
+    const entitySecretCiphertext = await encryptEntitySecret(
+      entitySecretHex,
+      apiKey,
+    );
+    const data = await dcwFetch<{
+      wallets: Array<{ id: string; address: string }>;
+    }>("/v1/w3s/developer/wallets", {
+      method: "POST",
+      apiKey,
+      body: {
+        entitySecretCiphertext,
+        walletSetId,
+        blockchains: [blockchain],
+        count: 1,
+        accountType: "EOA",
+        refId: args.refId,
+      },
+    });
+    const wallet = data.wallets[0];
+    if (!wallet) {
+      return { kind: "failed", reason: "circle_no_wallet_in_response" };
+    }
+    return {
+      kind: "provisioned",
+      walletId: wallet.id,
+      address: wallet.address.toLowerCase(),
+    };
+  } catch (err) {
+    const reason =
+      err instanceof CircleApiError
+        ? `${err.status}: ${err.message}`.slice(0, 500)
+        : err instanceof Error
+          ? err.message.slice(0, 500)
+          : "unknown_error";
+    return { kind: "failed", reason };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transaction-state poll (used by the tx-hash backfill cron)
+// ---------------------------------------------------------------------------
+
+export type TransactionState =
+  | "INITIATED"
+  | "QUEUED"
+  | "PENDING_RISK_SCREENING"
+  | "SENT"
+  | "CONFIRMED"
+  | "COMPLETE"
+  | "FAILED"
+  | "CANCELLED"
+  | "DENIED";
+
+export async function getTransactionState(
+  transferId: string,
+): Promise<
+  | { kind: "ok"; state: TransactionState; txHash?: string }
+  | { kind: "skipped"; reason: string }
+  | { kind: "failed"; reason: string; retryable: boolean }
+> {
+  const apiKey = process.env.CIRCLE_API_KEY;
+  if (!apiKey) {
+    return { kind: "skipped", reason: "no_api_key" };
+  }
+  try {
+    const data = await dcwFetch<{
+      transaction: { id: string; state: TransactionState; txHash?: string };
+    }>(`/v1/w3s/developer/transactions/${transferId}`, {
+      method: "GET",
+      apiKey,
+    });
+    return {
+      kind: "ok",
+      state: data.transaction.state,
+      txHash: data.transaction.txHash,
+    };
+  } catch (err) {
+    if (err instanceof CircleApiError) {
+      return {
+        kind: "failed",
+        reason: `${err.status}: ${err.message}`.slice(0, 500),
+        retryable: err.status >= 500,
+      };
+    }
+    return {
+      kind: "failed",
+      reason:
+        err instanceof Error ? err.message.slice(0, 500) : "unknown_error",
+      retryable: true,
+    };
+  }
+}
+
 async function dcwFetch<T>(
   path: string,
   init: {

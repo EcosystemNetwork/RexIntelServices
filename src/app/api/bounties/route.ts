@@ -9,9 +9,14 @@ import {
   type BountyStatus,
 } from "@/lib/db";
 import { mintVictimAccessToken, validateCreateBounty } from "@/lib/bounty";
+import { provisionBountyWallet } from "@/lib/bounty-payout";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { getCircleSession } from "@/lib/circle-auth";
 import { consumeEmailVerifiedCookie } from "@/lib/email-otp";
+import {
+  bountyAccessUrl,
+  sendBountyFundingEmail,
+} from "@/lib/email/bounty-funding-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

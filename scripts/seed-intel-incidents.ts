@@ -1136,6 +1136,36 @@ const incidents: IntelPayload[] = [
       "https://www.cftc.gov/PressRoom/PressReleases/8647-23",
     ],
   },
+  {
+    headline: "MXC / MatchX 'Moonchain' transition — Oct 2023 — DePIN miner cohort & forced xMXC swap",
+    kind: "incident",
+    category: "DePIN exit scam",
+    severity: "high",
+    anonymous: true,
+    body: [
+      "MXC was one of the earliest production-shipping DePIN projects — a LoRaWAN/LPWAN network operated by MatchX GmbH (Berlin) and the MXC Foundation GmbH (Berlin), monetised through the MatchX M2 Pro miner sold to retail buyers worldwide on Amazon, eBay, and the company's own storefront. In October 2023 the team announced a 'transition' to a new chain branded Moonchain (sometimes marketed as MEP). The transition converted balances of the legacy MXC token into a new xMXC token at a rate that, by community accounting, left holders with ~25-33% of their pre-swap value — and that's against an MXC spot price already at a multi-year low.",
+      "",
+      "**The mechanic.** The prior 'DataDash' wallet/mining app was shut down. Holders were required to fill out a transition form and migrate to a new app; on completion their MXC balances were exchanged for xMXC. There was no opt-out for holders who wanted to remain in MXC, no community fork to retain the original token, and the conversion rate was not clearly disclosed before the swap took effect. M2 Pro miner owners separately reported that hardware they had paid full retail for stopped mining MXC during and after the transition, and that withdrawals from the custodial app to external wallets were administratively gated.",
+      "",
+      "**Corporate trail.** MXC Foundation GmbH (Berlin) was deregistered in November 2022 — eleven months before the transition. Community reporting indicates operations were reorganised offshore (Caribbean jurisdiction) during the same window, putting holders outside the practical reach of German/EU consumer-protection law before the swap was executed. The MatchX side of the business continued to retail M2 Pro miners throughout.",
+      "",
+      "**Why it matters for DePIN.** This is the canonical hardware-then-swap pattern that every DePIN diligence checklist should now incorporate: sell physical mining devices into consumer hands, accumulate a captive holder base that can't cheaply exit (the devices are paperweights off-chain), then rebrand the token under a new ticker and unilateral conversion rate. Any DePIN project that pairs (a) consumer hardware sales, (b) a custodial mining app that gates withdrawals, and (c) the technical ability to migrate the underlying token without holder consent inherits MXC's risk model. Investigators evaluating DePIN tokens should specifically check whether the issuing entity sits in a jurisdiction where forced token swaps are uncontested, and whether the original-app-to-new-app migration path is opt-in or opt-out by default.",
+      "",
+      "**Public source corpus.** No regulator has publicly opened a case at time of writing. The evidence base is community-assembled: dedicated sites moonchain-mxcscam.com and mxcscam.com aggregate user complaints, German Handelsregister deregistration filings, and corporate history; the VoskCoinTalk forum hosts the most-cited contemporaneous thread of the transition; Trustpilot carries hundreds of one-star reviews on mxc.com, mxc.org, and matchx.io describing the same swap mechanics in independent accounts. Coinbase delisting was publicly called for in October 2023. None of these are primary regulatory sources, but together they form the public-record trail a downstream consumer-protection action would likely build on.",
+    ].join("\n"),
+    sources: [
+      "https://www.moonchain-mxcscam.com/",
+      "https://mxcscam.com/",
+      "https://voskcointalk.com/t/mxc-update-exit-scam-revealed-disguised-as-a-transition-by-mxc-foundation/44680",
+      "https://www.trustpilot.com/review/mxc.com",
+      "https://www.trustpilot.com/review/mxc.org",
+      "https://www.trustpilot.com/review/matchx.io",
+      "https://x.com/nanojohn/status/1709299423342170423",
+    ],
+    links: [
+      "https://www.moonchain-mxcscam.com/",
+    ],
+  },
 ];
 
 async function upsert(payload: IntelPayload) {

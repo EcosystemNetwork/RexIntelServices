@@ -1524,7 +1524,13 @@ export const bounties = pgTable(
     })
       .notNull()
       .default("0"),
+    // Per-bounty Circle Developer-Controlled wallet. Provisioned at create
+    // time when CIRCLE_API_KEY + CIRCLE_BOUNTY_WALLET_SET_ID are configured;
+    // otherwise NULL and the bounty stays in dev mode (no real escrow).
     circleWalletId: text("circle_wallet_id"),
+    // On-chain deposit address for the per-bounty wallet. Indexed for the
+    // inbound webhook handler's reverse lookup (deposit address → bounty).
+    circleWalletAddress: text("circle_wallet_address"),
     fundingTxHash: text("funding_tx_hash"),
     status: bountyStatusEnum("status").notNull().default("draft"),
     policeReportFiled: boolean("police_report_filed").notNull().default(false),
@@ -1559,6 +1565,12 @@ export const bounties = pgTable(
     ),
     victimTokenHashIdx: index("bounties_victim_token_hash_idx").on(
       t.victimAccessTokenHash,
+    ),
+    // Reverse lookup for the inbound Circle webhook: given a deposit
+    // address, find the bounty. Lower() so the lookup is case-insensitive
+    // regardless of how Circle returns the address in webhook payloads.
+    circleWalletAddrIdx: index("bounties_circle_wallet_addr_idx").on(
+      sql`lower(${t.circleWalletAddress})`,
     ),
   }),
 );
