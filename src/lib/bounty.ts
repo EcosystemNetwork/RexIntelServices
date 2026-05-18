@@ -226,6 +226,12 @@ export function validateCreateBounty(
     }
   }
 
+  if (!BOUNTY_KINDS_OPEN_FOR_CREATION.includes(input.kind)) {
+    errs.push({
+      field: "kind",
+      reason: `kind=${input.kind} is not open for creation in v1 (coming soon)`,
+    });
+  }
   if (input.kind === "info_arrest" && !input.policeReportFiled) {
     errs.push({
       field: "policeReportFiled",
