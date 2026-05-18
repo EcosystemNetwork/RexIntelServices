@@ -309,6 +309,107 @@ async function fetchHtml(
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Standalone OG-image extractor — used by the program-lane image
+// backfill script. Reuses fetchHtml + the OG/JSON-LD extractors above so
+// we don't fork the parser stack. Returns an absolute https URL or null.
+// Schema.org image (Event / JobPosting / generic) takes precedence over
+// og:image because the JSON-LD asset is usually the canonical hero.
+// ───────────────────────────────────────────────────────────────────────
+
+export async function fetchOgImage(
+  raw: string,
+): Promise<{ ok: true; url: string; finalUrl: string } | { ok: false; error: ParseError }> {
+  const urlCheck = validateUrl(raw);
+  if (!urlCheck.ok) return { ok: false, error: urlCheck.error };
+  const fetchRes = await fetchHtml(urlCheck.url);
+  if (!fetchRes.ok) return { ok: false, error: fetchRes.error };
+  const { html, finalUrl } = fetchRes;
+
+  // Scan every JSON-LD block for an `image` field on any node — works for
+  // Event, JobPosting, Organization, Article, Product. Generic regex sweep.
+  const jsonLdImage = sweepJsonLdImage(html);
+  const og = extractOpenGraph(html);
+  const candidate = jsonLdImage ?? og.image;
+  if (!candidate) {
+    return {
+      ok: false,
+      error: { code: "no_event_data", message: "No og:image or schema.org image found." },
+    };
+  }
+
+  // Resolve relative URLs ("/og/cover.png") against the final URL of the
+  // page so the stored value is always an absolute fetchable URL.
+  let resolved: string;
+  try {
+    resolved = new URL(candidate, finalUrl).toString();
+  } catch {
+    return {
+      ok: false,
+      error: { code: "no_event_data", message: "OG image URL malformed." },
+    };
+  }
+  if (!/^https?:\/\//i.test(resolved)) {
+    return {
+      ok: false,
+      error: { code: "no_event_data", message: "OG image is not http(s)." },
+    };
+  }
+  return { ok: true, url: resolved, finalUrl };
+}
+
+// Walks every JSON-LD block + every node in @graph arrays + nested objects
+// looking for an `image` field. Returns the first string URL it finds.
+// JSON-LD `image` may be: string, string[], { url } object, or array of
+// { url } objects — all four shapes handled.
+function sweepJsonLdImage(html: string): string | null {
+  const scriptRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = scriptRe.exec(html)) !== null) {
+    const raw = match[1].trim();
+    if (!raw) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const img = findImageInJsonLd(parsed);
+    if (img) return img;
+  }
+  return null;
+}
+
+function findImageInJsonLd(node: unknown): string | null {
+  if (!node || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findImageInJsonLd(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  const obj = node as Record<string, unknown>;
+  const img = obj.image;
+  if (typeof img === "string" && img.trim()) return img.trim();
+  if (Array.isArray(img) && img.length) {
+    const first = img[0];
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object" && typeof (first as Record<string, unknown>).url === "string") {
+      return (first as Record<string, unknown>).url as string;
+    }
+  }
+  if (img && typeof img === "object" && typeof (img as Record<string, unknown>).url === "string") {
+    return (img as Record<string, unknown>).url as string;
+  }
+  // Recurse into @graph and nested objects
+  if (Array.isArray(obj["@graph"])) {
+    const found = findImageInJsonLd(obj["@graph"]);
+    if (found) return found;
+  }
+  return null;
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // JSON-LD extraction
 // ───────────────────────────────────────────────────────────────────────
 

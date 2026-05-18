@@ -1,11 +1,13 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   bounties,
   bountyPayouts,
   submitters,
+  addresses,
+  addressAttributions,
 } from "@/lib/db";
 import { sendBountyPayout } from "@/lib/bounty-payout";
 
@@ -86,7 +88,60 @@ export async function GET(req: Request) {
   let skipped = 0;
   const errors: Array<{ payoutId: string; reason: string }> = [];
 
+  // Sanctions pre-screen: any destination address that already lives in
+  // the attribution graph under an authoritative-sanctions source must
+  // never receive a payout. We check the three lists we harvest: OFAC,
+  // OFSI (UK), EU-sanctions. Hit → flip to failed, log, do NOT call Circle.
+  // Cheap because the lookup uses the existing indexed (chain, address)
+  // path; one query per batch instead of one per row.
+  const candidateDests = rows
+    .map((r) => r.destinationAddress?.toLowerCase())
+    .filter((a): a is string => !!a && /^0x[a-f0-9]{40}$/.test(a));
+  let sanctionedSet = new Set<string>();
+  if (candidateDests.length > 0) {
+    const hits = await db
+      .select({ address: addresses.address })
+      .from(addressAttributions)
+      .innerJoin(addresses, eq(addresses.id, addressAttributions.addressId))
+      .where(
+        and(
+          inArray(addressAttributions.source, [
+            "ofac",
+            "ofsi",
+            "eu-sanctions",
+          ] as const),
+          sql`lower(${addresses.address}) IN (${sql.join(
+            candidateDests.map((a) => sql`${a}`),
+            sql`, `,
+          )})`,
+        ),
+      );
+    sanctionedSet = new Set(hits.map((h) => h.address.toLowerCase()));
+  }
+
   for (const row of rows) {
+    const dest = row.destinationAddress?.toLowerCase() ?? "";
+    if (dest && sanctionedSet.has(dest)) {
+      // Hard fail (non-retryable) — surfaces in the admin queue so a
+      // curator can investigate / reroute. We never call Circle for this.
+      await db
+        .update(bountyPayouts)
+        .set({
+          status: "failed",
+          failureReason: "sanctioned_destination",
+        })
+        .where(eq(bountyPayouts.id, row.payoutId));
+      failed += 1;
+      errors.push({
+        payoutId: row.payoutId,
+        reason: "sanctioned_destination",
+      });
+      console.warn(
+        `[process-bounty-payouts] blocked sanctioned payout ${row.payoutId} → ${dest}`,
+      );
+      continue;
+    }
+
     const result = await sendBountyPayout({
       payoutId: row.payoutId,
       sourceWalletId: row.sourceWalletId,

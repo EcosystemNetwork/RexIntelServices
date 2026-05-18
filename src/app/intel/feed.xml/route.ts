@@ -36,10 +36,11 @@ export async function GET() {
       return {
         title: p.headline,
         link: href,
-        description: p.body,
+        description: p.dek ?? p.body,
         pubDate: r.publishedAt,
         category: p.category,
         guid: href,
+        imageUrl: p.heroImageUrl,
       };
     }),
   });

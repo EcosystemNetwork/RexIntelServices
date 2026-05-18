@@ -18,6 +18,9 @@ import { PrizePoolBanner } from "@/app/intel/_lanes/signals";
 import { getCircleSession } from "@/lib/circle-auth";
 import { meetsTier } from "@/lib/clearance";
 import { ClearanceWall } from "@/components/clearance-wall";
+import { IntelHero } from "@/components/intel-hero";
+import { IntelArticleBody } from "@/components/intel-article-body";
+import { IntelMediaGallery } from "@/components/intel-media-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -167,13 +170,27 @@ export async function generateMetadata({
     return { title: "Intel not found — Rex Intel Services" };
   }
   const p = row.payload;
-  const desc = p.body.replace(/\s+/g, " ").trim().slice(0, 200);
+  const desc = (p.dek ?? p.body).replace(/\s+/g, " ").trim().slice(0, 200);
   const title = `${p.headline} — Rex Intel Services`;
+  // Prefer an explicit hero image for the og:image so social shares show
+  // the article art instead of the generated fallback card. Twitter
+  // upgrades to summary_large_image when an image is present.
+  const ogImage = p.heroImageUrl ?? undefined;
   return {
     title,
     description: desc,
-    openGraph: { title, description: desc, type: "article" },
-    twitter: { card: "summary", title, description: desc },
+    openGraph: {
+      title,
+      description: desc,
+      type: "article",
+      images: ogImage ? [ogImage] : undefined,
+    },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title,
+      description: desc,
+      images: ogImage ? [ogImage] : undefined,
+    },
   };
 }
 
@@ -283,7 +300,8 @@ export default async function IntelDetailPage({
     "@context": "https://schema.org",
     "@type": payload.kind === "incident" ? "ReportageNewsArticle" : "NewsArticle",
     headline: payload.headline,
-    description: payload.body.slice(0, 300),
+    description: (payload.dek ?? payload.body).slice(0, 300),
+    image: payload.heroImageUrl ? [payload.heroImageUrl] : undefined,
     // Honest paywall signal for Google so we don't get flagged for cloaking
     // when the human-visible body is truncated. Incidents only — original
     // and tip kinds stay fully public.
@@ -432,16 +450,30 @@ export default async function IntelDetailPage({
             )}
           </div>
 
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-6 leading-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-white mb-3 leading-tight">
             {payload.headline}
           </h1>
 
-          <div
-            className={`text-[var(--rex-text-muted)] leading-relaxed whitespace-pre-wrap mb-6 ${isIncident ? "gated-body" : ""}`}
-            style={{ fontSize: "15px" }}
-          >
-            {bodyForRender}
-          </div>
+          {payload.dek && (
+            <p
+              className="text-base md:text-lg leading-relaxed mb-6"
+              style={{ color: "var(--rex-text-muted)" }}
+            >
+              {payload.dek}
+            </p>
+          )}
+
+          <IntelHero payload={payload} />
+
+          {/* `bodyForRender` is the truncated teaser when an incident is
+              clearance-gated, otherwise the full markdown / plaintext body.
+              Forcing the gated rows to "plain" keeps the cut-off teaser from
+              breaking mid-table or mid-codeblock. */}
+          <IntelArticleBody
+            body={bodyForRender}
+            format={isGated ? "plain" : payload.bodyFormat ?? "plain"}
+            className={`mb-6 ${isIncident ? "gated-body" : ""}`}
+          />
 
           {isGated && (
             <ClearanceWall
@@ -449,6 +481,10 @@ export default async function IntelDetailPage({
               current={currentTier}
               reason="Connect a wallet to read the full incident report."
             />
+          )}
+
+          {!isGated && payload.media && payload.media.length > 0 && (
+            <IntelMediaGallery media={payload.media} />
           )}
 
           {payload.links && payload.links.length > 0 && (

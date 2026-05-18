@@ -24,6 +24,7 @@ const accelerators: AcceleratorPayload[] = [
     duration: "10 weeks (2-week NYC onboarding + 8 weeks remote)",
     investment:
       "$500k at $5M post-money via SAFE with 1:1 token side letter; additional $500k post-program at seed close.",
+    investmentUsd: 500000,
     location: "NYC (in-person) + Remote",
     focus: "Crypto + AI startups, all stages",
     applyUrl: "https://www.alliance.xyz/apply",
@@ -38,6 +39,7 @@ const accelerators: AcceleratorPayload[] = [
       "12-week crypto company-building program from a 1,300+ founder network. Mentorship from operators at Quantstamp, Cega, Privy, and others. Virtual demo day with 300+ investors.",
     duration: "12 weeks (first 2 weeks + final 2 weeks in SF; remainder via Zoom)",
     investment: "$100k uncapped SAFE with 2% advisory fee",
+    investmentUsd: 100000,
     location: "San Francisco (hybrid)",
     focus: "Crypto / Web3 founders, ideation to product",
     applyUrl: "https://tally.so/r/3E2deL",
@@ -78,6 +80,7 @@ const accelerators: AcceleratorPayload[] = [
       "Web3-focused Techstars program. Three months of intensive mentorship, network access, and Techstars community for life.",
     duration: "3 months",
     investment: "$120k convertible note (standard Techstars terms)",
+    investmentUsd: 120000,
     location: "Multiple hubs",
     focus: "Web3 / blockchain startups",
     applyUrl: "https://www.techstars.com/accelerators",
@@ -144,6 +147,7 @@ const accelerators: AcceleratorPayload[] = [
     duration: "3 months (in-person SF)",
     investment:
       "$500k standard deal: $125k for 7% on a post-money SAFE + $375k uncapped MFN SAFE",
+    investmentUsd: 500000,
     location: "San Francisco (in-person required)",
     focus: "Any sector, including crypto/web3 — early-stage founders",
     applyUrl: "https://www.ycombinator.com/apply",
@@ -158,6 +162,7 @@ const accelerators: AcceleratorPayload[] = [
       "One-week experience pairing ten builders per cohort with founders of billion-dollar companies. Sector-agnostic (crypto, AI, infra, climate, fintech, etc.). Mentorship continues post-program for the life of the company. Open to high-school dropouts, students, employees, or any builder with a side project.",
     duration: "1 week (final day in-person SF or NYC)",
     investment: "Optional $10k at $1B uncapped valuation cap (no obligation to take it)",
+    investmentUsd: 10000,
     location: "Virtual cohorts; in-person final day in SF or NYC",
     focus: "Early-stage founders & technical builders — crypto explicitly listed",
     applyUrl: "https://www.zfellows.com/",
@@ -188,6 +193,7 @@ const accelerators: AcceleratorPayload[] = [
     duration: "3 months SF + 2 weeks Oregon bootcamp",
     investment:
       "Startups: $750k uncapped SAFE; Neo takes participation rights up to 5% ownership in the next priced equity round. Student teams: $40k each, no-strings; Neo retains right to invest on the same startup terms if the project becomes a company. All participants receive a profit share in the Neo fund.",
+    investmentUsd: 750000,
     location: "San Francisco (in-person) + Oregon bootcamp",
     focus: "Top technical founders & student builders — sector-agnostic; strong crypto-adjacent alumni network",
     applyUrl: "https://neo.com/accelerator",
@@ -203,6 +209,7 @@ const accelerators: AcceleratorPayload[] = [
     duration: "Regional final + global finale (single-event format)",
     investment:
       "Regional winners: $50k SAFE. Global Champions: $1M SAFE (up to 10 winners).",
+    investmentUsd: 50000,
     location: "7 regional cities (Tel Aviv, Dubai, Singapore, Berlin, London, Paris, NYC) + global finale",
     focus: "Pre-seed → Series A across any industry — must have full-time founders and a registered legal entity",
     applyUrl: "https://www.deel.com/the-pitch-by-deel/",
@@ -218,6 +225,7 @@ const accelerators: AcceleratorPayload[] = [
     duration: "5 months (May–August 2026)",
     investment:
       "Up to $200k in grant funding per team; 50+ hours of mentorship; fully funded travel for Build Week + Demo Day",
+    investmentUsd: 200000,
     location: "Hybrid — Seoul (Build Week) + Virtual + SF (Demo Day)",
     focus: "Apps built on World ID, World App, and World Chain",
     applyUrl: "https://worldbuildlabs.com/",
@@ -246,6 +254,7 @@ const accelerators: AcceleratorPayload[] = [
     description:
       "Daniel Gross + Nat Friedman's AI accelerator. $250k uncapped SAFE plus $350k in Microsoft Azure credits and $250k in partner credits (Anthropic, OpenAI, Modal, Replicate, PostHog). Past batches funded Perplexity, Cursor, ElevenLabs. Globally open, single founders accepted, no credentials required.",
     investment: "$250k SAFE + ~$600k in cloud/API credits",
+    investmentUsd: 250000,
     location: "Remote (global)",
     focus: "Seed-stage AI startups",
     applyUrl: "https://aigrant.com/",
@@ -260,6 +269,7 @@ const accelerators: AcceleratorPayload[] = [
       "a16z's intensive 12-week SF startup accelerator. SR007 runs Jul 27 – Oct 11, 2026 in-person. Up to $1M investment per company + ~$5M in credits across AWS, GCP, OpenAI, Azure, NVIDIA, Stripe, Deel. 87% of recent SR006 cohort was AI-focused. Acceptance rate <0.4%; 60–70 teams per batch.",
     duration: "12 weeks (Jul 27 – Oct 11, 2026)",
     investment: "Up to $1M + ~$5M in partner credits",
+    investmentUsd: 1000000,
     location: "San Francisco (in-person required)",
     focus: "AI, games, consumer, ambitious early-stage",
     applyUrl: "https://speedrun.a16z.com/apply",
@@ -275,6 +285,7 @@ const accelerators: AcceleratorPayload[] = [
       "Sequoia's bi-annual 7-week company-building immersion for pre-seed / seed founders. ~10 companies per cohort in Menlo Park or London. Spring + Fall windows; Spring 2026 deadline already passed — sign up via the Sequoia site for Fall 2026 notifications.",
     duration: "7 weeks (twice yearly)",
     investment: "Up to $1M check, terms per company",
+    investmentUsd: 1000000,
     location: "Menlo Park or London",
     focus: "Outlier pre-seed / seed founders — AI, crypto, generalist",
     applyUrl: "https://sequoiacap.com/arc/apply/",

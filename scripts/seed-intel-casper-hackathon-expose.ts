@@ -212,6 +212,22 @@ const body = [
   "",
   "A separate lighter cross-reference for completeness: `furkanahmetk/shroud-protocol` (the announced 2nd-place winner) and `le-stagiaire-ag2r/Casper-projet` (the French intern project) both reference the wallet `0143345f0d7c6e8d1a8e70eecdc3b4…` (30 CSPR balance). The small balance is consistent with a shared faucet, a tutorial wallet, or a deployment-service account that several builders happened to route through. We log the cross-reference as a tie of unknown nature rather than treating it as operator-cluster evidence.",
   "",
+  "### Gun 9 — one wallet seeded two different 'top-7' project shells 67 seconds apart",
+  "",
+  "The wallet `65a1bb912303cdaa01a7b07c9ad5bef91dbf45d6cd9d9f3dc69eecd3a8aebcca` funded the first incoming transfer to two different Casper Hackathon 2026 Final Round project shells with 2.5 CSPR each: `24df63ca…` (the 5th-highest-voted project) was funded at 2025-12-23T09:25:05Z, and `6b3559aa…` (the 6th-highest-voted project) was funded 67 seconds earlier at 2025-12-23T09:23:58Z. Same operator, two competing entries, both landing in the top tier of the contest's vote leaderboard.",
+  "",
+  "Unlike the abdul-kabugu cluster (where everything points at a serial multi-chain hackathon farmer running three entries from shared wallets), this funder profile is different: the wallet was created on-chain in July 2023 (2.5-year-old account), has 135 lifetime deploys, only ever funded 1 voter directly, and currently holds 8.2 CSPR (mostly drained). This is consistent with an established community member who entered two projects rather than an operator running a bot farm. We do not assert otherwise — but we surface it because the contest's prize structure assumed one team per submission, and the contest tolerated one wallet birthing two of its top-7 project shells in the same minute without disclosure on either side.",
+  "",
+  "### Gun 10 — 71 of one project's voters all withdrew from the same high-balance wallet",
+  "",
+  "Casper Hackathon 2026's announced 1st-place winner — CasPay, project shell `9842d06f78b91aee7a…` — received 351 of its votes in the FANR2 contract. **209 of those 351 votes (59.5%) came from voters whose first incoming CSPR transfer was from the same single wallet: `496d542527e1a29f576ab7c3f4c947bfcdc9b4145f75f6ec40e36089432d7351`.**",
+  "",
+  "On its face that wallet is consistent with a centralized exchange hot wallet: created May 2021 (5-year-old account), 91,371,460 CSPR balance (≈$91M class), 73,347 lifetime deploys, 106,110 lifetime transfers. Real CEX hot wallets do generate downstream voter cohorts during real on-chain events (people withdraw, then act). So one read of this finding is: the 1st-place winner had a large CEX-withdrawal user base that voted for it.",
+  "",
+  "The alternative read: a real CEX-withdrawal cohort of 71 voters does not normally all vote for the same project. Exchange withdrawals are individual decisions; the resulting on-chain activity disperses. A 71-voter cohort with 100% convergence on one project is one of two things — a coordinated voting bloc whose participants happened to fund from the same source, or an unusually concentrated genuine community pumping a project on behalf of the team behind it. We do not have on-chain evidence to discriminate between those two readings. We do have the concentration ratio (209/351 = 59.5% of the announced 1st-place winner's vote count coming from one upstream wallet's downstream voters), and the concentration ratio alone is incompatible with a random CEX-withdrawal-distribution interpretation.",
+  "",
+  "If `496d542527e1a29f57…` is a CEX hot wallet, the exchange (whichever it is) processed 71 customer withdrawals where every withdrawer subsequently voted for CasPay. If `496d542527e1a29f57…` is not a CEX, the contest's announced 1st-place winner had 59% of its vote count come from a single coordinating wallet. Both readings are findings; both readings can be checked further by anyone willing to query the wallet's outgoing-transfer patterns against the published voter pool.",
+  "",
   "## What Casper paid",
   "",
   "We checked, for each of the top-7 project wallets that received FANR2 votes, every incoming CSPR transfer and every incoming CEP-18 fungible-token transfer (including USDC, USDT, and every other Casper stablecoin) recorded on mainnet after 5 February 2026 — the date of Casper's recap post that declared the winners.",
@@ -349,6 +365,10 @@ const body = [
   "- `34a4df50b943e5dfc95598e797e2f4184cfadfad06eddf8a99a6809883b00adf` — funded 34 voters",
   "- `eb747cd191aa5d8403606d05094153f2ad282c949987e3c4740143658bdc7af4` — funded 27 voters",
   "",
+  "**Edge-of-case funder wallets (Guns 9 + 10)**",
+  "- `65a1bb912303cdaa01a7b07c9ad5bef91dbf45d6cd9d9f3dc69eecd3a8aebcca` — 67 seconds apart, seeded two top-7 project shells (`24df63ca…` and `6b3559aa…`) with 2.5 CSPR each. 2023-era community wallet, only funded 1 voter directly. One operator, two competing project entries.",
+  "- `496d542527e1a29f576ab7c3f4c947bfcdc9b4145f75f6ec40e36089432d7351` — 71 voters funded by this wallet collectively cast 209 votes for project `9842d06f…` (announced 1st-place winner CasPay), accounting for 59.5% of CasPay's total vote count. 5-year-old account, 91M CSPR balance, profile consistent with either a CEX hot wallet or a sophisticated coordinated funder.",
+  "",
   "**Casper Association direct voter fundings**",
   "- The Association wallet (`0bc9335b…`) directly funded 34 voter wallets with 535 CSPR (mean ~16 CSPR each)",
   "- Funded 4 of 7 top-vote project shells with first transfers of exactly 2.5 CSPR each: `9842d06f…`, `4d47ac81…`, `066662e9…`, `ce509235…`",
@@ -380,6 +400,47 @@ const body = [
 const payload: IntelPayload = {
   headline: HEADLINE,
   body,
+  bodyFormat: "markdown",
+  // One-line standfirst — sits between headline and hero on the article
+  // page, drives the meta description, and is the search-result snippet.
+  dek:
+    "On-chain forensics from the FANR2 voting contract: 96% of the voter pool was fed by 15 apex wallets, the 3rd-place winner's deployer was the largest single bot-funder, and the Casper Association itself seeded both the voter pool and the project shells.",
+  // Hero image — a typographic stat card published from /public. Renders as
+  // the og:image, the listing thumbnail, the RSS media:content enclosure,
+  // and the article hero. Anonymous-source convention: credit is RexIntel,
+  // not the contributor.
+  heroImageUrl: "/intel-heroes/casper-hackathon-expose.svg",
+  heroAlt:
+    "Funding pyramid: 15 apex wallets at the top funded 131 mid-tier funders, who in turn funded 751 voters — 96% of the contest's voter pool.",
+  heroCaption:
+    "The voter pool wasn't a community — it was a 3-tier distribution network. 15 apex wallets seeded the chain that produced 96% of the votes.",
+  heroCredit: "Rex Intel Services · Investigations Desk",
+  // Evidence gallery — direct links to the primary on-chain receipts so any
+  // reader can re-run the verification without leaving the article. The
+  // gallery renders below the body as a stacked "Evidence" block.
+  media: [
+    {
+      kind: "embed",
+      url: "https://cspr.live/contract-package/cbf2518437fbf7f8bdc895dad8eb1bcc5ea4fa0b7978b33721ea73366ad42428",
+      caption:
+        "FANR2 voting contract on cspr.live — 1,869 deploys, 751 unique voters, 45 mint recipients.",
+      credit: "cspr.live (Make Software)",
+    },
+    {
+      kind: "embed",
+      url: "https://cspr.live/account/02031ed02f6abebdec47e03f18bc1ee37fcae4d999e82a4f49512c8d25489dfd5302",
+      caption:
+        "CasperLink's documented owner wallet — same wallet that funded 106 voters in the contest.",
+      credit: "cspr.live",
+    },
+    {
+      kind: "embed",
+      url: "https://github.com/SohamJuneja/CasperLink",
+      caption:
+        "The CasperLink repository where the 3rd-place team identifies the apex bot-funder wallet as the project's owner.",
+      credit: "GitHub",
+    },
+  ],
   kind: "incident",
   category: "Hackathon fraud",
   severity: "critical",

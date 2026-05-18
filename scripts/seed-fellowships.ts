@@ -32,6 +32,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Two-year fellowship for builders under 23 who want to skip or leave college to start companies or pursue independent projects. $200,000 stipend, no equity. Founded 2011 by Peter Thiel; alumni include Vitalik Buterin, Austin Russell, Laura Deming, and Ritesh Agarwal.",
     stipend: "$200,000 over 2 years (no equity)",
+    stipendUsd: 200000,
     duration: "2 years",
     eligibility: "Under 23 years old. Open globally. Must be willing to leave or postpone college during the fellowship.",
     location: "Open globally (San Francisco preferred for in-person community + events)",
@@ -64,6 +65,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "AI2050 funds researchers tackling the hardest problems in AI to ensure a beneficial-to-humanity AI future by 2050. Two tracks: Senior Fellows (mid-to-late-career, larger awards over 3 years) and Early Career Fellows (within first 9 years post-PhD, 2-year awards). Funded by Eric & Wendy Schmidt.",
     stipend: "Senior: up to $300k/year × 3 yrs; Early Career: $300k total over 2 yrs",
+    stipendUsd: 300000,
     duration: "Senior: 3 years; Early Career: 2 years",
     eligibility: "Senior Fellows: mid-to-late-career faculty / researchers. Early Career: within 9 years of PhD. Affiliation with research institution required.",
     location: "Worldwide (researcher's home institution)",
@@ -95,6 +97,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Fellowships and grants for entrepreneurs, scholars, and creators pursuing transformative projects. Run by Tyler Cowen at the Mercatus Center, George Mason University. Bias toward unusual, high-variance bets often passed over by conventional funders. Rolling application — short form, fast turnaround.",
     stipend: "Grants typically $10k–$100k; some larger fellowships",
+    stipendUsd: 10000,
     eligibility: "Open globally. Strong preference for projects with unusual upside that conventional funders would skip. No academic affiliation required.",
     location: "Remote (worldwide; no in-person component)",
     focus: "Generalist — transformative ideas across science, tech, policy, the arts",
@@ -205,6 +208,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Top AI-safety research fellowship — 10 weeks in-person in Berkeley + London, paired with senior mentors from Anthropic, OpenAI, DeepMind, Redwood, ARC. Seven tracks: Empirical, Theory, Strategy & Forecasting, Policy & Governance, Systems Security, Founding & Field-Building, Biosecurity. Travel + housing + meals covered on top of stipend.",
     stipend: "$1,250 / week ($12,500 total) + travel + housing + meals",
+    stipendUsd: 12500,
     duration: "10 weeks (Sep 28 – Dec 4, 2026)",
     eligibility:
       "Empirical or theoretical AI safety researchers + field-builders; open globally",
@@ -238,6 +242,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "FLI's named fellowship for postdocs researching AI existential safety. $80k/year stipend over 3 years, with research budget. Applications evaluated annually.",
     stipend: "$80k / year + $10k research budget",
+    stipendUsd: 240000,
     duration: "Up to 3 years",
     eligibility: "Postdoctoral researchers in AI existential safety",
     location: "Worldwide (host institution)",
@@ -335,6 +340,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Open Phil's flagship fellowship for early-career people working on the most important problems of the next century — AI safety, biosecurity, global priorities research, animal welfare. $100k/year stipend over 2 years + funding for projects, travel, and learning. Highly selective; about a dozen fellows per cohort.",
     stipend: "$100,000 / year over 2 years + project funding",
+    stipendUsd: 200000,
     duration: "2 years",
     eligibility: "Early-career (typically within 5 years of finishing undergrad). Demonstrated commitment to long-term global priorities — AI safety, biosecurity, x-risk reduction.",
     location: "Worldwide (some Bay Area / DC presence encouraged)",
@@ -351,6 +357,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Most prestigious PhD fellowship in the applied physical, biological, and engineering sciences — including AI, robotics, autonomous systems, and quantum. 5 years of full funding ($46k stipend + tuition + research equipment) with zero strings beyond the moral commitment to use one's skills for the national interest in time of need. Alumni: dozens of Nobel laureates, MacArthur fellows, and frontier-AI researchers.",
     stipend: "$46,000 / year stipend + full tuition (5 years total)",
+    stipendUsd: 230000,
     duration: "Up to 5 years (PhD-length)",
     eligibility: "US citizens / permanent residents starting or in early years of PhD in applied physical, biological, or engineering sciences. Includes AI / ML / robotics.",
     location: "US only — recipient's choice of US PhD program",
@@ -367,6 +374,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Grants and microgrants for young people (often under 22) doing independent technical projects — robotics, AI, hardware, software, science. $1k–$5k grants with near-instant turnaround, designed to give credentialless builders their first 'someone believes in this' moment. Run by 1517 Fund (founded by ex-Thiel Foundation team). Pipeline into 1517's pre-seed checks.",
     stipend: "$1,000–$5,000 microgrants; some larger awards",
+    stipendUsd: 1000,
     eligibility: "Builders without traditional credentials — often under 22, often skipping college. Open globally. Bias toward independent technical projects.",
     location: "Remote (worldwide)",
     focus: "Generalist — hardware, AI, robotics, software, science",
@@ -382,6 +390,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "1-week intensive founder fellowship — $10k grant + curated mentor + investor network for 3 days of office hours and dinners in SF. Designed for ambitious 18–24-year-olds considering or already building startups. Weekly cohorts year-round, ~1,000+ alumni including founders backed by YC, a16z, Founders Fund. AI / web3 / hard-tech heavy in practice.",
     stipend: "$10,000 grant (no equity)",
+    stipendUsd: 10000,
     duration: "1 week in SF",
     eligibility: "Ambitious 18–24 year olds, typically pre-founder or early-founder. Open globally.",
     location: "San Francisco (1-week in-person, open to applicants worldwide)",
@@ -400,6 +409,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Top-tier industry PhD fellowship for graduate students doing research in GPU computing, AI/ML, robotics, autonomous vehicles, graphics, and HPC. Up to ten fellows per year; each receives funding, a paid summer internship at NVIDIA Research, GPU hardware donation, and a senior NVIDIA mentor. Strongly weighted toward applied frontier research with industry impact.",
     stipend: "$60,000 stipend + summer internship + GPU hardware grant",
+    stipendUsd: 60000,
     duration: "1 year (renewable; awarded annually)",
     eligibility: "PhD students (2nd year or beyond) at any university worldwide. Research focus in AI/ML, robotics, autonomous systems, graphics, HPC, or GPU computing.",
     location: "Worldwide (student's home institution)",
@@ -416,6 +426,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Long-running Google PhD Fellowship — funds graduate students across ML, robotics & autonomous systems, NLP, systems & networking, HCI, privacy/security, quantum, health research, and more. Each fellow gets a Google research mentor in addition to their academic advisor. Highly selective; nomination-based via the student's university.",
     stipend: "Up to 2 years tuition + ~$10k/year personal stipend (region-dependent)",
+    stipendUsd: 20000,
     duration: "Up to 2 years",
     eligibility: "Nominated by the student's university (each university has a quota). Students must be enrolled in a PhD program at a participating university.",
     location: "Worldwide (regional cohorts: US/Canada, EMEA, India, East Asia, etc.)",
@@ -432,6 +443,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Apple's PhD fellowship for graduate students researching ML, computer vision, robotics, NLP, and HCI. Two years of funding (tuition + stipend), Apple research mentor, and travel funding for conferences. Smaller cohort than Google / NVIDIA — typically ~20 scholars worldwide per year.",
     stipend: "Tuition + ~$30k/year stipend + research support + travel",
+    stipendUsd: 60000,
     duration: "2 years",
     eligibility: "PhD students at universities in North America, Europe, or Asia. Research in AI/ML, computer vision, robotics, NLP, HCI, or related.",
     location: "Worldwide (student's home institution)",
@@ -448,6 +460,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Meta's PhD fellowship across ~16 research areas including embodied AI, robotics, AR/VR systems, computational social science, security, and ML. Each fellow gets 2 years of tuition + stipend + a Meta research mentor. Open to PhD students globally.",
     stipend: "Tuition + $42,000/year stipend + travel + research funds",
+    stipendUsd: 84000,
     duration: "2 years",
     eligibility: "PhD students enrolled (or starting fall of award year) at an accredited university. Research areas: embodied AI, robotics, AR/VR, ML, systems, security, social science.",
     location: "Worldwide (student's home institution)",
@@ -464,6 +477,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "11-week paid summer research program at CMU's Robotics Institute for undergraduates worldwide. Scholars are paired with a faculty mentor and PhD student, work on an active robotics research project, and publish a working paper at the end. Pipeline into top robotics PhD programs — alumni populate research labs at CMU, MIT, Stanford, Berkeley, Google Brain Robotics, Toyota Research, and Boston Dynamics AI Institute.",
     stipend: "$5,000+ stipend + housing + travel covered",
+    stipendUsd: 5000,
     duration: "11 weeks (summer)",
     eligibility: "Undergraduate students worldwide with strong CS / ECE / math / mechanical-engineering background. Underrepresented minorities, women, first-gen students explicitly encouraged.",
     location: "Pittsburgh, PA (in-person at CMU, open to undergrads worldwide)",
@@ -546,6 +560,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Interdisciplinary AI safety fellowship — pairs researchers from biology, neuroscience, complex systems, philosophy, and the social sciences with technical AI safety researchers. 3-month summer program in Berkeley. Aims to import frameworks from natural sciences to the alignment problem.",
     stipend: "$10,000 + travel + housing",
+    stipendUsd: 10000,
     duration: "3 months (summer)",
     eligibility: "PhD students, postdocs, and researchers from biology, neuroscience, complex systems, philosophy, economics, or sociology. Technical AI background NOT required.",
     location: "Berkeley, CA (in-person, open to applicants worldwide)",
@@ -597,6 +612,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Stanford's flagship graduate fellowship — funds full tuition + stipend + leadership programming for any Stanford graduate degree (PhD, MD, JD, MBA, MS, MA). Cohort of ~100/year selected globally. Designed to develop leaders across sectors — frequently picks AI/CS PhD students alongside policy, medicine, business. Alumni network is deliberately cross-disciplinary.",
     stipend: "Full tuition + ~$48k/year stipend + ~$10k/year for experiences",
+    stipendUsd: 144000,
     duration: "Up to 3 years (or length of program)",
     eligibility: "Anyone applying to or enrolled in their first year of a Stanford graduate program. Citizenship-agnostic. Bachelor's degree earned within the last 7 years.",
     location: "Stanford, CA (in-person, open to applicants worldwide)",
@@ -645,6 +661,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "2-year fellowship for scientists and engineers commercializing hard-tech breakthroughs — energy, climate, advanced materials, biotech, AI/compute-infrastructure. $100k+ stipend, embedded position at a host research institution (Berkeley Lab, Argonne, Cornell, Houston), and dedicated mentorship through company formation. Spinouts include Twelve, Lilac Solutions, Mangrove Lithium. Originally born at Berkeley Lab as Cyclotron Road.",
     stipend: "$100,000+ stipend over 2 years + health benefits + travel + ~$100k project budget",
+    stipendUsd: 100000,
     duration: "2 years",
     eligibility: "Scientist / engineer founders (often post-PhD) commercializing hard-tech research. US-based or able to relocate to host site. Multiple cohorts by host city.",
     location: "US only — Berkeley, CA / Boston, MA / Houston, TX / Chicago, IL / Ithaca, NY (in-person at host site)",
@@ -677,6 +694,7 @@ const fellowships: FellowshipPayload[] = [
     description:
       "Selective fellowship for ambitious high schoolers worldwide. Summer program in Berkeley + $10k scholarship + ongoing mentorship. Curriculum heavy on AI safety, EA-adjacent thinking, and frontier research. Selective — single-digit acceptance rate from thousands of applicants. Alumni pipeline into top STEM undergrad programs and frontier AI / safety research labs.",
     stipend: "$10,000 scholarship + free Berkeley summer program (travel + lodging covered)",
+    stipendUsd: 10000,
     duration: "10 days summer + ongoing mentorship",
     eligibility: "High school students worldwide (typically ages 15–19). Strong intellectual track record. Application includes essays + interviews.",
     location: "Berkeley, CA (10-day summer in-person, open to high schoolers worldwide)",
@@ -798,6 +816,22 @@ const fellowships: FellowshipPayload[] = [
     rolling: true,
     cadence: "Multiple cohorts per year",
     tags: ["terra-do", "climate", "career-transition", "online", "global", "climate-ai"],
+  },
+  {
+    name: "Eccentric Labs — Sui Builder Track",
+    organization: "Eccentric Labs",
+    organizationUrl: "https://eccentriclabs.co/",
+    description:
+      "Self-paced online curriculum for Sui-ecosystem builders, hosted on Eccentric Labs' learning platform. Complete the lesson track and graduates are evaluated for ecosystem funding. Eccentric Labs sources outlier founders and agent builders across Latin America, Africa, Southeast Asia, and Greater China — emerging-market talent is the stated wedge.",
+    stipend: "Funding consideration on completion (amount not publicly disclosed)",
+    duration: "Self-paced",
+    eligibility: "Open globally; Eccentric Labs' sourcing focus is Latin America, Africa, Southeast Asia, and Greater China.",
+    location: "Online (account required — gated Moodle platform)",
+    focus: "Sui ecosystem builders — Move smart contracts, Sui dApps, ecosystem tooling",
+    applyUrl: "https://sui.eccentriclabs.co/",
+    rolling: true,
+    cadence: "Rolling / self-paced",
+    tags: ["sui", "eccentric-labs", "online", "learn-to-earn", "emerging-markets", "latam", "africa", "southeast-asia", "greater-china"],
   },
 ];
 

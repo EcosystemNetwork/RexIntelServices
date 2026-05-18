@@ -827,17 +827,12 @@ export const CURATED_ADDRESSES: CuratedEntry[] = [
     notes: "$477M drained from FTX wallets during 2022-11-12 bankruptcy. Etherscan public label; attribution still debated (insider vs. external). Previously misattributed in this seed as Beanstalk Exploiter.",
     confidence: 100,
   },
-  {
-    chain: "ethereum",
-    address: "0x4b8d3a4c1c4d3e2e76aeec0b6cc6b6cd1d5e8d8d",
-    sourceRef: "ftx-exploit-2022",
-    category: "hack-source",
-    ownerName: "FTX Drainer (unattributed)",
-    ownerKind: "unknown",
-    label: "FTX Bankruptcy Drainer",
-    notes: "$477M drained from FTX wallets during 2022-11-12 bankruptcy",
-    confidence: 85,
-  },
+  // ftx-exploit-2022 entry removed: address 0x4b8d3a4c1c4d3e2e76aeec0b6cc6b6cd1d5e8d8d
+  // does not appear in any FTX-hack coverage and its repeating hex pattern
+  // suggests it was fabricated. Real FTX Accounts Drainer attribution is at
+  // 0x59abf3837...d32b (Etherscan public label) — written above as
+  // `ftx-accounts-drainer`. Stale prod row is dropped by
+  // scripts/cleanup-stale-attributions.ts.
   {
     chain: "ethereum",
     address: "0x0fa09c3a328792253f8dee7116848723b72a6d2e",

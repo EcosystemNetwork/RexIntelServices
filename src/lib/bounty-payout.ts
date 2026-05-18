@@ -14,11 +14,15 @@ import { CircleApiError } from "./circle-auth";
 //   freshly before each transfer call.
 //
 // Environment requirements for live mode:
-//   CIRCLE_API_KEY                       — TEST_API_KEY:... for sandbox,
-//                                          LIVE_API_KEY:... for production.
-//   CIRCLE_BASE_URL                      — Defaults to api.circle.com.
-//                                          Set to api-sandbox.circle.com
-//                                          when testing with a TEST key.
+//   CIRCLE_API_KEY                       — TEST_API_KEY:... for testnet
+//                                          (sandbox-equivalent — uses
+//                                          BASE-SEPOLIA + testnet USDC),
+//                                          LIVE_API_KEY:... for mainnet.
+//                                          Circle W3S uses ONE base URL
+//                                          for both; the key prefix is
+//                                          the toggle, not the hostname.
+//   CIRCLE_BASE_URL                      — Always api.circle.com unless
+//                                          Circle ships a new region.
 //   CIRCLE_ENTITY_SECRET                 — 64-char hex (32 bytes), the
 //                                          raw secret. Generate with
 //                                          `openssl rand -hex 32` or
@@ -299,6 +303,11 @@ export async function provisionBountyWallet(args: {
       method: "POST",
       apiKey,
       body: {
+        // Circle requires idempotencyKey on all DCW state-changing endpoints
+        // — bounty publicId is stable across retries so a re-provisioning
+        // attempt (rare; create route catches failures non-fatally) dedupes
+        // server-side instead of creating duplicate wallets.
+        idempotencyKey: `bounty-wallet-${args.refId}`,
         entitySecretCiphertext,
         walletSetId,
         blockchains: [blockchain],

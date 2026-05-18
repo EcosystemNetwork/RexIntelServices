@@ -61,6 +61,7 @@ const getSignalsRows = unstable_cache(
           payload: submissions.payload,
           submitterHandle: submissions.submitterHandle,
           publishedAt: submissions.publishedAt,
+          featured: submissions.featured,
           voteCount: sql<number>`(
             SELECT count(*)::int FROM intel_votes
             WHERE intel_votes.submission_id = ${submissions.id}
@@ -256,6 +257,7 @@ export async function SignalsLane({
                 r.payload.anonymous ? null : r.submitterHandle
               }
               voteCount={r.voteCount ?? 0}
+              featured={r.featured}
             />
           ))}
         </div>
@@ -270,12 +272,14 @@ function IntelCard({
   publishedAt,
   submitterHandle,
   voteCount,
+  featured = false,
 }: {
   publicId: string;
   payload: IntelPayload;
   publishedAt: Date | null;
   submitterHandle: string | null;
   voteCount: number;
+  featured?: boolean;
 }) {
   const dateLabel = publishedAt
     ? new Date(publishedAt).toLocaleDateString(undefined, {
@@ -285,13 +289,55 @@ function IntelCard({
       })
     : "";
   const tone = payload.severity ? SEVERITY_TONE[payload.severity] : null;
+  const hasHero = !!payload.heroImageUrl;
 
   return (
     <Link
       href={detailHref("/intel", publicId, payload.headline)}
-      className="rex-card block p-5 hover:bg-[var(--rex-surface-2)] transition-colors group"
+      className="rex-card block hover:bg-[var(--rex-surface-2)] transition-colors group overflow-hidden"
+      style={
+        featured
+          ? {
+              borderColor: "rgba(95,185,31,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(95,185,31,0.05) 0%, rgba(31,168,224,0.03) 100%)",
+            }
+          : undefined
+      }
     >
+      {hasHero && (
+        <div
+          className="relative overflow-hidden"
+          style={{
+            aspectRatio: "16 / 9",
+            background: "var(--rex-surface-2)",
+            borderBottom: "1px solid var(--rex-border-subtle)",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={payload.heroImageUrl!}
+            alt={payload.heroAlt ?? payload.headline}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+          />
+        </div>
+      )}
+      <div className="p-5">
       <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest">
+        {featured && (
+          <span
+            className="px-1.5 py-0.5 rounded-sm"
+            style={{
+              background: "rgba(95,185,31,0.12)",
+              color: "var(--rex-accent)",
+              border: "1px solid rgba(95,185,31,0.45)",
+            }}
+          >
+            ★ Featured
+          </span>
+        )}
         {payload.kind === "original" && (
           <span
             className="px-1.5 py-0.5 rounded-sm"
@@ -371,7 +417,7 @@ function IntelCard({
       </h3>
 
       <p className="text-sm text-[var(--rex-text-muted)] line-clamp-2 leading-relaxed">
-        {payload.body}
+        {payload.dek ?? payload.body}
       </p>
 
       <div
@@ -395,6 +441,7 @@ function IntelCard({
         >
           ▲ {voteCount.toLocaleString()} {voteCount === 1 ? "vote" : "votes"}
         </span>
+      </div>
       </div>
     </Link>
   );

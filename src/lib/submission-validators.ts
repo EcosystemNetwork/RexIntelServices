@@ -1,5 +1,6 @@
 import type {
   IntelPayload,
+  IntelMedia,
   EventPayload,
   JobPayload,
   HackathonPayload,
@@ -123,11 +124,25 @@ export function validateIntelPayload(
   const archiveUrl = sanitizeSingleUrl(p.archiveUrl);
   const personas = sanitizePersonaList(p.personas);
 
+  const heroImageUrl = sanitizeSingleUrl(p.heroImageUrl);
+  const heroVideoUrl = sanitizeSingleUrl(p.heroVideoUrl);
+  const heroPoster = sanitizeSingleUrl(p.heroPoster);
+  const heroAlt = trimToString(p.heroAlt, 200);
+  const heroCaption = trimToString(p.heroCaption, 400);
+  const heroCredit = trimToString(p.heroCredit, 200);
+  const dek = trimToString(p.dek, 300);
+  const media = sanitizeIntelMediaList(p.media);
+  const bodyFormat =
+    p.bodyFormat === "markdown" || p.bodyFormat === "plain"
+      ? (p.bodyFormat as "markdown" | "plain")
+      : undefined;
+
   return {
     ok: true,
     payload: {
       headline,
       body,
+      dek,
       links: links.length ? links : undefined,
       sources: sources.length ? sources : undefined,
       severity,
@@ -137,8 +152,43 @@ export function validateIntelPayload(
       sourceGrade,
       archiveUrl,
       personas,
+      heroImageUrl,
+      heroVideoUrl,
+      heroPoster,
+      heroAlt,
+      heroCaption,
+      heroCredit,
+      media,
+      bodyFormat,
     },
   };
+}
+
+// Caps payload bloat + filters out anything that isn't a real http(s) URL
+// referencing an image / video / embeddable host. The renderer trusts the
+// kind tag — anything mis-tagged here renders as a broken figure, which is
+// a visible-on-review failure (good).
+const MEDIA_KINDS = ["image", "video", "embed"] as const;
+function sanitizeIntelMediaList(v: unknown): IntelMedia[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: IntelMedia[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== "object") continue;
+    const m = raw as Record<string, unknown>;
+    const url = sanitizeSingleUrl(m.url);
+    if (!url) continue;
+    if (!MEDIA_KINDS.includes(m.kind as never)) continue;
+    out.push({
+      kind: m.kind as IntelMedia["kind"],
+      url,
+      caption: trimToString(m.caption, 400),
+      alt: trimToString(m.alt, 200),
+      credit: trimToString(m.credit, 200),
+      poster: sanitizeSingleUrl(m.poster),
+    });
+    if (out.length >= 12) break;
+  }
+  return out.length ? out : undefined;
 }
 
 const LOSS_TYPES = [
@@ -258,16 +308,7 @@ export function validateEventPayload(
   ] as const;
   const validPriceTiers = ["free", "paid", "invite"] as const;
 
-  const prizeUsdRaw =
-    typeof p.prizeUsd === "number"
-      ? p.prizeUsd
-      : typeof p.prizeUsd === "string" && p.prizeUsd.trim()
-        ? Number(p.prizeUsd.replace(/[,_$\s]/g, ""))
-        : NaN;
-  const prizeUsd =
-    Number.isFinite(prizeUsdRaw) && prizeUsdRaw >= 0
-      ? Math.min(Math.round(prizeUsdRaw), 1_000_000_000)
-      : undefined;
+  const prizeUsd = parseUsdAmount(p.prizeUsd);
 
   const registrationDeadline =
     typeof p.registrationDeadline === "string" &&
@@ -395,6 +436,7 @@ export function validateHackathonPayload(
       registrationUrl: sanitizeSingleUrl(p.registrationUrl),
       registrationDeadline,
       prizePool: trimToString(p.prizePool, 200),
+      prizeUsd: parseUsdAmount(p.prizeUsd),
       tracks: sanitizeTagList(p.tracks),
       sponsors: sanitizeTagList(p.sponsors),
       tags: sanitizeTagList(p.tags),
@@ -523,6 +565,7 @@ export function validateAcceleratorPayload(
       description,
       duration: trimToString(p.duration, 100),
       investment: trimToString(p.investment, 200),
+      investmentUsd: parseUsdAmount(p.investmentUsd),
       location: trimToString(p.location, 200),
       focus: trimToString(p.focus, 200),
       applyUrl: sanitizeSingleUrl(p.applyUrl),
@@ -713,6 +756,7 @@ export function validateFellowshipPayload(
       organizationUrl: sanitizeSingleUrl(p.organizationUrl),
       description,
       stipend: trimToString(p.stipend, 200),
+      stipendUsd: parseUsdAmount(p.stipendUsd),
       duration: trimToString(p.duration, 100),
       eligibility: trimToString(p.eligibility, 500),
       location: trimToString(p.location, 200),
@@ -728,6 +772,20 @@ export function validateFellowshipPayload(
 }
 
 // ── Shared sanitizers ────────────────────────────────────────────────
+
+// Parse a USD amount from either a number or a stringified form like
+// "$500,000" / "500_000" / " 1000000 ". Clamps to [0, 1B] and rounds to an
+// integer so listing-page numeric filters get clean cents-free values.
+export function parseUsdAmount(v: unknown): number | undefined {
+  const raw =
+    typeof v === "number"
+      ? v
+      : typeof v === "string" && v.trim()
+        ? Number(v.replace(/[,_$\s]/g, ""))
+        : NaN;
+  if (!Number.isFinite(raw) || raw < 0) return undefined;
+  return Math.min(Math.round(raw), 1_000_000_000);
+}
 
 export function trimToString(v: unknown, max: number): string | undefined {
   if (typeof v !== "string") return undefined;

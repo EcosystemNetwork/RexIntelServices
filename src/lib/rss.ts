@@ -14,6 +14,10 @@ export type RssItem = {
   pubDate?: Date | null;
   guid?: string; // defaults to link
   category?: string;
+  // Hero image URL — emitted as <media:content> (MRSS) so feed readers
+  // that support multimedia (NetNewsWire, Reeder, Inoreader) render the
+  // hero card alongside the headline.
+  imageUrl?: string;
 };
 
 export type RssChannel = {
@@ -45,6 +49,12 @@ export function buildRssFeed(channel: RssChannel): string {
           ? `      <pubDate>${it.pubDate.toUTCString()}</pubDate>`
           : "",
         it.category ? `      <category>${esc(it.category)}</category>` : "",
+        it.imageUrl
+          ? `      <media:content url="${esc(it.imageUrl)}" medium="image" />`
+          : "",
+        it.imageUrl
+          ? `      <media:thumbnail url="${esc(it.imageUrl)}" />`
+          : "",
         `      <description><![CDATA[${stripCdataClose(it.description)}]]></description>`,
         "    </item>",
       ]
@@ -55,7 +65,7 @@ export function buildRssFeed(channel: RssChannel): string {
 
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">`,
+    `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">`,
     `  <channel>`,
     `    <title>${esc(channel.title)}</title>`,
     `    <link>${esc(channel.link)}</link>`,

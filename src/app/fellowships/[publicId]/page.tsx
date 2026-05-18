@@ -7,6 +7,7 @@ import { db, submissions } from "@/lib/db";
 import type { FellowshipPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
+import { ProgramHero } from "@/components/program-hero";
 import { absoluteUrl } from "@/lib/site-url";
 import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
@@ -115,6 +116,8 @@ export default async function FellowshipDetailPage({
           <span>←</span>
           <span>All fellowships</span>
         </Link>
+
+        <ProgramHero imageUrl={p.imageUrl} alt={`${p.name} — ${p.organization}`} />
 
         <article className="rex-card p-8">
           <div

@@ -150,6 +150,31 @@ const body = [
 const payload: IntelPayload = {
   headline: HEADLINE,
   body,
+  bodyFormat: "markdown",
+  dek:
+    "Three different finalist projects hardcoded the same 5,036-CSPR wallet in their code. Separately, one operator submitted three competing entries via shared wallets — and won an Interop prize. From inside the codebases, the contest's team boundaries weren't what they looked like.",
+  heroImageUrl: "/intel-heroes/casper-deployer-cluster.svg",
+  heroAlt:
+    "The Casper Hackathon deployer cluster: 106 voters funded from a single wallet documented as the 3rd-place team's project owner.",
+  heroCaption:
+    "Three competing entries sharing four on-chain wallets and one commit-author email. One announced prize won out of the cluster.",
+  heroCredit: "Rex Intel Services · Investigations Desk",
+  media: [
+    {
+      kind: "embed",
+      url: "https://github.com/BridgeX-dapp/bridgeX",
+      caption:
+        "BridgeX-dapp/bridgeX — the announced Interop winner; shares three on-chain wallets with anchor-protoco/protocol.",
+      credit: "GitHub",
+    },
+    {
+      kind: "embed",
+      url: "https://cspr.live/account/02036d9b880e44254afaf34330e57714ce15ec74da08ea18b5cf6f3ea21d2cb6",
+      caption:
+        "Shared wallet between anchor-protoco/protocol and Xayaan/Casper-FOMO — 471 CSPR balance, both 'teams' hardcoded it.",
+      credit: "cspr.live",
+    },
+  ],
   kind: "incident",
   category: "Hackathon fraud",
   severity: "critical",

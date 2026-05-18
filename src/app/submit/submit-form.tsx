@@ -256,9 +256,31 @@ function TabButton({
   );
 }
 
+type IntelMediaRow = {
+  kind: "image" | "video" | "embed";
+  url: string;
+  caption: string;
+  credit: string;
+};
+const EMPTY_MEDIA_ROW: IntelMediaRow = {
+  kind: "image",
+  url: "",
+  caption: "",
+  credit: "",
+};
+
 function IntelForm() {
   const [headline, setHeadline] = useState("");
+  const [dek, setDek] = useState("");
   const [body, setBody] = useState("");
+  const [bodyFormat, setBodyFormat] = useState<"markdown" | "plain">(
+    "markdown",
+  );
+  const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [heroVideoUrl, setHeroVideoUrl] = useState("");
+  const [heroCaption, setHeroCaption] = useState("");
+  const [heroCredit, setHeroCredit] = useState("");
+  const [mediaRows, setMediaRows] = useState<IntelMediaRow[]>([]);
   const [linksRaw, setLinksRaw] = useState("");
   const [sourcesRaw, setSourcesRaw] = useState("");
   const [severity, setSeverity] = useState<
@@ -305,15 +327,42 @@ function IntelForm() {
   function removeAddressRow(idx: number) {
     setAddressRows((rows) => rows.filter((_, i) => i !== idx));
   }
+  function updateMediaRow(idx: number, patch: Partial<IntelMediaRow>) {
+    setMediaRows((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  }
+  function addMediaRow() {
+    setMediaRows((rows) => [...rows, { ...EMPTY_MEDIA_ROW }]);
+  }
+  function removeMediaRow(idx: number) {
+    setMediaRows((rows) => rows.filter((_, i) => i !== idx));
+  }
 
   async function handleSubmit(e?: React.FormEvent, force = false) {
     e?.preventDefault();
     setStatus("loading");
     if (!force) setDuplicate(null);
 
+    const cleanedMedia = mediaRows
+      .map((m) => ({
+        kind: m.kind,
+        url: m.url.trim(),
+        caption: m.caption.trim() || undefined,
+        credit: m.credit.trim() || undefined,
+      }))
+      .filter((m) => m.url.length > 0);
+
     const payload = {
       headline,
+      dek: dek.trim() || undefined,
       body,
+      bodyFormat,
+      heroImageUrl: heroImageUrl.trim() || undefined,
+      heroVideoUrl: heroVideoUrl.trim() || undefined,
+      heroCaption: heroCaption.trim() || undefined,
+      heroCredit: heroCredit.trim() || undefined,
+      media: cleanedMedia.length ? cleanedMedia : undefined,
       links: splitLines(linksRaw),
       sources: splitLines(sourcesRaw),
       severity: severity || undefined,
@@ -397,18 +446,187 @@ function IntelForm() {
       </div>
 
       <div>
-        <Label>Body</Label>
+        <Label>Standfirst (opt.)</Label>
+        <input
+          type="text"
+          value={dek}
+          onChange={(e) => setDek(e.target.value)}
+          maxLength={300}
+          className="rex-input w-full"
+          placeholder="One-line summary under the headline. Used for search snippets + social shares."
+        />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Body</Label>
+          <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest">
+            <button
+              type="button"
+              onClick={() => setBodyFormat("markdown")}
+              className={`px-2 py-0.5 rounded-sm transition-colors ${
+                bodyFormat === "markdown"
+                  ? "bg-[rgba(95,185,31,0.10)] text-[var(--rex-accent)] border border-[rgba(95,185,31,0.35)]"
+                  : "text-[var(--rex-text-dim)] border border-[var(--rex-border-subtle)]"
+              }`}
+            >
+              Markdown
+            </button>
+            <button
+              type="button"
+              onClick={() => setBodyFormat("plain")}
+              className={`px-2 py-0.5 rounded-sm transition-colors ${
+                bodyFormat === "plain"
+                  ? "bg-[rgba(95,185,31,0.10)] text-[var(--rex-accent)] border border-[rgba(95,185,31,0.35)]"
+                  : "text-[var(--rex-text-dim)] border border-[var(--rex-border-subtle)]"
+              }`}
+            >
+              Plain
+            </button>
+          </div>
+        </div>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           required
           minLength={20}
           maxLength={5000}
-          rows={6}
-          className="rex-input w-full resize-y"
-          placeholder="What happened, who's involved, what we should look at, why it matters."
+          rows={10}
+          className="rex-input w-full resize-y font-mono text-xs"
+          placeholder={
+            bodyFormat === "markdown"
+              ? "Headings (##), tables, fenced code blocks, > quotes, and ![alt](image-url) for inline figures."
+              : "What happened, who's involved, what we should look at, why it matters."
+          }
         />
         <Hint>{body.length}/5000</Hint>
+      </div>
+
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4 space-y-3">
+        <Label>Hero media (opt.)</Label>
+        <Hint>
+          Powers the article hero, listing thumbnail, og:image, and RSS card.
+          Provide an image URL — or a YouTube / Vimeo / Loom / direct mp4 link
+          for video. Video wins when both are set.
+        </Hint>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <input
+            type="url"
+            value={heroImageUrl}
+            onChange={(e) => setHeroImageUrl(e.target.value)}
+            className="rex-input w-full font-mono text-xs"
+            placeholder="Hero image URL (16:9 preferred)"
+          />
+          <input
+            type="url"
+            value={heroVideoUrl}
+            onChange={(e) => setHeroVideoUrl(e.target.value)}
+            className="rex-input w-full font-mono text-xs"
+            placeholder="Hero video URL (YouTube / Vimeo / mp4)"
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <input
+            type="text"
+            value={heroCaption}
+            onChange={(e) => setHeroCaption(e.target.value)}
+            maxLength={400}
+            className="rex-input w-full text-xs"
+            placeholder="Caption (opt.)"
+          />
+          <input
+            type="text"
+            value={heroCredit}
+            onChange={(e) => setHeroCredit(e.target.value)}
+            maxLength={200}
+            className="rex-input w-full text-xs"
+            placeholder="Credit (opt.)"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <Label>Evidence gallery (opt.)</Label>
+          <button
+            type="button"
+            onClick={addMediaRow}
+            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+          >
+            + Add media
+          </button>
+        </div>
+        {mediaRows.length === 0 ? (
+          <Hint>
+            Charts, screenshots, address-graph snapshots, embedded videos —
+            renders as a stacked gallery below the article body.
+          </Hint>
+        ) : (
+          <div className="space-y-2">
+            {mediaRows.map((row, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-12 gap-2 items-start"
+              >
+                <select
+                  value={row.kind}
+                  onChange={(e) =>
+                    updateMediaRow(idx, {
+                      kind: e.target.value as IntelMediaRow["kind"],
+                    })
+                  }
+                  className="rex-input col-span-3 text-xs"
+                  aria-label="Media kind"
+                >
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="embed">Embed</option>
+                </select>
+                <input
+                  type="url"
+                  value={row.url}
+                  onChange={(e) =>
+                    updateMediaRow(idx, { url: e.target.value })
+                  }
+                  className="rex-input col-span-8 font-mono text-xs"
+                  placeholder="https://… (image, mp4, YouTube, tweet, Loom)"
+                  aria-label="Media URL"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeMediaRow(idx)}
+                  className="col-span-1 text-[var(--rex-text-dim)] hover:text-[var(--rex-danger)] transition-colors text-sm font-mono"
+                  aria-label="Remove media row"
+                  title="Remove"
+                >
+                  ✕
+                </button>
+                <input
+                  type="text"
+                  value={row.caption}
+                  onChange={(e) =>
+                    updateMediaRow(idx, { caption: e.target.value })
+                  }
+                  maxLength={400}
+                  className="rex-input col-span-12 sm:col-span-8 text-xs"
+                  placeholder="Caption (opt.)"
+                  aria-label="Caption"
+                />
+                <input
+                  type="text"
+                  value={row.credit}
+                  onChange={(e) =>
+                    updateMediaRow(idx, { credit: e.target.value })
+                  }
+                  maxLength={200}
+                  className="rex-input col-span-12 sm:col-span-4 text-xs"
+                  placeholder="Credit (opt.)"
+                  aria-label="Credit"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

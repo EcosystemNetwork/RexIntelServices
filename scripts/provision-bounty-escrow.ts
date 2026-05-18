@@ -29,7 +29,7 @@
  *   - Dry-run mode: pass --dry-run to print the steps without hitting Circle.
  */
 import "dotenv/config";
-import { publicEncrypt, randomBytes } from "node:crypto";
+import { publicEncrypt, randomBytes, randomUUID } from "node:crypto";
 import { writeFileSync, chmodSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import * as readline from "node:readline/promises";
@@ -69,8 +69,27 @@ async function main() {
   if (!entitySecretHex) {
     entitySecretHex = randomBytes(32).toString("hex");
     entitySecretSource = "generated";
+
+    // Crash-safety: write the plaintext secret to disk IMMEDIATELY, before
+    // any network call that could fail and lose it from memory. The file
+    // is chmod 600 and lives next to the recovery file; move it offline
+    // along with the recovery file once provisioning succeeds.
+    const seedPath = resolve(
+      process.cwd(),
+      "circle-entity-secret.plaintext.txt",
+    );
+    if (existsSync(seedPath)) {
+      die(
+        `An entity-secret plaintext file already exists at ${seedPath}. Move it aside before generating a new one.`,
+      );
+    }
+    writeFileSync(seedPath, entitySecretHex + "\n", { mode: 0o600 });
+    chmodSync(seedPath, 0o600);
     console.log(
-      "✓ Generated a new 32-byte entity secret (will print at end).",
+      `✓ Generated a new 32-byte entity secret and saved plaintext to ${seedPath} (chmod 600).`,
+    );
+    console.log(
+      `  → MOVE THIS OFFLINE along with the recovery file. Required for every subsequent Circle DCW call.`,
     );
   } else {
     if (!/^[0-9a-f]{64}$/i.test(entitySecretHex)) {
@@ -134,6 +153,7 @@ async function main() {
       cfg,
       "/v1/w3s/developer/walletSets",
       {
+        idempotencyKey: randomUUID(),
         entitySecretCiphertext: walletSetCiphertext,
         name: "RexIntel Bounty Escrow",
       },
@@ -155,6 +175,7 @@ async function main() {
     const w = await circlePost<{
       wallets: Array<{ id: string; address: string; blockchain: string }>;
     }>(cfg, "/v1/w3s/developer/wallets", {
+      idempotencyKey: randomUUID(),
       entitySecretCiphertext: walletCiphertext,
       walletSetId,
       blockchains: [cfg.blockchain],
@@ -237,12 +258,13 @@ async function loadConfig(): Promise<CircleConfig> {
     ? "sandbox"
     : "production";
 
-  // Allow CIRCLE_BASE_URL override (e.g., if Circle ships a new region).
-  const baseUrl =
-    process.env.CIRCLE_BASE_URL ??
-    (environment === "sandbox"
-      ? "https://api-sandbox.circle.com"
-      : "https://api.circle.com");
+  // Circle's W3S (Programmable Wallets) uses a SINGLE base URL for both
+  // testnet and mainnet — the TEST_API_KEY / LIVE_API_KEY prefix is what
+  // toggles environments, not the URL. (Their `api-sandbox.circle.com`
+  // hostname is for the legacy Circle Mint / Payments products and 401s
+  // every W3S request.) Override via CIRCLE_BASE_URL only if Circle ships
+  // a new region endpoint.
+  const baseUrl = process.env.CIRCLE_BASE_URL ?? "https://api.circle.com";
 
   const blockchain: "BASE" | "BASE-SEPOLIA" =
     environment === "sandbox" ? "BASE-SEPOLIA" : "BASE";

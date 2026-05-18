@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "create-admin": "tsx scripts/create-admin.ts",
-    "provision-bounty-escrow": "tsx scripts/provision-bounty-escrow.ts"
+    "provision-bounty-escrow": "tsx scripts/provision-bounty-escrow.ts",
+    "simulate-bounty-funding": "tsx scripts/simulate-bounty-funding.ts"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
@@ -33,6 +34,9 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-force-graph-2d": "^1.29.1",
+    "react-markdown": "^9.1.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "resend": "^4.0.0",
     "svix": "^1.30.0",
     "unicornstudio-react": "^2.1.9",

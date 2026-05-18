@@ -410,14 +410,53 @@ export const suppressions = pgTable(
 // what the public /intel and /events pages read from.
 // =====================================================================
 
+// Inline figures / clips attached to an intel article. Distinct from
+// `heroImageUrl` (single hero block above the article) — `media` is for
+// charts, screenshots, address-graph snapshots, embedded video, etc. that
+// the body text refers to. Renderer collapses these into a gallery block
+// below the body when not referenced inline via markdown `![](url)`.
+export type IntelMedia = {
+  // image  → <img> figure with caption
+  // video  → <video> for direct mp4/webm, OR iframe for YouTube/Vimeo (detected by URL)
+  // embed  → trusted iframe for tweet/X/IPFS pinned content (allowlist enforced)
+  kind: "image" | "video" | "embed";
+  url: string;
+  caption?: string;
+  alt?: string;
+  credit?: string;
+  // Optional poster image (video thumbnail) used before play.
+  poster?: string;
+};
+
 export type IntelPayload = {
   headline: string;
   body: string;
+  // Optional one-line standfirst (subhead). Renders between headline and
+  // hero on the article page and as the meta description fallback. Keeps
+  // the SERP snippet tight when `body` opens with a long timestamp block.
+  dek?: string;
   links?: string[];
   sources?: string[];
   category?: string;
   severity?: "low" | "medium" | "high" | "critical";
   anonymous?: boolean;
+  // Hero block above the headline / lede. Either an image (most common) or
+  // a video — when both are set, video wins. Drives the og:image meta tag
+  // and the listing thumbnail. Caption + alt render under the figure.
+  heroImageUrl?: string;
+  heroVideoUrl?: string;
+  heroPoster?: string;
+  heroAlt?: string;
+  heroCaption?: string;
+  heroCredit?: string;
+  // Inline media gallery. Up to 12 entries — enforced by the validator so
+  // the JSONB payload stays under the column's soft limit and the gallery
+  // stays scannable.
+  media?: IntelMedia[];
+  // When true, the `body` field is rendered as GitHub-flavored Markdown
+  // (sanitized server-side). Defaults to false for backwards-compat with
+  // the ~80 plain-text rows already in production; new intake defaults true.
+  bodyFormat?: "plain" | "markdown";
   // What flavor of intel this is. `tip` is the default — a community
   // sighting or short brief. `original` is in-house signal that satisfies
   // the editorial bar of the weekly digest (≥1 original per issue).
@@ -500,6 +539,10 @@ export type HackathonPayload = {
   registrationUrl?: string;
   registrationDeadline?: string;
   prizePool?: string; // "$300K+ in prizes", "ETH from sponsors"
+  // Numeric prize pool in USD, when explicitly disclosed by the organizer.
+  // Mirrors EventPayload.prizeUsd so the same filter ("show ≥$X hackathons")
+  // works whether an entry was seeded as an event or submitted as a hackathon.
+  prizeUsd?: number;
   tracks?: string[]; // DeFi, AI, gaming, etc.
   sponsors?: string[];
   tags?: string[];
@@ -555,6 +598,10 @@ export type AcceleratorPayload = {
   description: string;
   duration?: string; // "3 months", "6 weeks", "12 weeks + ongoing"
   investment?: string; // "$500k for 7%", "Up to $250k SAFE"
+  // Headline cash check (excludes credits) the program writes when a team
+  // joins, in USD. Lower bound for ranges. Skip when undisclosed or pure
+  // mentorship-only. Powers numeric sort/filter on /accelerators.
+  investmentUsd?: number;
   location?: string; // "San Francisco", "Remote", "NYC + Remote"
   focus?: string; // "Early-stage crypto", "DeFi", "Infra"
   applyUrl?: string;
@@ -632,6 +679,11 @@ export type FellowshipPayload = {
   // Free-form stipend / award. "$200k over 2 years", "$24k stipend", "$100k
   // + SF residency". Headline chip on the card.
   stipend?: string;
+  // Total cash stipend to the fellow over the program in USD, when explicitly
+  // disclosed. Lower bound for ranges; excludes tuition/credits/research
+  // budgets. Skip ("Competitive", "Negotiated", "Variable"). Powers numeric
+  // sort/filter on /fellowships.
+  stipendUsd?: number;
   // "6 months", "1 year", "9 months". Surfaced next to stipend.
   duration?: string;
   // Free-form eligibility: "PhD students", "Under 23", "Open to anyone",

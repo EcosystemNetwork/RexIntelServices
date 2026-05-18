@@ -148,7 +148,11 @@ export async function POST(
   }
 
   const ip = clientIp(req);
-  const limit = await rateLimit(`bounty-claim:${ip}`, 10, 60 * 60 * 1000);
+  // 30/hr/IP — tuned for launch traffic. Original 10/hr was too tight
+  // for an announcement-driven spike (newsletter blast → many claimants
+  // arriving in one window). Strike system + bond do the spam work; the
+  // rate limit is just abuse defense.
+  const limit = await rateLimit(`bounty-claim:${ip}`, 30, 60 * 60 * 1000);
   if (!limit.ok) {
     return NextResponse.json(
       { ok: false, error: "rate_limited" },

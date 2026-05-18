@@ -7,6 +7,7 @@ import { db, submissions } from "@/lib/db";
 import type { JobPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
 import { JsonLd } from "@/components/json-ld";
+import { ProgramHero } from "@/components/program-hero";
 import { absoluteUrl } from "@/lib/site-url";
 import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
 
@@ -105,6 +106,8 @@ export default async function JobDetailPage({
           <span>←</span>
           <span>All jobs</span>
         </Link>
+
+        <ProgramHero imageUrl={p.imageUrl} alt={`${p.title} — ${p.company}`} />
 
         <article className="rex-card p-8">
           <div className="text-[11px] font-mono uppercase tracking-widest mb-2" style={{ color: "var(--rex-text-dim)" }}>

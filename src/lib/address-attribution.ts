@@ -211,7 +211,28 @@ export async function recomputeDenormalization(addressId: string) {
     .from(addressAttributions)
     .where(eq(addressAttributions.addressId, addressId));
 
-  if (rows.length === 0) return;
+  if (rows.length === 0) {
+    // All attributions for this address have been deleted. Clear the denorm
+    // fields (including `label` — even though it can hold a community-
+    // contributed value, when no attributions remain it's almost always a
+    // leftover from the deleted claim) so stale data doesn't keep surfacing
+    // on the address page. Leave the addresses row itself intact — it may
+    // be referenced by intel submissions, traces, etc.
+    await db
+      .update(addresses)
+      .set({
+        category: null,
+        ownerName: null,
+        ownerKind: null,
+        primarySource: null,
+        confidence: null,
+        label: null,
+        lastVerifiedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(addresses.id, addressId));
+    return;
+  }
 
   // Prefer rows that actually have a category; among those, lowest rank
   // wins (= highest precedence). Tie-break on confidence then recency.

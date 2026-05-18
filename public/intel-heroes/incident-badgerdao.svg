@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-label="Cloudflare API key, weaponized. — $120M BADGERDAO · DEC 2021">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0b0d"/>
+      <stop offset="1" stop-color="#06060a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f87171"/>
+      <stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0 L0 0 0 80" fill="none" stroke="#1a1a1f" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#grid)" opacity="0.55"/>
+
+  <g opacity="0.06" fill="#f87171">
+    <rect y="180" width="1920" height="1"/>
+    <rect y="540" width="1920" height="1"/>
+    <rect y="900" width="1920" height="1"/>
+  </g>
+
+  <rect x="120" y="120" width="4" height="840" fill="url(#accent)"/>
+
+  <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="26" letter-spacing="6">
+    <text x="160" y="160" fill="#f87171">▸ INCIDENT · FRONT-END</text>
+  </g>
+  
+  <g transform="translate(1530 130)">
+    <rect width="260" height="48" rx="2" fill="none" stroke="#f87171" stroke-width="1.5"/>
+    <text x="130" y="32" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" letter-spacing="6" fill="#f87171" text-anchor="middle">HIGH</text>
+  </g>
+
+  <g font-family="Georgia,'Times New Roman',serif" font-weight="700">
+    <text x="160" y="500" font-size="320" fill="#ffffff" letter-spacing="-12">$120M</text>
+  </g>
+
+  <g font-family="ui-monospace,Menlo,Consolas,monospace" letter-spacing="4">
+    <text x="160" y="570" font-size="32" fill="#9ca3af">BADGERDAO · DEC 2021</text>
+  </g>
+
+  <line x1="160" y1="640" x2="900" y2="640" stroke="#f87171" stroke-width="2" opacity="0.4"/>
+
+  <g font-family="Georgia,'Times New Roman',serif" font-weight="600" fill="#ffffff">
+    <text x="160" y="760" font-size="68">Cloudflare API key, weaponized.</text>
+  </g>
+  <g font-family="Georgia,'Times New Roman',serif" font-weight="400" fill="#9ca3af">
+    <text x="160" y="830" font-size="44">The contracts were never touched. The attacker injected</text>
+    <text x="160" y="886" font-size="44">JavaScript into the front-end and got users to approve.</text>
+  </g>
+
+  <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" letter-spacing="4">
+    <text x="160" y="985" fill="#f87171">REX INTEL SERVICES</text>
+    <text x="160" y="1020" fill="#6b7280">Cloudflare account compromise</text>
+  </g>
+
+  <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="20" letter-spacing="3" fill="#3a3a42">
+    <text x="1760" y="1020" text-anchor="end">rex-intel-services</text>
+  </g>
+</svg>

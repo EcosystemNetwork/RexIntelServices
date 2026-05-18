@@ -643,13 +643,82 @@ function IntelDetail({ payload }: { payload: IntelPayload }) {
       <div>
         <Field label="Headline">{payload.headline}</Field>
       </div>
+      {payload.dek && (
+        <div>
+          <Field label="Standfirst">{payload.dek}</Field>
+        </div>
+      )}
+      {payload.heroImageUrl && (
+        <div>
+          <Field label="Hero">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={payload.heroImageUrl}
+              alt={payload.heroAlt ?? payload.headline}
+              className="max-w-md w-full h-auto border"
+              style={{ borderColor: "var(--rex-border-subtle)" }}
+            />
+            {(payload.heroCaption || payload.heroCredit) && (
+              <div className="mt-1 text-[11px] font-mono text-[var(--rex-text-dim)]">
+                {payload.heroCaption}
+                {payload.heroCaption && payload.heroCredit ? " · " : ""}
+                {payload.heroCredit}
+              </div>
+            )}
+          </Field>
+        </div>
+      )}
+      {payload.heroVideoUrl && !payload.heroImageUrl && (
+        <div>
+          <Field label="Hero video">
+            <a
+              href={payload.heroVideoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs text-[var(--rex-accent)] hover:underline break-all"
+            >
+              {payload.heroVideoUrl}
+            </a>
+          </Field>
+        </div>
+      )}
       <div>
-        <Field label="Body">
+        <Field
+          label={`Body${payload.bodyFormat === "markdown" ? " · Markdown" : ""}`}
+        >
           <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--rex-text-muted)]">
             {payload.body}
           </pre>
         </Field>
       </div>
+      {payload.media && payload.media.length > 0 && (
+        <div>
+          <Field label={`Media gallery · ${payload.media.length}`}>
+            <ul className="space-y-1 font-mono text-xs">
+              {payload.media.map((m, i) => (
+                <li key={i} className="flex items-baseline gap-2">
+                  <span className="uppercase text-[10px] tracking-widest text-[var(--rex-text-dim)]">
+                    {m.kind}
+                  </span>
+                  <a
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--rex-accent)] hover:underline break-all"
+                  >
+                    {m.url}
+                  </a>
+                  {m.caption && (
+                    <span className="text-[var(--rex-text-dim)] italic">
+                      — {m.caption}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Field>
+        </div>
+      )}
       {(payload.severity || payload.category) && (
         <div className="flex gap-6">
           {payload.severity && (

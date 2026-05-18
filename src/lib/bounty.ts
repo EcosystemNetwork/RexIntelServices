@@ -113,12 +113,25 @@ export function isStrikeReason(
 }
 
 /** Lower / upper bounds on bounty economics. Tuned for the no-fee MVP. */
-export const BOUNTY_MIN_FLAT_USDC = 100;
+export const BOUNTY_MIN_FLAT_USDC = 500;
 export const BOUNTY_MAX_FLAT_USDC = 1_000_000;
 export const BOUNTY_MIN_RECOVERY_BPS = 100; // 1%
 export const BOUNTY_MAX_RECOVERY_BPS = 5000; // 50%
 export const BOUNTY_MIN_EXPIRY_DAYS = 7;
 export const BOUNTY_MAX_EXPIRY_DAYS = 365;
+
+/**
+ * Kinds that may be CREATED today. info_arrest is gated for v1 — paying
+ * for info leading to arrest carries bounty-hunter-law exposure in EU/UK
+ * jurisdictions that needs counsel review before we accept new ones.
+ * Existing info_arrest rows continue to work; this gate only blocks new
+ * creation. Re-enable by adding "info_arrest" to this list after legal
+ * sign-off. See project_bounty_mainnet_launch_checklist.md.
+ */
+export const BOUNTY_KINDS_OPEN_FOR_CREATION: BountyKind[] = [
+  "recovery",
+  "info_recovery",
+];
 
 export type BountyValidationError = { field: string; reason: string };
 
@@ -590,6 +603,14 @@ export async function applyClaimReview(args: {
 
     try {
       const chain = claim.evidencePayload.chain ?? "ethereum";
+      // Defamation guard: do NOT write the claimant's free-form
+      // `suspectedEntity` (often a person/company name) into the public
+      // attribution graph. The name stays in the sealed evidence_payload
+      // where only curator + victim see it. Public surface gets only the
+      // on-chain address + the source tag (bounty-claim) + the bounty
+      // publicId as sourceRef. If the claim's address attribution turns
+      // out wrong, the public record is still defensible: "an accepted
+      // bounty pointed at this address" — not "[Named Person] did it".
       const attributionClaims = claim.evidencePayload.targetAddresses.map(
         (address) => ({
           chain,
@@ -597,7 +618,6 @@ export async function applyClaimReview(args: {
           source: "bounty-claim" as const,
           sourceRef: bounty.publicId,
           category: "hack-destination" as const,
-          notes: claim.evidencePayload.suspectedEntity ?? null,
           reportedAt: new Date(),
         }),
       );

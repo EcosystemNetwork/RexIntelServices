@@ -32,6 +32,383 @@ const INCIDENT_DEFAULT_PERSONAS: PersonaSlug[] = [
   "fund-risk",
 ];
 
+// Per-incident hero + dek lookup keyed by headline prefix (the part before
+// the first em dash — stable across copy edits). Generated heroes live in
+// /public/intel-heroes/ via scripts/generate-intel-heroes.ts. Rows without
+// an entry fall back to the auto-generated OG card (no hero, no dek).
+type HeroBundle = {
+  dek: string;
+  heroImageUrl: string;
+  heroAlt: string;
+  heroCaption: string;
+  heroCredit: string;
+};
+const INCIDENT_HEROES: Record<string, HeroBundle> = {
+  "Bybit $1.5B hack": {
+    dek: "On 21 Feb 2025, Bybit lost ~401,000 ETH (~$1.5B) in the largest single crypto theft ever recorded. Lazarus didn't break the cold wallet — they compromised the signing UI.",
+    heroImageUrl: "/intel-heroes/incident-bybit.svg",
+    heroAlt: "Bybit lost $1.5 billion in February 2025 — the largest single crypto theft on record.",
+    heroCaption: "The canonical sign-blind multisig failure. Cryptography wasn't broken — the interface was.",
+    heroCredit: "Rex Intel Services · Source: NCC Group, TRM Labs, FBI",
+  },
+  "Ronin Bridge $625M hack": {
+    dek: "Lazarus compromised five of the bridge's nine validators via a fake LinkedIn recruiter pitch. The 5/9 quorum failed because the M and the N stopped being independent.",
+    heroImageUrl: "/intel-heroes/incident-ronin.svg",
+    heroAlt: "$625 million stolen from the Ronin Bridge in March 2022.",
+    heroCaption: "The architectural template for every validator-set capture since.",
+    heroCredit: "Rex Intel Services · Source: Elliptic, Sky Mavis postmortem",
+  },
+  "Wormhole $325M hack": {
+    dek: "A deprecated Solana sysvar verification function let the attacker mint 120,000 wETH without a corresponding burn. Jump Crypto refilled the bridge within hours.",
+    heroImageUrl: "/intel-heroes/incident-wormhole.svg",
+    heroAlt: "$325 million stolen from Wormhole in February 2022.",
+    heroCaption: "The cryptographic primitive everyone trusted — except it had been deprecated months earlier.",
+    heroCredit: "Rex Intel Services · Source: Chainalysis, certik",
+  },
+  "Nomad Bridge $190M hack": {
+    dek: "A bad upgrade initialized the trusted root to zero. Any message with a 'valid' proof passed. Hundreds of opportunistic addresses copy-pasted the exploit.",
+    heroImageUrl: "/intel-heroes/incident-nomad.svg",
+    heroAlt: "$190 million drained from Nomad Bridge in August 2022 — by hundreds of opportunistic attackers.",
+    heroCaption: "The first decentralized mob-attack. Once one person showed the proof worked, everyone took.",
+    heroCredit: "Rex Intel Services · Source: Immunefi postmortem",
+  },
+  "Euler Finance $197M hack": {
+    dek: "The donateToReserves function had no health check. The exploiter found it, drained $197M, then returned every penny after three weeks of public negotiation.",
+    heroImageUrl: "/intel-heroes/incident-euler.svg",
+    heroAlt: "$197 million stolen from Euler Finance in March 2023 — fully returned after 23 days.",
+    heroCaption: "The rare DeFi happy ending. A public negotiation across on-chain messages and tweets.",
+    heroCredit: "Rex Intel Services · Source: Euler postmortem, Immunefi",
+  },
+  "Atomic Wallet $100M+ hack": {
+    dek: "Lazarus drained over $100M from Atomic Wallet self-custody users in June 2023. Non-custodial doesn't mean safe when the wallet software itself is the attack surface.",
+    heroImageUrl: "/intel-heroes/incident-atomic.svg",
+    heroAlt: "Over $100 million stolen from Atomic Wallet self-custody users in June 2023.",
+    heroCaption: "Garantex laundering trail documented by Elliptic. The wallet vendor was the attack vector.",
+    heroCredit: "Rex Intel Services · Source: Elliptic",
+  },
+  "Curve Finance $70M hack": {
+    dek: "Not a contract bug — a compiler bug. Vyper 0.2.15, 0.2.16, and 0.3.0 had a malformed reentrancy guard. Every Vyper-compiled project on three versions was suddenly exposed.",
+    heroImageUrl: "/intel-heroes/incident-curve.svg",
+    heroAlt: "$70 million stolen from Curve Finance in July 2023 via a Vyper compiler reentrancy bug.",
+    heroCaption: "The compiler is part of your attack surface. Three Vyper versions were vulnerable.",
+    heroCredit: "Rex Intel Services · Source: Curve, Vyper postmortem",
+  },
+  "Multichain $125M+ collapse": {
+    dek: "The bridge died when the people died. CEO Zhaojun was arrested by Chinese police, the MPC keys disappeared with him, and the bridge drained itself within days.",
+    heroImageUrl: "/intel-heroes/incident-multichain.svg",
+    heroAlt: "$125+ million collapse of Multichain in July 2023 after the CEO's arrest.",
+    heroCaption: "Off-chain key custody is a single point of failure — even when the failure is the people, not the keys.",
+    heroCredit: "Rex Intel Services · Source: Chainalysis",
+  },
+  "Mixin Network $200M hack": {
+    dek: "The exchange's contracts were fine. The cloud-provider database holding the operational keys was compromised. The vendor was the attack surface.",
+    heroImageUrl: "/intel-heroes/incident-mixin.svg",
+    heroAlt: "$200 million stolen from Mixin Network in September 2023 via a cloud-provider database breach.",
+    heroCaption: "Survive the smart contracts, die on the cloud vendor's compromised credentials.",
+    heroCredit: "Rex Intel Services · Source: SlowMist",
+  },
+  "Poloniex $126M hack": {
+    dek: "Justin Sun's exchange, drained. Hot-wallet compromise across multiple chains. The 2023 pattern: own a CEX, lose to DPRK.",
+    heroImageUrl: "/intel-heroes/incident-poloniex.svg",
+    heroAlt: "$126 million stolen from Poloniex in November 2023 — attributed to Lazarus.",
+    heroCaption: "The Justin Sun-owned exchange. Lazarus pattern: hot-wallet drain, multi-chain laundering.",
+    heroCredit: "Rex Intel Services · Source: Chainalysis, Elliptic",
+  },
+  "Munchables $62.5M hack": {
+    dek: "All four engineers Munchables had hired were the same DPRK-aligned operator. ZachXBT pulled the thread. The funds were returned.",
+    heroImageUrl: "/intel-heroes/incident-munchables.svg",
+    heroAlt: "$62.5 million stolen from Munchables in March 2024 by a DPRK IT-worker insider — fully recovered.",
+    heroCaption: "Four 'engineers,' one operator, multiple identities. The kill chain that doesn't need a smart-contract bug.",
+    heroCredit: "Rex Intel Services · Source: ZachXBT investigation",
+  },
+  "DMM Bitcoin $305M hack": {
+    dek: "TraderTraitor compromised Ginco, DMM's wallet-software vendor, via a LinkedIn pretext. The supply chain is the new threat model.",
+    heroImageUrl: "/intel-heroes/incident-dmm.svg",
+    heroAlt: "$305 million stolen from DMM Bitcoin in May 2024 via a supply-chain compromise of its wallet vendor.",
+    heroCaption: "The vendor was the entry point. A pre-employment Python script from a fake recruiter started the chain.",
+    heroCredit: "Rex Intel Services · Source: Mandiant",
+  },
+  "WazirX $230M hack": {
+    dek: "Six signers approved a transaction. None of them saw the actual transaction. The Liminal multisig UI showed one thing; the calldata signed another.",
+    heroImageUrl: "/intel-heroes/incident-wazirx.svg",
+    heroAlt: "$230 million stolen from WazirX in July 2024 via a sign-blind multisig drain.",
+    heroCaption: "India's largest exchange. The sign-blind failure mode in its first canonical form.",
+    heroCredit: "Rex Intel Services · Source: Crystal Intelligence",
+  },
+  "Radiant Capital $50M hack": {
+    dek: "A trusted ex-contractor's Telegram account, weaponized with INLETDRIFT malware. Mandiant attributed it to UNC4736. The kill chain works without a smart-contract bug.",
+    heroImageUrl: "/intel-heroes/incident-radiant.svg",
+    heroAlt: "$50 million stolen from Radiant Capital in October 2024 via a Telegram-phished contractor.",
+    heroCaption: "DPRK doesn't need to find a bug. They just need to find a contractor with developer access.",
+    heroCredit: "Rex Intel Services · Source: Mandiant, Radiant postmortem",
+  },
+  "Poly Network $611M hack": {
+    dek: "The largest crypto theft of 2021 — fully returned within days. The exploiter posted on-chain messages, said it was 'for fun,' and sent every wallet home.",
+    heroImageUrl: "/intel-heroes/incident-poly.svg",
+    heroAlt: "$611 million stolen from Poly Network in August 2021 — fully returned within days.",
+    heroCaption: "The Mr. White Hat case. The largest theft of 2021, fully refunded after public on-chain negotiation.",
+    heroCredit: "Rex Intel Services · Source: SlowMist, Poly Network",
+  },
+  "Mt. Gox $450M collapse": {
+    dek: "Bitcoin's first canonical disaster. 850,000 BTC went missing across years of mismanagement and on-exchange theft. Civil claims still being paid out a decade later.",
+    heroImageUrl: "/intel-heroes/incident-mt-gox.svg",
+    heroAlt: "Mt. Gox lost roughly $450 million worth of BTC in 2014 — the original crypto collapse.",
+    heroCaption: "The Tokyo bankruptcy that became a decade-long clawback. BTC-e was the laundering venue.",
+    heroCredit: "Rex Intel Services · Source: Kim Nilsson, WizSec",
+  },
+  "FTX $477M post-bankruptcy hack": {
+    dek: "Hours after the bankruptcy filing, FTX hot wallets started moving funds nobody could explain. Insider theft or DPRK opportunism — both reads still survive.",
+    heroImageUrl: "/intel-heroes/incident-ftx.svg",
+    heroAlt: "$477 million drained from FTX wallets the same week as the November 2022 bankruptcy.",
+    heroCaption: "The drain happened during the chaos of the bankruptcy filing. The attribution is still contested.",
+    heroCredit: "Rex Intel Services · Source: Elliptic, Chainalysis",
+  },
+  "Harmony Horizon $100M bridge hack": {
+    dek: "Lazarus phished two multi-sig signers and minted unbacked tokens on the other side. Funds laundered through Tornado Cash at high velocity.",
+    heroImageUrl: "/intel-heroes/incident-harmony.svg",
+    heroAlt: "$100 million stolen from Harmony Horizon bridge in June 2022 by Lazarus.",
+    heroCaption: "The signer-compromise bridge failure mode, with a Tornado Cash laundering trail.",
+    heroCredit: "Rex Intel Services · Source: Elliptic, Harmony postmortem",
+  },
+  "BNB Bridge $570M hack": {
+    dek: "A forged IAVL Merkle proof against the BNB Bridge validator set let the attacker mint 2M BNB out of nothing. Validators halted the chain to contain it.",
+    heroImageUrl: "/intel-heroes/incident-bnb.svg",
+    heroAlt: "$570 million minted out of nothing on BNB Bridge in October 2022 via a forged Merkle proof.",
+    heroCaption: "Cosmos-style bridges learned the IAVL-proof lesson twice. BNB Chain was the second.",
+    heroCredit: "Rex Intel Services · Source: BNB Chain postmortem",
+  },
+  "Beanstalk Farms $182M hack": {
+    dek: "The attacker bought governance with a flash loan, passed an emergency proposal that drained the protocol's vault, repaid the loan, and walked away in one transaction.",
+    heroImageUrl: "/intel-heroes/incident-beanstalk.svg",
+    heroAlt: "$182 million drained from Beanstalk Farms in April 2022 via a flash-loan governance attack.",
+    heroCaption: "The template for every flash-loan governance attack that followed.",
+    heroCredit: "Rex Intel Services · Source: Beanstalk postmortem",
+  },
+  "BadgerDAO $120M hack": {
+    dek: "The contracts were never broken. A compromised Cloudflare API key let the attacker inject malicious JavaScript into the BadgerDAO front-end and harvest approvals.",
+    heroImageUrl: "/intel-heroes/incident-badgerdao.svg",
+    heroAlt: "$120 million stolen from BadgerDAO users in December 2021 via a front-end injection.",
+    heroCaption: "Front-end compromise via Cloudflare account takeover. The contracts were never the surface.",
+    heroCredit: "Rex Intel Services · Source: BadgerDAO postmortem, Mandiant",
+  },
+  "KuCoin $281M hack": {
+    dek: "Lazarus drained KuCoin's hot wallets in September 2020. An aggressive coordinated freeze response across token issuers recovered 84% of the funds.",
+    heroImageUrl: "/intel-heroes/incident-kucoin.svg",
+    heroAlt: "$281 million stolen from KuCoin in September 2020 — 84% recovered via coordinated token freezes.",
+    heroCaption: "Token-issuer freeze functions mattered. The recovery rate has not been matched since.",
+    heroCredit: "Rex Intel Services · Source: Chainalysis, KuCoin postmortem",
+  },
+  "bZx $954k double flash-loan hack": {
+    dek: "Tiny dollar value, infinite influence. The two bZx attacks in February 2020 wrote the playbook for every flash-loan exploit since.",
+    heroImageUrl: "/intel-heroes/incident-bzx.svg",
+    heroAlt: "$954,000 stolen across two flash-loan attacks on bZx in February 2020.",
+    heroCaption: "Two attacks in one week. The DeFi community learned what 'atomic composability' costs.",
+    heroCredit: "Rex Intel Services · Source: PeckShield, bZx postmortem",
+  },
+  "Lendf.Me $25M hack": {
+    dek: "ERC777 reentrancy via imBTC. The attacker drained $25M, then publicly returned every cent inside 48 hours after dForce negotiated.",
+    heroImageUrl: "/intel-heroes/incident-lendfme.svg",
+    heroAlt: "$25 million stolen from Lendf.Me in April 2020 — fully returned within 48 hours.",
+    heroCaption: "ERC777's transfer hooks are still the recurring DeFi-composability footgun.",
+    heroCredit: "Rex Intel Services · Source: dForce, PeckShield",
+  },
+  "Eterbase $5.4M hack": {
+    dek: "The Slovak exchange whose 2020 compromise gave the threat-intel community its early read on Lazarus's exchange-targeting playbook.",
+    heroImageUrl: "/intel-heroes/incident-eterbase.svg",
+    heroAlt: "$5.4 million stolen from Eterbase, Slovakia's largest crypto exchange, in September 2020.",
+    heroCaption: "Small dollar value, large investigative value. The blueprint for what came next.",
+    heroCredit: "Rex Intel Services · Source: Eterbase postmortem, Chainalysis",
+  },
+  "CoinsPaid $37M hack": {
+    dek: "Six months of pretexted recruiter contact ending with a malicious Python 'pre-employment test' on a CoinsPaid developer's machine. The Lazarus fake-job playbook.",
+    heroImageUrl: "/intel-heroes/incident-coinspaid.svg",
+    heroAlt: "$37 million stolen from CoinsPaid in July 2023 via a Lazarus fake-job social-engineering chain.",
+    heroCaption: "Six months of pretexted recruiter contact. The kill chain that became the 2024 template.",
+    heroCredit: "Rex Intel Services · Source: CoinsPaid, Match Systems",
+  },
+  "Alphapo $60M hack": {
+    dek: "Same week as CoinsPaid, same operator cluster. Lazarus consolidating the Estonian + SE-Asian payment-rail attack surface in July 2023.",
+    heroImageUrl: "/intel-heroes/incident-alphapo.svg",
+    heroAlt: "$60 million stolen from Alphapo payment processor in July 2023, attributed to Lazarus.",
+    heroCaption: "Lazarus drained two Estonian payment processors in the same week. Same fake-job template.",
+    heroCredit: "Rex Intel Services · Source: ZachXBT, Chainalysis",
+  },
+  "Bitfinex 2016 hack": {
+    dek: "119,756 BTC stolen in 2016. Six years cold. Then DOJ arrested the Lichtensteins in 2022 and unwound one of the most-watched laundering trails in crypto.",
+    heroImageUrl: "/intel-heroes/incident-bitfinex.svg",
+    heroAlt: "119,756 BTC stolen from Bitfinex in 2016 — $3.6 billion seized by the DOJ in 2022.",
+    heroCaption: "Six years cold. The Lichtenstein + Morgan arrest unwound the full laundering trail.",
+    heroCredit: "Rex Intel Services · Source: DOJ, Chainalysis",
+  },
+  "Twitter Bitcoin scam": {
+    dek: "Two teenagers and a phone call. 130 verified celebrity accounts tweeting a Bitcoin doubler. $120k take — the leverage of social-engineering an admin panel.",
+    heroImageUrl: "/intel-heroes/incident-twitter-2020.svg",
+    heroAlt: "130 celebrity Twitter accounts hijacked on July 15, 2020 — $120,000 take.",
+    heroCaption: "Obama, Musk, Biden, Bezos, all retweeting a Bitcoin doubler. The vishing template at scale.",
+    heroCredit: "Rex Intel Services · Source: Brian Krebs, Twitter postmortem",
+  },
+  "Wintermute $160M hack": {
+    dek: "Wintermute's 7-leading-zeros admin address was generated with Profanity — and Profanity's keys turned out to be brute-forceable. Every vanity-gen wallet is now a known-bad.",
+    heroImageUrl: "/intel-heroes/incident-wintermute.svg",
+    heroAlt: "$160 million stolen from Wintermute in September 2022 via the Profanity vanity-address vulnerability.",
+    heroCaption: "The 'cool admin address' was the back door. Every Profanity wallet is suspect now.",
+    heroCredit: "Rex Intel Services · Source: 1inch security, Profanity disclosure",
+  },
+  "Orbit Bridge $81M hack": {
+    dek: "Lazarus drained the Korean Orbit Bridge on New Year's Eve 2023. 7 of 10 multi-sig signers compromised in a single coordinated night.",
+    heroImageUrl: "/intel-heroes/incident-orbit.svg",
+    heroAlt: "$81 million stolen from Orbit Bridge on December 31, 2023.",
+    heroCaption: "The bridge was attacked the night the team wasn't watching. Classic Lazarus timing.",
+    heroCredit: "Rex Intel Services · Source: Korean Internet Security Agency",
+  },
+  "KyberSwap Elastic $48M hack": {
+    dek: "Mathematical reentrancy at floating-point precision — and the exploiter, Andean Medjedovic, signed his name in a post-hack tweetstorm calling himself the 'Doctor of Code.'",
+    heroImageUrl: "/intel-heroes/incident-kyberswap.svg",
+    heroAlt: "$48 million stolen from KyberSwap Elastic in November 2023 by Andean Medjedovic.",
+    heroCaption: "Precision-attack via floating-point edge. The exploiter signed his name publicly.",
+    heroCredit: "Rex Intel Services · Source: KyberSwap, Medjedovic disclosures",
+  },
+  "Pancake Bunny $200M hack": {
+    dek: "BSC flash-loan oracle pump. The PancakeSwap pair-price feed was a single-block oracle — the attacker pumped it inside one transaction, drained, exited.",
+    heroImageUrl: "/intel-heroes/incident-pancake-bunny.svg",
+    heroAlt: "$200 million drained from Pancake Bunny in May 2021 via a BSC flash-loan oracle attack.",
+    heroCaption: "Single-block spot oracles are not oracles. Pancake Bunny taught BSC builders this.",
+    heroCredit: "Rex Intel Services · Source: PeckShield",
+  },
+  "Liquid Global $97M hack": {
+    dek: "Lazarus drained the Japanese exchange Liquid Global in August 2021. Hot-wallet compromise across ETH and BTC chains — the 2021 entry in Japan's Lazarus dossier.",
+    heroImageUrl: "/intel-heroes/incident-liquid.svg",
+    heroAlt: "$97 million stolen from Liquid Global, a Japanese exchange, in August 2021.",
+    heroCaption: "Hot-wallet compromise. Tokyo-based. The 2021 chapter of Japan's Lazarus dossier.",
+    heroCredit: "Rex Intel Services · Source: Elliptic, Liquid postmortem",
+  },
+  "Platypus Finance $8.5M hack": {
+    dek: "An emergency-withdraw path in Platypus Finance skipped the solvency check. Flash loan in, pump, drain — the attackers were physically arrested within days.",
+    heroImageUrl: "/intel-heroes/incident-platypus.svg",
+    heroAlt: "$8.5 million drained from Platypus Finance on Avalanche in February 2023.",
+    heroCaption: "Post-attack physical arrest. One of the few DeFi exploits with on-chain + offline follow-through.",
+    heroCredit: "Rex Intel Services · Source: French police, Platypus postmortem",
+  },
+  "Vulcan Forged $140M hack": {
+    dek: "The Polygon NFT marketplace's custodial wallet provider was compromised. Hundreds of players woke up to drained inventories.",
+    heroImageUrl: "/intel-heroes/incident-vulcan-forged.svg",
+    heroAlt: "$140 million drained from Vulcan Forged's Polygon NFT marketplace in December 2021 via custodial-wallet key exfiltration.",
+    heroCaption: "Custodial gaming wallets are a single point of failure. Players had no way to defend.",
+    heroCredit: "Rex Intel Services · Source: Vulcan Forged postmortem",
+  },
+  "Chaos ransomware": {
+    dek: "FBI seizes $2.4M from the wallets of the Chaos ransomware operator 'Hors.' Public attribution, multi-jurisdiction takedown.",
+    heroImageUrl: "/intel-heroes/incident-chaos-ransomware.svg",
+    heroAlt: "FBI seized $2.4 million from the Chaos ransomware operator 'Hors' in April 2025.",
+    heroCaption: "The Chaos operator's wallets traced and seized in a multi-jurisdiction takedown.",
+    heroCredit: "Rex Intel Services · Source: FBI Cyber Division",
+  },
+  "Hydra darknet market": {
+    dek: "Russian-language drug market. $5B in lifetime crypto volume. Six years of operation, hundreds of vendors. Seized by a DOJ + BKA joint operation in April 2022.",
+    heroImageUrl: "/intel-heroes/incident-hydra.svg",
+    heroAlt: "Hydra darknet market, $5 billion in lifetime crypto volume, seized in April 2022.",
+    heroCaption: "The largest Russian-language darknet market in history. BKA + DOJ joint takedown.",
+    heroCredit: "Rex Intel Services · Source: DOJ, BKA",
+  },
+  "Silk Road / James Zhong": {
+    dek: "50,676 BTC hidden in a popcorn tin under a bathroom floor for ten years. The IRS criminal-investigations division found it in 2021 — the largest single-target crypto seizure to date.",
+    heroImageUrl: "/intel-heroes/incident-silk-road.svg",
+    heroAlt: "50,676 BTC seized from James Zhong in 2021 — recovered from a popcorn tin under his bathroom floor.",
+    heroCaption: "The largest single-target crypto seizure on record. Discovery: in a popcorn tin.",
+    heroCredit: "Rex Intel Services · Source: IRS-CI, DOJ",
+  },
+  "Cream Finance $130M hack": {
+    dek: "Two distinct attackers split the spoils across 68 different collateral assets in October 2021. The largest single-protocol DeFi loss of the year.",
+    heroImageUrl: "/intel-heroes/incident-cream.svg",
+    heroAlt: "$130 million drained from Cream Finance in October 2021 by two separate attackers.",
+    heroCaption: "Two attackers, 68 collateral types. The Cream postmortem became a multi-collateral case study.",
+    heroCredit: "Rex Intel Services · Source: Cream Finance postmortem, PeckShield",
+  },
+  "Sim Hyon Sop": {
+    dek: "Treasury named the DPRK Foreign Trade Bank operator who moved Lazarus's stolen crypto into fiat for the regime. April 2023 OFAC designation.",
+    heroImageUrl: "/intel-heroes/incident-sim-hyon-sop.svg",
+    heroAlt: "Sim Hyon Sop — DPRK Foreign Trade Bank crypto laundering operator, OFAC-designated April 2023.",
+    heroCaption: "The named human in the Lazarus laundering chain. Treasury attribution at the operator level.",
+    heroCredit: "Rex Intel Services · Source: OFAC, US Treasury",
+  },
+  "Sinbad mixer": {
+    dek: "OFAC designated Sinbad in November 2023 after tracing $100M+ in DPRK flows. Same operator as Blender — a sanctioned mixer re-branded.",
+    heroImageUrl: "/intel-heroes/incident-sinbad.svg",
+    heroAlt: "Sinbad mixer added to the OFAC SDN list in November 2023 — successor to Blender.",
+    heroCaption: "The Lazarus mixer that replaced Blender. Same operator, different brand, same sanctions.",
+    heroCredit: "Rex Intel Services · Source: OFAC, Elliptic",
+  },
+  "CoinEx $54M hack": {
+    dek: "The CoinEx drainer wallets surfaced 11 days later in the Stake.com breach. Same operator, two heists. The 2023 cluster signature.",
+    heroImageUrl: "/intel-heroes/incident-coinex.svg",
+    heroAlt: "$54 million stolen from CoinEx in September 2023 — operator overlap with Stake.com.",
+    heroCaption: "Same operator-cluster fingerprint surfaces again 11 days later at Stake.com.",
+    heroCredit: "Rex Intel Services · Source: SlowMist, Match Systems",
+  },
+  "Stake.com $41M hack": {
+    dek: "The fastest public FBI Lazarus attribution on record. The on-chain address overlap with the CoinEx breach 11 days earlier made the case.",
+    heroImageUrl: "/intel-heroes/incident-stake.svg",
+    heroAlt: "$41 million stolen from Stake.com in September 2023 — FBI Lazarus attribution within 72 hours.",
+    heroCaption: "Operator-cluster fingerprinting at speed. FBI public attribution in 72 hours.",
+    heroCredit: "Rex Intel Services · Source: FBI Cyber Division",
+  },
+  "Heco Bridge + HTX $99M hack": {
+    dek: "Bridge private-key leak, plus the exchange behind it. The third Justin Sun-adjacent incident in eight weeks — a Tron-ecosystem pattern.",
+    heroImageUrl: "/intel-heroes/incident-heco.svg",
+    heroAlt: "$99 million stolen from the Heco Bridge and HTX exchange in November 2023.",
+    heroCaption: "Cross-chain bridge plus the exchange behind it. Justin Sun's third 8-week incident.",
+    heroCredit: "Rex Intel Services · Source: SlowMist, HTX postmortem",
+  },
+  "Penpie $27M hack": {
+    dek: "A market-creation reentrancy in Pendle's protocol. Tornado Cash for the laundering — the post-delisting test run by a non-Lazarus operator.",
+    heroImageUrl: "/intel-heroes/incident-penpie.svg",
+    heroAlt: "$27 million drained from Penpie via a Pendle reentrancy bug in September 2024.",
+    heroCaption: "Tornado Cash laundering post-delisting. Not Lazarus — a different operator testing the rail.",
+    heroCredit: "Rex Intel Services · Source: Pendle, Penpie postmortems",
+  },
+  "Phemex $85M hack": {
+    dek: "The Phemex drainer wallets surfaced again in the Bybit attack a month later — same operator, two heists across two CEXes.",
+    heroImageUrl: "/intel-heroes/incident-phemex.svg",
+    heroAlt: "$85 million stolen from Phemex in January 2025 — same operator as the Bybit attack a month later.",
+    heroCaption: "The on-chain link that made the Bybit attribution easy. Same operator cluster.",
+    heroCredit: "Rex Intel Services · Source: TRM Labs, ZachXBT",
+  },
+  "Mango Markets $114M exploit": {
+    dek: "Avi Eisenberg called it a 'highly profitable trading strategy.' Federal court called it fraud — and then vacated the conviction on appeal.",
+    heroImageUrl: "/intel-heroes/incident-mango.svg",
+    heroAlt: "$114 million drained from Mango Markets in October 2022 by Avi Eisenberg — conviction later vacated.",
+    heroCaption: "The legal precedent that says 'highly profitable trading strategy' is a real defense in DeFi.",
+    heroCredit: "Rex Intel Services · Source: DOJ, Second Circuit",
+  },
+  "MXC / MatchX 'Moonchain' transition": {
+    dek: "The Moonchain transition imposed a forced token swap on existing MXC holders. Long-tail DePIN risk — the platform changed under the miners' feet.",
+    heroImageUrl: "/intel-heroes/incident-mxc.svg",
+    heroAlt: "MXC forced its DePIN miner cohort into an xMXC swap during the October 2023 Moonchain transition.",
+    heroCaption: "The DePIN risk that doesn't get talked about: governance imposing a token swap on the active miner base.",
+    heroCredit: "Rex Intel Services · Source: MXC announcements, miner community",
+  },
+};
+
+function applyHeroBundle(payload: IntelPayload): IntelPayload {
+  // Match on the part of the headline before the first em-dash / hyphen
+  // bracket so editorial copy edits to the dates / aliases don't break
+  // the lookup. The seed headlines are stable on the prefix.
+  for (const key of Object.keys(INCIDENT_HEROES)) {
+    if (payload.headline.startsWith(key)) {
+      const b = INCIDENT_HEROES[key];
+      return {
+        ...payload,
+        dek: payload.dek ?? b.dek,
+        heroImageUrl: payload.heroImageUrl ?? b.heroImageUrl,
+        heroAlt: payload.heroAlt ?? b.heroAlt,
+        heroCaption: payload.heroCaption ?? b.heroCaption,
+        heroCredit: payload.heroCredit ?? b.heroCredit,
+      };
+    }
+  }
+  return payload;
+}
+
 const incidents: IntelPayload[] = [
   {
     headline: "Bybit $1.5B hack — Feb 2025 — timeline & laundering trail",
@@ -1209,10 +1586,15 @@ async function main() {
   let inserted = 0;
   let updated = 0;
   for (const it of incidents) {
-    const withPersonas: IntelPayload = {
+    const withPersonas: IntelPayload = applyHeroBundle({
       ...it,
       personas: it.personas ?? INCIDENT_DEFAULT_PERSONAS,
-    };
+      // Every incident body in this seed is already structured Markdown
+      // (**bold** lede, headed sections, lists). Force the render path
+      // explicitly so the article page picks the markdown renderer for
+      // any row that hasn't opted in individually.
+      bodyFormat: it.bodyFormat ?? "markdown",
+    });
     const r = await upsert(withPersonas);
     if (r.action === "inserted") inserted++;
     else updated++;

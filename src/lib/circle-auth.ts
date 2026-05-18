@@ -60,9 +60,9 @@ export class CircleAuthGateError extends Error {
 
 const SESSION_COOKIE = "rex_circle_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
-// Override via CIRCLE_BASE_URL to point sandbox (api-sandbox.circle.com)
-// when running under a TEST_API_KEY. Production keys (LIVE_API_KEY) must
-// stay on api.circle.com.
+// Circle W3S uses ONE base URL for both TEST_API_KEY (testnet) and
+// LIVE_API_KEY (mainnet) — the key prefix is the toggle, not the URL.
+// CIRCLE_BASE_URL override exists only for future region endpoints.
 const CIRCLE_BASE =
   process.env.CIRCLE_BASE_URL ?? "https://api.circle.com";
 
