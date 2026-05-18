@@ -446,6 +446,7 @@ const payload: IntelPayload = {
   severity: "critical",
   sourceGrade: "primary",
   anonymous: true,
+  spicy: true,
   // Audience: builders considering Casper hackathons (founder/developer),
   // ecosystem-watchers (investigator/journalist), and anyone allocating
   // grants to Casper (fund-risk).

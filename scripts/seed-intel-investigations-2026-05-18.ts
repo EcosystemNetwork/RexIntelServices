@@ -27,6 +27,10 @@ type ArticleSpec = {
   sources: string[];
   links: string[];
   spicy?: boolean;
+  heroImageUrl?: string;
+  heroAlt?: string;
+  heroCaption?: string;
+  heroCredit?: string;
 };
 
 const ARTICLES: ArticleSpec[] = [
@@ -37,7 +41,6 @@ const ARTICLES: ArticleSpec[] = [
     dek: "How a $54 user-research interview became the most expensive Zoom call of one crypto founder's life — and exposed an active drainer ring.",
     category: "Drainer-as-a-service",
     severity: "critical",
-    spicy: true,
     sources: [
       "https://www.mesh.xyz/post/despark",
       "https://consensysmesh.medium.com/despark-5d769b08b830",
@@ -60,6 +63,11 @@ const ARTICLES: ArticleSpec[] = [
       "https://etherscan.io/address/0x5A77f0DFc729700300c22e7b0111a5cfbC32431B",
       "https://etherscan.io/address/0x63245b9fADc65C3a6d61b1A1a812808ffC91BD29",
     ],
+    heroImageUrl: "/intel-heroes/despark-drainer-expose.svg",
+    heroAlt: "47 minutes after the Despark research call ended, the participant's Solana wallet was emptied by an 8-tx automated sweep.",
+    heroCaption: "47 minutes after the call ended, the drainer fired. Same operator's wallets received $27K+ more SOL this week.",
+    heroCredit: "Rex Intel Services · Investigations Desk",
+    spicy: true,
   },
   {
     file: "drafts/oriolo-impersonation-expose-v0.md",
@@ -79,6 +87,11 @@ const ARTICLES: ArticleSpec[] = [
       "https://mempool.space/address/bc1q704czv9hyce6fg2m9s6c097hg3hue2tzpqwngz",
       "https://mempool.space/address/bc1q234du9sa0ugjkrj4pmhuujzu5cqx9eh7aqf3p9",
     ],
+    heroImageUrl: "/intel-heroes/oriolo-impersonation.svg",
+    heroAlt: "24 hours from pitch to drain: a fake VC on Telegram drained one founder's Bitcoin wallet via a malicious 'open in app' message.",
+    heroCaption: "Fake VC on Telegram → BTC sweep in 24 hours. Multi-victim cohort in the same operator cash-out hub.",
+    heroCredit: "Rex Intel Services · Investigations Desk",
+    spicy: true,
   },
   {
     file: "drafts/pink-drainer-niftydegen-expose-v0.md",
@@ -99,6 +112,11 @@ const ARTICLES: ArticleSpec[] = [
     links: [
       "https://etherscan.io/address/0x557896aa3e0d98268ace847576273d5575c24ee6",
     ],
+    heroImageUrl: "/intel-heroes/pink-drainer-niftydegen.svg",
+    heroAlt: "A 2.4 ETH PFP gone in 12 seconds: NiftyDegen #5504 swept via Blur.io into a Scam-Sniffer-flagged phishing address that drained 99+ wallets.",
+    heroCaption: "12 seconds from Blur signature to drainer wallet. 99+ co-victims hit by the same vanity-mined Pink-Drainer-class contract.",
+    heroCredit: "Rex Intel Services · Investigations Desk",
+    spicy: true,
   },
 ];
 
@@ -130,6 +148,10 @@ async function ship(spec: ArticleSpec) {
     sources: spec.sources,
     links: spec.links,
     spicy: spec.spicy,
+    heroImageUrl: spec.heroImageUrl,
+    heroAlt: spec.heroAlt,
+    heroCaption: spec.heroCaption,
+    heroCredit: spec.heroCredit,
   };
 
   const now = new Date();

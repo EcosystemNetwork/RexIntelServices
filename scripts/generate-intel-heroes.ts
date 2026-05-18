@@ -647,6 +647,40 @@ const HEROES: Hero[] = [
     badge: "MEDIUM",
     caption: "MatchX · Moonchain transition",
   },
+  // ── 2026-05-18 RexIntel investigative pieces ───────────────────────
+  {
+    slug: "despark-drainer-expose",
+    kicker: "▸ ORIGINAL · DRAINER-AS-A-SERVICE",
+    statBig: "47 MIN",
+    statLabel: "AFTER THE CALL ENDED",
+    headline: "Consensys-funded research call → drain.",
+    subhead: "8-tx Solana sweep, 80 seconds. Same operator still hitting victims this week.",
+    accent: "red",
+    badge: "CRITICAL",
+    caption: "Despark.io · Consensys Mesh portfolio · live operator wallets $27K+",
+  },
+  {
+    slug: "oriolo-impersonation",
+    kicker: "▸ ORIGINAL · SOCIAL ENGINEERING",
+    statBig: "24 HRS",
+    statLabel: "FROM PITCH TO DRAIN",
+    headline: "Fake VC on Telegram → BTC sweep.",
+    subhead: "One 'open in app' message. Multi-victim cohort in same cash-out hub.",
+    accent: "amber",
+    badge: "CRITICAL",
+    caption: "@oriollo_alessio · Lazarus Dream-Job VC-side variant",
+  },
+  {
+    slug: "pink-drainer-niftydegen",
+    kicker: "▸ ORIGINAL · NFT PHISHING",
+    statBig: "12 SEC",
+    statLabel: "BLUR SIGNATURE → DRAIN",
+    headline: "A 2.4 ETH PFP, gone in twelve seconds.",
+    subhead: "Vanity scam contract drained 99+ wallets across Sept 2023 → Jan 2024.",
+    accent: "red",
+    badge: "HIGH",
+    caption: "NiftyDegen #5504 · Blur.io · Scam Sniffer-flagged Fake_Phishing187019",
+  },
 ];
 
 const ACCENT: Record<NonNullable<Hero["accent"]>, { hex: string; alt: string }> = {

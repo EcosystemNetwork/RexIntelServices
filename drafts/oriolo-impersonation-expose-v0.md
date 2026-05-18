@@ -105,23 +105,34 @@ We do not assert that the operator behind `@oriollo_alessio` is a North Korean s
 
 ---
 
-## The real Alessio Oriolo is the impersonation victim, not the scammer
+## Identification: an unresolved question we put to the reader
 
-Alessio Oriolo is a real venture investor whose public LinkedIn profile is at [linkedin.com/in/alessio-oriolo](https://www.linkedin.com/in/alessio-oriolo/). We name him here because his identity is the one being abused, and because anyone in his network — colleagues, portfolio founders, fund LPs — has a legitimate interest in knowing that a Telegram account is impersonating him at the time of this writing.
+The handle the participant interacted with on Telegram was `@oriollo_alessio` (note the doubled "ll" in "oriollo" versus the correct "Oriolo"). The handle presented itself as Italian VC Alessio Oriolo, whose real public LinkedIn profile is at [linkedin.com/in/alessio-oriolo](https://www.linkedin.com/in/alessio-oriolo/).
 
-To be unambiguously clear:
+During the failed-application-install session on 2025-02-20, the participant briefly saw the operator's face on a video call. After the incident, the participant cross-referenced what he had seen against publicly available photos of the real Alessio Oriolo.
 
-- **Alessio Oriolo did not contact this participant.**
-- **Alessio Oriolo did not push any malicious application.**
-- **Alessio Oriolo is, like the participant, a victim — of identity theft for the purpose of running a crypto scam under his name.**
+We are not in a position to assert from a single video-call identification whether the person the participant saw is or is not the same individual as the real Alessio Oriolo. We are in a position to publish the visual evidence and let the reader form an assessment.
 
-The handle `@oriollo_alessio` (note the doubled "ll" in "oriollo" versus the correct "Oriolo") is the impersonation account. The person operating it is unknown to us.
+**Picture A — the face the participant saw on the video call with `@oriollo_alessio` on 2025-02-20:**
+
+![The face the participant saw on the video call with @oriollo_alessio](/btchack1.jpeg)
+
+**Picture B — verified public photo of Italian VC Alessio Oriolo, speaking at a public conference appearance:**
+
+![Verified public photo of Italian VC Alessio Oriolo at a public conference](/btchack3.jpeg)
+
+Two possibilities are consistent with this visual evidence:
+
+1. **The faces match.** The person on the `@oriollo_alessio` video call was, in fact, the same individual who runs the public-record professional identity of Italian VC Alessio Oriolo — meaning the case is not an impersonation but an actual perpetrator using his own name and likeness.
+2. **The faces do not match, or match only superficially.** The scammer is a separate individual whose face the participant either saw briefly enough to misidentify, or who deliberately resembles the real Oriolo enough to make the impersonation visually credible.
+
+RexIntel does not assert which possibility is correct. Readers can form their own assessment from the two images above, the public LinkedIn profile linked, and any further conference / press photography of Alessio Oriolo they can locate. Any party with information that resolves the question definitively — including Mr. Oriolo himself — is invited to contact RexIntel via the email at the bottom of this article.
 
 ---
 
 ## What we are not saying — and what we are
 
-We are not asserting that Alessio Oriolo or anyone associated with his actual professional life ran this scam, knew of it, or sanctioned it. The evidence places him as the impersonation target, not the operator.
+We are not asserting that the real Alessio Oriolo is the individual who operated the `@oriollo_alessio` Telegram handle, drained the participant, or had any role in the scam. We have placed the visual evidence above and we invite the reader to form their own assessment; we do not, on the available evidence, foreclose either possibility.
 
 We are not asserting that the four other drainer-source wallets in the June 21 cash-out batch belong to victims of the same scam play. They may have been drained by the same operator via the same Telegram-VC pretext (most parsimonious explanation given the shared cash-out infrastructure), or via different attacks routed to the same operator's cash-out hub. We invite alternative interpretations.
 
@@ -130,18 +141,19 @@ We are saying:
 - The participant's Bitcoin wallet was drained on February 20-21, 2025, immediately following a failed attempt to install a "custom video chat" application pushed via Telegram by `@oriollo_alessio`.
 - The on-chain drainer infrastructure (drainer wallet, collection hub, next-hop sweep) is all public-record Bitcoin transactions.
 - The collection hub aggregated funds from at least five distinct source wallets — four of which are not the participant's — into a single sweep four months after the original drains, consistent with multi-victim operator behavior.
-- The real Alessio Oriolo's LinkedIn was used as the identity reference by the scammer to establish credibility with the participant.
+- The Telegram handle `@oriollo_alessio` presented itself, via name and chosen identity reference, as Italian VC Alessio Oriolo.
+- The face the participant saw on the video call (Picture A above) is the participant's personal recall and identification — not a definitive on-chain or court-record-grade identification.
 - The co-founder's refusal to install the application ("I am not downloading random apps, sorry") prevented his keys from being compromised in the same incident.
 
-Each statement is independently verifiable on the Bitcoin chain, in the participant's Telegram log voluntarily provided to RexIntel, or on Alessio Oriolo's public LinkedIn.
+Each statement is independently verifiable on the Bitcoin chain, in the participant's Telegram log voluntarily provided to RexIntel, in the participant's contemporaneous identification of the video-call face, or on Alessio Oriolo's public LinkedIn.
 
 ---
 
 ## Methodology and limits
 
-This article is based on (a) the participant's complete Telegram message log with `@oriollo_alessio` from 2025-02-19 06:13 UTC through 2025-02-20 14:40 UTC, voluntarily provided to RexIntel; (b) public Bitcoin block-explorer data on the drainer wallet, collection hub, and next-hop addresses, verified via independent public mempool.space queries; (c) Alessio Oriolo's public LinkedIn profile.
+This article is based on (a) the participant's complete Telegram message log with `@oriollo_alessio` from 2025-02-19 06:13 UTC through 2025-02-20 14:40 UTC, voluntarily provided to RexIntel; (b) public Bitcoin block-explorer data on the drainer wallet, collection hub, and next-hop addresses, verified via independent public mempool.space queries; (c) the participant's contemporaneous visual identification of the face seen on the failed video-call session on 2025-02-20 (Picture A above); (d) a publicly-circulated photo of Italian VC Alessio Oriolo speaking at a public conference (Picture B above); (e) Alessio Oriolo's public LinkedIn profile.
 
-We did not access the participant's device or wallet directly. We have not recovered or analyzed the actual malicious "custom video chat" application binary — the participant's machine has been retired since the incident, and the original download URL was not preserved in the chat log beyond the link `open in app` text. We did not contact the operator behind `@oriollo_alessio`. We did not contact the real Alessio Oriolo for comment in advance of publication; any response received post-publication will be appended to this article.
+We did not access the participant's device or wallet directly. We have not recovered or analyzed the actual malicious "custom video chat" application binary — the participant's machine has been retired since the incident, and the original download URL was not preserved in the chat log beyond the link `open in app` text. We did not perform facial-recognition analysis between the two pictures; we present them and invite reader assessment. We did not contact the operator behind `@oriollo_alessio`. We did not contact the real Alessio Oriolo for comment in advance of publication; any response received post-publication will be appended to this article.
 
 The participant remains anonymous at his request. Verification of his identity, the Telegram log's authenticity, and his consent to publication is held by RexIntel's investigations desk and available to credentialed legal and journalistic counterparties on request.
 
@@ -165,7 +177,7 @@ bc1qa535j66nthwuskk76vdz...                  (next-hop cash-out)
 
 — email **rexintelservices@proton.me**.
 
-**If you are Alessio Oriolo**, please reach out — we will gladly add a clarifying statement, link to your authoritative communication channels, or whatever you need to protect your professional reputation against the impersonation. Email **rexintelservices@proton.me**.
+**If you are Alessio Oriolo**, please reach out. RexIntel has presented the visual identification question to the reader without resolving it. Your statement — confirming whether you were on the video call with the participant on 2025-02-20, or confirming that you were not and were impersonated — will be appended to this article and given prominent placement. Email **rexintelservices@proton.me**.
 
 **If you are an exchange or analytics provider**, the June 23, 2025 next-hop sweep to `bc1qa535j66nthwuskk76vdz...` is the most likely point at which these funds entered a centralized counterparty. Reach out and we'll share the full hop trail.
 
