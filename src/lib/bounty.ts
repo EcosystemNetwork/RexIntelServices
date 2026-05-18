@@ -6,6 +6,8 @@ import {
   bounties,
   bountyClaims,
   bountyPayouts,
+  addresses,
+  addressAttributions,
   type Bounty,
   type BountyClaim,
   type BountyClaimEvidence,
@@ -16,6 +18,25 @@ import {
 } from "./db";
 import { awardContributionPoints } from "./circle-auth";
 import { upsertAttributionsBatch } from "./address-attribution";
+
+// Address categories that are guaranteed false positives for a "this address
+// received hack proceeds" claim — a Coinbase hot wallet or a Uniswap router
+// holds funds from millions of users, including stolen ones, but tagging
+// them as hack-destination would poison the graph. The attribution write-
+// through in applyClaimReview skips any address that already carries one
+// of these categories from a prior attribution.
+const ATTRIBUTION_FALSE_POSITIVE_CATEGORIES = [
+  "exchange",
+  "defi-protocol",
+  "bridge",
+  "mixer",
+  "sanctioned",
+  "foundation",
+  "treasury",
+  "validator",
+  "market-maker",
+  "government-seized",
+] as const;
 
 // =====================================================================
 // Bounty domain helpers.
@@ -630,6 +651,41 @@ export async function applyClaimReview(args: {
 
     try {
       const chain = claim.evidencePayload.chain ?? "ethereum";
+      // False-positive guard: if a target address already carries an
+      // authoritative category (exchange, DEX router, bridge, mixer, etc.),
+      // skip the bounty-claim attribution. Writing "hack-destination" on a
+      // Coinbase hot wallet poisons the graph and is defensibly wrong even
+      // if the claim itself is correct (the address holds funds from
+      // millions of users). Curator can still pursue the lead via the
+      // sealed evidence; the public surface just doesn't get a bad label.
+      const targets = claim.evidencePayload.targetAddresses;
+      let skipSet = new Set<string>();
+      if (targets.length > 0) {
+        const hits = await db
+          .select({ address: addresses.address })
+          .from(addressAttributions)
+          .innerJoin(addresses, eq(addresses.id, addressAttributions.addressId))
+          .where(
+            and(
+              eq(addresses.chain, chain),
+              inArray(
+                addressAttributions.category,
+                [...ATTRIBUTION_FALSE_POSITIVE_CATEGORIES],
+              ),
+              sql`lower(${addresses.address}) IN (${sql.join(
+                targets.map((a) => sql`${a.toLowerCase()}`),
+                sql`, `,
+              )})`,
+            ),
+          );
+        skipSet = new Set(hits.map((h) => h.address.toLowerCase()));
+        if (skipSet.size > 0) {
+          console.warn(
+            `bounty.applyClaimReview: skipping ${skipSet.size} attribution write(s) for claim ${claim.publicId} — pre-existing authoritative category on ${Array.from(skipSet).join(", ")}`,
+          );
+        }
+      }
+
       // Defamation guard: do NOT write the claimant's free-form
       // `suspectedEntity` (often a person/company name) into the public
       // attribution graph. The name stays in the sealed evidence_payload
@@ -638,16 +694,16 @@ export async function applyClaimReview(args: {
       // publicId as sourceRef. If the claim's address attribution turns
       // out wrong, the public record is still defensible: "an accepted
       // bounty pointed at this address" — not "[Named Person] did it".
-      const attributionClaims = claim.evidencePayload.targetAddresses.map(
-        (address) => ({
+      const attributionClaims = targets
+        .filter((a) => !skipSet.has(a.toLowerCase()))
+        .map((address) => ({
           chain,
           address,
           source: "bounty-claim" as const,
           sourceRef: bounty.publicId,
           category: "hack-destination" as const,
           reportedAt: new Date(),
-        }),
-      );
+        }));
       if (attributionClaims.length > 0) {
         await upsertAttributionsBatch(attributionClaims);
       }
