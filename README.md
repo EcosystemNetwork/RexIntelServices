@@ -15,34 +15,53 @@ Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
 ### Public surfaces
 
 - **Landing** (`/`) — Hero, subscriber capture, signal preview
-- **Intel** (`/intel`) — Lane-switcher across Signals, Accel, Fellowships, Grants, Capital, Perks, Cities, Residencies
+- **Intel** (`/intel`) — Lane-switcher across Signals, Accel, Fellowships, Grants, Capital, Perks, Cities, Residencies; list / grid view toggle
 - **Intel detail** (`/intel/[publicId]`) — Public intel pages with kind kicker (tip / original / incident), source attribution, OG cards
-- **Address graph** (`/intel/address`, `/graph`) — Force-directed visualization of on-chain entity relationships
-- **Submit** (`/submit`) — Public intake for intel, programs, capital, events, jobs, perks
-- **Leaderboard** (`/intel/leaderboard`) — Contributor ranking + community prize pool
+- **Address graph** (`/graph`) — Force-directed visualization of on-chain entity relationships; community-data toggle (industry-only vs industry + community)
+- **Address lookup** (`/intel/address/[chain]/[address]`) — Per-address attribution view fed by harvesters + community submissions
+- **Victim trace** (`/trace`) — Etherscan-driven 3-hop outbound BFS; counterparties land in the moat as `victim-trace`-sourced rows
+- **Recovery bounties** (`/bounties`, `/bounties/new`, `/bounties/[publicId]`) — Public bounty board with victim-verification via email OTP and white-hat claim submission
+- **Submit** (`/submit`, `/submit/edit/[token]`) — Public intake for intel, programs, capital, events, jobs, perks; token-gated edits for in-flight submissions
+- **Leaderboard** (`/intel/leaderboard`) — Contributor ranking + community prize pool balance
+- **Contributors** (`/contributors`, `/contributors/[handle]`) — Contributor profiles
+- **Search** (`/search`) — Site-wide search across lanes + intel
 - **Hackathons / Events / Jobs / Pop-up cities / Accelerators / Fellowships / Grants / Capital / Perks / Residencies** — Directory routes
 - **Feed** (`/intel/feed.xml`) — RSS for the intel wire
 - **Unsubscribe** (`/unsubscribe/[token]`) — Branded one-click unsub, RFC 8058 compliant
+- **Sign-in** (`/login`) — Magic-Link OTP for operators; Magic-Link wallet sign-in for contributors via the connect-wallet button (Base mainnet)
 
 ### Admin (`/dashboard`)
 
 - Dashboard with subscriber and campaign stats
-- Subscriber management — CSV import, dedup, suppression filtering, status tracking
-- Campaign composer — HTML editor, live preview, merge tags (`{{firstName}}`)
-- Batched sending — chunks of 100 via Resend's batch endpoint, rate-limited, resumable
+- Subscriber management — CSV import, XLSX export, bulk ops, dedup, suppression filtering, status tracking
+- Tag management — create / rename / delete subscriber tags, drive campaign segmentation
+- Suppression list — global, respected by every send and import; manage entries directly
+- Users (contributors) — operator view of contributor accounts, points, tier
+- Campaign composer — HTML editor, live preview, merge tags (`{{firstName}}`), recipient counts, duplicate, schedule, test-send
+- Batched sending — chunks via Resend, rate-limited, resumable
 - Open + click tracking — own-hosted pixel and redirect, no third-party trackers
 - Bounce + complaint webhook auto-suppresses hard bounces and spam complaints
-- Global suppression list, respected by every send and import
-- Submission moderation queue — approve / reject inbound intel and listings
-- Encrypted-cookie sessions, bcrypt passwords, server-side logout
+- Submission moderation queue — approve / reject inbound intel and listings, single + bulk review, feature toggle
+- Bounty overview — counters, failed/stuck payouts, awaiting verification, unfunded drafts
+- Bounty claims queue — adjudicate white-hat claim submissions, approve with payout amount or reject with reason
+- Magic-Link OTP sign-in (no passwords), iron-session encrypted cookies, allowlist via `OPERATOR_EMAILS`
 
 ### Scheduled jobs (Vercel Cron)
 
 | Path | Schedule | Purpose |
 |---|---|---|
 | `/api/cron/dispatch-scheduled` | every 5 min | Send queued campaigns at their scheduled time |
+| `/api/cron/sweep-expired-bounties` | hourly :15 | Mark expired bounties + flag payouts that need attention |
+| `/api/cron/settle-monthly-prizes` | daily 01:00 UTC | Compute monthly prize-pool settlement |
+| `/api/cron/sweep-vote-tokens` | daily 03:00 UTC | Expire stale magic-link vote tokens |
+| `/api/cron/harvest-ofac` | Mon 04:00 UTC | Pull US Treasury OFAC SDN crypto addresses |
+| `/api/cron/harvest-ofsi` | Mon 05:00 UTC | Pull UK OFSI consolidated list crypto addresses |
+| `/api/cron/harvest-eu-sanctions` | Mon 06:00 UTC | Pull EU consolidated sanctions crypto addresses |
+| `/api/cron/import-rekt-leaderboard` | Mon 02:00 UTC | Mirror rekt.news leaderboard into incidents |
+| `/api/cron/import-defillama-hacks` | Sun 23:00 UTC | Mirror DefiLlama Hacks feed into incidents |
+| `/api/cron/harvest-luma` | daily 13:00 UTC | Harvest curated Luma events |
+| `/api/cron/backfill-program-images` | daily 14:00 UTC | Fetch missing OG / hero images for programs |
 | `/api/cron/draft-digest` | Sun 22:00 UTC | Auto-draft the weekly digest from approved intel |
-| `/api/cron/sweep-vote-tokens` | daily 03:00 | Expire stale magic-link vote tokens |
 
 ---
 

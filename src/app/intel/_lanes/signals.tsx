@@ -10,6 +10,7 @@ import {
   getMonthlyTopIntel,
   monthBounds,
 } from "@/lib/prize-pool";
+import { fetchValueStats } from "@/lib/graph-data";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import { Chip, EmptyState, FilterBar, SpicyTag } from "./_shared";
 
@@ -90,6 +91,79 @@ const getSignalsRows = unstable_cache(
   ["intel-lane-signals-v1"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
+
+// Cached aggregator for the intel-wire "hacked crypto" headline counter.
+// `fetchValueStats` runs a full scan over `addresses` — fine on /graph where
+// the user opted into a data-heavy view, but /intel is the highest-traffic
+// public route, so we wrap it in unstable_cache with a TTL backstop. No tag
+// invalidation: the address table is fed by background harvesters (OFAC/
+// L2Beat/curated seeds) that don't sit in the submission write path, and the
+// counter is approximate-by-nature — 5-minute staleness on a $X billion
+// figure is well within the precision the headline implies.
+const getHackedCryptoStats = unstable_cache(
+  async () => {
+    const stats = await fetchValueStats({ includeUserReported: false });
+    const hack = stats.byCategory.filter(
+      (b) => b.category === "hack-source" || b.category === "hack-destination",
+    );
+    return {
+      totalUsd: hack.reduce((a, b) => a + b.totalUsd, 0),
+      walletCount: hack.reduce((a, b) => a + b.walletCount, 0),
+    };
+  },
+  ["intel-hacked-crypto-counter-v1"],
+  { revalidate: LISTING_REVALIDATE_SEC },
+);
+
+export async function HackedCryptoCounter() {
+  const { totalUsd, walletCount } = await getHackedCryptoStats();
+  if (totalUsd <= 0 || walletCount === 0) return null;
+
+  return (
+    <Link
+      href="/graph?view=incidents&category=hack-source"
+      className="rex-card-flat block px-5 py-4 mb-5 hover:bg-[var(--rex-surface-2)] transition-colors border-[var(--rex-danger)]/30"
+    >
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div>
+          <div
+            className="text-[10px] font-mono uppercase tracking-widest"
+            style={{ color: "var(--rex-danger)" }}
+          >
+            ▸ Hacked crypto tracked
+          </div>
+          <div className="font-display text-2xl sm:text-3xl text-white tabular-nums">
+            {formatUsdShort(totalUsd)}{" "}
+            <span
+              className="text-xs font-mono"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              across {walletCount} address{walletCount === 1 ? "" : "es"}
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 text-xs text-[var(--rex-text-muted)]">
+          Sum of last-snapshot USD at addresses tagged hack-source or
+          hack-destination — the on-chain footprint of stolen funds RexIntel is
+          watching.
+        </div>
+        <div
+          className="text-[11px] font-mono uppercase tracking-widest"
+          style={{ color: "var(--rex-danger)" }}
+        >
+          Open graph ▸
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function formatUsdShort(n: number): string {
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
+}
 
 export async function PrizePoolBanner() {
   const ym = currentYearMonth();
