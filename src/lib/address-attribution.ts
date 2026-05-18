@@ -29,6 +29,11 @@ export const SOURCE_PRECEDENCE: AddressAttributionSource[] = [
   "defillama",
   "incident",
   "rexintel-community",
+  // Lowest precedence. A community-loss-report attribution should never beat
+  // a sanctions-list / curated / incident-derived claim on the same address.
+  // /graph hides addresses whose *primary* source is this one behind the
+  // "Include user-reported" toggle.
+  "community-loss-report",
 ];
 
 const SOURCE_RANK = new Map<AddressAttributionSource, number>(

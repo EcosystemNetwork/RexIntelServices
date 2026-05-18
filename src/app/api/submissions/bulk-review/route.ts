@@ -6,6 +6,8 @@ import { getSession } from "@/lib/auth";
 import { awardContributionPoints } from "@/lib/circle-auth";
 import { pointsKindForSubmission } from "@/lib/clearance";
 import { awardCitationCredit } from "@/lib/citation-awards";
+import { processLossReportApproval } from "@/lib/loss-report-attribution";
+import type { LossReportPayload } from "@/lib/db/schema";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
@@ -108,6 +110,19 @@ export async function POST(req: NextRequest) {
           citationsAwarded += res.awardedCount;
         } catch (err) {
           console.warn("[bulk-review] citation credit failed:", err);
+        }
+      }
+      // Loss-report attribution gate. Same rules as the single-row endpoint:
+      // anonymous + contributor-tier+ write immediately; open-tier queue.
+      if (r.type === "loss_report") {
+        try {
+          await processLossReportApproval({
+            submissionId: r.id,
+            submitterId: r.submitterId,
+            payload: r.payload as LossReportPayload,
+          });
+        } catch (err) {
+          console.warn("[bulk-review] loss-report attribution failed:", err);
         }
       }
     }

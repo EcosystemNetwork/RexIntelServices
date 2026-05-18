@@ -15,7 +15,7 @@ const PROTECTED_PREFIXES = [
 // `/users` (matches the conceptual "users with accounts" naming) to keep the
 // public profile path open while still gating the admin list.
 const PROTECTED_PAGES_REGEX =
-  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users)(\/|$)/;
+  /^\/(dashboard|subscribers|campaigns|submissions|tags|suppressions|users|hermes)(\/|$)/;
 
 // Public routes that should never be blocked
 const PUBLIC_ROUTES = [
@@ -46,6 +46,50 @@ const PUBLIC_ROUTES = [
 function pathMatches(pathname: string, prefix: string): boolean {
   if (prefix.endsWith("/")) return pathname.startsWith(prefix);
   return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
+// AI crawler / LLM-training user-agents that get hard-blocked at the HTML
+// surface. RexIntel's planned monetization is a paid B2B agent API (x402
+// micro-fees) — humans browse free, agents pay. The block forces would-be
+// data harvesters through the paid surface instead of scraping. Also see
+// public/robots.txt for the polite-bot version.
+//
+// Matching is case-insensitive, substring against the User-Agent header.
+// Operator (Hermes) and internal API paths are NOT subject to this block —
+// only public HTML pages. The exemption shapes:
+//   - /api/* requests bypass the UA block (operator + cron + webhook traffic)
+//   - Static assets (_next/*, favicon) bypass the UA block
+const BLOCKED_AGENT_PATTERNS = [
+  "gptbot",
+  "chatgpt-user",
+  "oai-searchbot",
+  "claudebot",
+  "claude-web",
+  "anthropic-ai",
+  "cohere-ai",
+  "ccbot",
+  "google-extended",
+  "perplexitybot",
+  "perplexity-user",
+  "amazonbot",
+  "applebot-extended",
+  "bytespider",
+  "imagesiftbot",
+  "diffbot",
+  "omgili",
+  "facebookbot",
+  "meta-externalagent",
+  "mistralai-user",
+  "duckassistbot",
+  "youbot",
+  "timpibot",
+  "icc-crawler",
+];
+
+function isBlockedAiAgent(ua: string | null): boolean {
+  if (!ua) return false;
+  const lc = ua.toLowerCase();
+  return BLOCKED_AGENT_PATTERNS.some((pat) => lc.includes(pat));
 }
 
 // Persistent location context. When a public page is loaded with `?loc=Lisbon`
@@ -88,6 +132,32 @@ function publicResponse(req: NextRequest): NextResponse {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // ── AI-crawler block on public HTML surface ──────────────────────────
+  // API paths (including operator/cron/webhook traffic) bypass this — they
+  // have their own auth rails. Static assets bypass too. The block applies
+  // to humans-browsing-the-site pages where we want to keep AI agents out
+  // and route them to the future paid /api/v1/* surface instead.
+  if (
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/_next/") &&
+    pathname !== "/favicon.ico" &&
+    isBlockedAiAgent(req.headers.get("user-agent"))
+  ) {
+    return new NextResponse(
+      JSON.stringify({
+        ok: false,
+        error: "ai_agent_blocked",
+        message:
+          "RexIntel does not allow AI-crawler access to the public HTML surface. Use the paid agent API (coming soon) for programmatic data access.",
+        humans: "If you're seeing this, please email rexintelservices@proton.me",
+      }),
+      {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
 
   // Allow public pages and APIs through
   if (

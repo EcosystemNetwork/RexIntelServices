@@ -11,11 +11,13 @@ import { fetchGraphData } from "@/lib/graph-data";
  * a self-fetch round-trip.
  *
  * Query params:
- *   window:   30 | 90 | 365 | all  (days; default 90)
- *   kind:     incident | original | all (default incident)
- *   chain:    any supported chain slug (optional)
- *   view:     incidents | institutional | combined (default incidents)
- *   category: any address_category slug — filters institutional/combined
+ *   window:        30 | 90 | 365 | all  (days; default 90)
+ *   kind:          incident | original | all (default incident)
+ *   chain:         any supported chain slug (optional)
+ *   view:          incidents | institutional | combined (default incidents)
+ *   category:      any address_category slug — filters institutional/combined
+ *   user_reported: "1" to include community-loss-report attributions
+ *                  (firsthand victim claims). Off by default.
  *
  * Public endpoint — no auth. Read-only.
  */
@@ -27,6 +29,7 @@ export async function GET(req: Request) {
     chain: url.searchParams.get("chain"),
     view: url.searchParams.get("view"),
     category: url.searchParams.get("category"),
+    includeUserReported: url.searchParams.get("user_reported") === "1",
   });
   return NextResponse.json(data);
 }

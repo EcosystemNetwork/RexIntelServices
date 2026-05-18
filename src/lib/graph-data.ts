@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import {
   db,
   submissions,
@@ -87,6 +87,10 @@ export type GraphMeta = {
   incidentCount: number;
   addressCount: number;
   categorizedCount: number;
+  // Echoed back so the rendered UI can show "+N user-reported" when the
+  // toggle was on, and a hint to enable the toggle when it was off but
+  // user-reported addresses exist out of view.
+  includeUserReported: boolean;
   generatedAt: string;
 };
 
@@ -290,6 +294,10 @@ export type GraphFilters = {
   chain?: string | null;
   view?: string | null;
   category?: string | null;
+  // When true, addresses whose primary attribution is community-loss-report
+  // (and only that) are included. Default false — these are self-reported
+  // and lower-confidence than the sanctions/curated/incident-derived stack.
+  includeUserReported?: boolean | null;
 };
 
 const VIEW_VALUES = new Set<GraphView>([
@@ -327,6 +335,7 @@ export function normalizeFilters(input: GraphFilters): {
   chain: string | undefined;
   view: GraphView;
   category: AddressCategory | null;
+  includeUserReported: boolean;
 } {
   const windowParam = input.window ?? "90";
   const kindParam = input.kind ?? "incident";
@@ -355,12 +364,30 @@ export function normalizeFilters(input: GraphFilters): {
   const category =
     categoryParam && CATEGORY_VALUES.has(categoryParam) ? categoryParam : null;
 
-  return { windowDays, kindFilter, kindParam, chain, view, category };
+  const includeUserReported = input.includeUserReported === true;
+
+  return {
+    windowDays,
+    kindFilter,
+    kindParam,
+    chain,
+    view,
+    category,
+    includeUserReported,
+  };
 }
 
 export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
   const norm = normalizeFilters(input);
-  const { windowDays, kindFilter, kindParam, chain, view, category } = norm;
+  const {
+    windowDays,
+    kindFilter,
+    kindParam,
+    chain,
+    view,
+    category,
+    includeUserReported,
+  } = norm;
 
   const sinceDate =
     windowDays == null
@@ -494,6 +521,17 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
             isNotNull(addresses.category),
             ...(chain ? [eq(addresses.chain, chain)] : []),
             ...(category ? [eq(addresses.category, category)] : []),
+            // When the toggle is off, exclude addresses whose ONLY attribution
+            // is a community-loss-report (their primary_source equals that
+            // value). Sanctions/curated/incident-anchored addresses always
+            // pass through because recomputeDenormalization picks the
+            // highest-precedence source, and community-loss-report is the
+            // lowest. Safe to use `ne` directly: any row with
+            // category != null also has primary_source != null (the denorm
+            // step writes them together).
+            ...(includeUserReported
+              ? []
+              : [ne(addresses.primarySource, "community-loss-report")]),
           ),
         )
         // Highest-confidence first; ties broken by most-recently-verified.
@@ -616,6 +654,7 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
       incidentCount: incidentNodes.length,
       addressCount: addressNodes.length,
       categorizedCount,
+      includeUserReported,
       generatedAt: new Date().toISOString(),
     },
     nodes,

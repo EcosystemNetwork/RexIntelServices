@@ -69,6 +69,11 @@ export const CONTRIBUTION_POINTS: Record<ContributionEventKind, number> = {
   // Small per-citation drip. Capped in the citation hook so one investigation
   // referencing fifty of your prior addresses doesn't dump 50pts in one go.
   intel_cited: 1,
+  // Firsthand victim report approved by curator. Lower bar than an original
+  // tip (which is reportable signal someone else can verify), so smaller
+  // award — but enough that one accepted report unlocks contributor tier
+  // and lets a victim's queued attributions flow into the graph.
+  loss_report_accepted: 3,
   retraction_clawback: 0, // rejected at runtime — kept here so the enum type is exhaustive
 };
 
@@ -90,5 +95,6 @@ export function pointsKindForSubmission(
     if (kind === "original") return "original_accepted";
     return "tip_accepted";
   }
+  if (type === "loss_report") return "loss_report_accepted";
   return "event_scoop_accepted";
 }

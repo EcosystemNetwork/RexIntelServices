@@ -114,7 +114,8 @@ type Tab =
   | "capital"
   | "residency"
   | "perks"
-  | "job";
+  | "job"
+  | "loss_report";
 type FormStatus = "idle" | "loading" | "success" | "error";
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -128,10 +129,12 @@ const TAB_LABELS: Record<Tab, string> = {
   perks: "Perks",
   job: "Job",
   intel: "Intel",
+  loss_report: "Lost / Stolen",
 };
-// Order is intentional — Event first (highest-volume), Intel last (most
-// specialized / requires moderator review). Pop-up cities sit next to events
-// because they share the same intake flow / lu.ma URLs.
+// Order is intentional — Event first (highest-volume), Intel near the end
+// (specialized / moderator review). Loss-report last because it's the most
+// sensitive surface and we want submitters to find it via the dedicated
+// "Report lost crypto" entry rather than scroll-and-click.
 const TAB_ORDER: Tab[] = [
   "event",
   "popup_city",
@@ -143,6 +146,7 @@ const TAB_ORDER: Tab[] = [
   "perks",
   "job",
   "intel",
+  "loss_report",
 ];
 
 type AddressRow = {
@@ -219,6 +223,7 @@ export default function SubmitForm() {
         {tab === "accelerator" && <AcceleratorForm />}
         {tab === "fellowship" && <FellowshipForm />}
         {tab === "job" && <JobForm />}
+        {tab === "loss_report" && <LossReportForm />}
       </main>
     </PublicShell>
   );
@@ -725,6 +730,401 @@ function IntelForm() {
           className="rex-btn"
         >
           {status === "loading" ? "Transmitting…" : "Transmit Intel ▸"}
+        </button>
+      </div>
+
+      <DuplicateBanner
+        duplicate={duplicate}
+        onProceed={() => handleSubmit(undefined, true)}
+        onDismiss={() => {
+          setDuplicate(null);
+          setStatus("idle");
+          setMessage("");
+        }}
+      />
+
+      {status === "error" && !duplicate && (
+        <p className="text-xs font-mono text-[var(--rex-danger)]">✕ {message}</p>
+      )}
+    </form>
+  );
+}
+
+const LOSS_TYPE_CHOICES = [
+  { slug: "phishing", title: "Phishing", desc: "Signed a malicious approval, fake site, drainer." },
+  { slug: "drain", title: "Wallet drain", desc: "Funds left without a transaction you authorized." },
+  { slug: "sim-swap", title: "SIM swap", desc: "Phone takeover used to reset accounts." },
+  { slug: "exploit", title: "Protocol exploit", desc: "On-chain exploit of a protocol you used." },
+  { slug: "lost-keys", title: "Lost keys / device", desc: "Seed phrase or device gone." },
+  { slug: "rug-pull", title: "Rug pull", desc: "Project disappeared with funds." },
+  { slug: "other", title: "Other", desc: "Doesn't fit any of the above." },
+] as const;
+type LossTypeSlug = (typeof LOSS_TYPE_CHOICES)[number]["slug"];
+
+function LossReportForm() {
+  const [headline, setHeadline] = useState("");
+  const [story, setStory] = useState("");
+  const [lossType, setLossType] = useState<LossTypeSlug>("phishing");
+  const [lossDate, setLossDate] = useState("");
+  const [claimedUsd, setClaimedUsd] = useState("");
+  const [evidenceRaw, setEvidenceRaw] = useState("");
+  const [addressRows, setAddressRows] = useState<AddressRow[]>([
+    { ...EMPTY_ADDRESS_ROW, role: "subject" },
+  ]);
+  // Default to anonymous because victims often don't want their identity tied
+  // to a public record of a loss. Non-anonymous unlocks the rep-gated auto-write
+  // path; anonymous routes through curator review only.
+  const [anonymous, setAnonymous] = useState(true);
+  const [submitterEmail, setSubmitterEmail] = useState("");
+  const [submitterHandle, setSubmitterHandle] = useState("");
+  const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [message, setMessage] = useState("");
+  const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
+
+  function updateAddressRow(idx: number, patch: Partial<AddressRow>) {
+    setAddressRows((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  }
+  function addAddressRow() {
+    setAddressRows((rows) => [...rows, { ...EMPTY_ADDRESS_ROW }]);
+  }
+  function removeAddressRow(idx: number) {
+    setAddressRows((rows) => rows.filter((_, i) => i !== idx));
+  }
+
+  async function handleSubmit(e?: React.FormEvent, force = false) {
+    e?.preventDefault();
+    setStatus("loading");
+    if (!force) setDuplicate(null);
+
+    const usdParsed = Number(claimedUsd.replace(/[,_$\s]/g, ""));
+    const payload = {
+      headline,
+      story,
+      lossType,
+      lossDate,
+      claimedUsd:
+        Number.isFinite(usdParsed) && usdParsed > 0 ? usdParsed : undefined,
+      evidenceLinks: splitLines(evidenceRaw),
+      anonymous,
+    };
+
+    const addressesToSend = addressRows
+      .map((r) => ({
+        chain: r.chain,
+        address: r.address.trim(),
+        role: r.role,
+        label: r.label.trim() || undefined,
+      }))
+      .filter((r) => r.address.length >= 4);
+
+    if (addressesToSend.length === 0) {
+      setStatus("error");
+      setMessage(
+        "Add at least one address — the wallet you lost, or where funds went.",
+      );
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "loss_report",
+          payload,
+          addresses: addressesToSend,
+          submitterEmail: anonymous ? undefined : submitterEmail || undefined,
+          submitterHandle: anonymous ? undefined : submitterHandle || undefined,
+          website,
+          turnstileToken,
+          confirmedNonDuplicate: force,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 409 && data?.duplicate) {
+        setDuplicate(data.duplicate as DuplicateInfo);
+        setStatus("error");
+        setMessage(data.error ?? "Possible duplicate.");
+        return;
+      }
+      if (res.ok) {
+        trackSubmitSuccess(data);
+        setStatus("success");
+        setMessage(data.message);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Transmission failed.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Channel disrupted. Retry.");
+    }
+  }
+
+  if (status === "success") {
+    return <SuccessPanel message={message} editUrl={null} />;
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rex-card p-6 space-y-4">
+      <Honeypot value={website} onChange={setWebsite} />
+      <Turnstile onToken={setTurnstileToken} />
+
+      <div
+        className="rounded-sm border p-3 text-xs leading-relaxed"
+        style={{
+          borderColor: "rgba(95,185,31,0.30)",
+          background: "rgba(95,185,31,0.05)",
+          color: "var(--rex-text-muted)",
+        }}
+      >
+        Report a wallet you lost access to, or one used to drain you. Approved
+        reports add the address(es) to the public lost-crypto graph at the
+        lowest verification tier — hidden by default behind the
+        &ldquo;Include user-reported&rdquo; toggle on{" "}
+        <a
+          href="/graph"
+          className="underline decoration-dotted underline-offset-2"
+        >
+          /graph
+        </a>
+        . First-time submitters without other accepted contributions are
+        queued until they build any track record on the platform.
+      </div>
+
+      <div>
+        <Label>Headline</Label>
+        <input
+          type="text"
+          value={headline}
+          onChange={(e) => setHeadline(e.target.value)}
+          required
+          minLength={5}
+          maxLength={200}
+          className="rex-input w-full"
+          placeholder='e.g. "Drained via fake Uniswap claim site"'
+        />
+      </div>
+
+      <div>
+        <Label>What happened</Label>
+        <textarea
+          value={story}
+          onChange={(e) => setStory(e.target.value)}
+          required
+          minLength={50}
+          maxLength={3000}
+          rows={6}
+          className="rex-input w-full resize-y"
+          placeholder="Dates, services involved, tx hashes if you have them, how you noticed."
+        />
+        <Hint>{story.length}/3000 · min 50</Hint>
+      </div>
+
+      <div>
+        <Label>Loss type</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {LOSS_TYPE_CHOICES.map((k) => (
+            <button
+              key={k.slug}
+              type="button"
+              onClick={() => setLossType(k.slug)}
+              className={`text-left rounded-sm border px-3 py-2 transition-colors ${
+                lossType === k.slug
+                  ? "border-[var(--rex-accent)] bg-[rgba(95,185,31,0.05)]"
+                  : "border-[var(--rex-border-subtle)] hover:border-[var(--rex-border)]"
+              }`}
+            >
+              <div className="text-sm font-medium text-white">{k.title}</div>
+              <div
+                className="text-[11px] mt-0.5"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                {k.desc}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label>Date of loss</Label>
+          <input
+            type="date"
+            value={lossDate}
+            onChange={(e) => setLossDate(e.target.value)}
+            required
+            className="rex-input w-full"
+          />
+        </div>
+        <div>
+          <Label>Claimed USD value (opt.)</Label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={claimedUsd}
+            onChange={(e) => setClaimedUsd(e.target.value)}
+            className="rex-input w-full"
+            placeholder="e.g. 12500"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label>Evidence links (opt.)</Label>
+        <textarea
+          value={evidenceRaw}
+          onChange={(e) => setEvidenceRaw(e.target.value)}
+          rows={2}
+          className="rex-input w-full font-mono text-xs"
+          placeholder="https://etherscan.io/tx/0x… &#10;https://web.archive.org/…"
+        />
+        <Hint>
+          One URL per line. Block-explorer tx links, archive snapshots of
+          the phishing site, screenshots hosted somewhere durable.
+        </Hint>
+      </div>
+
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <Label>Addresses</Label>
+          <button
+            type="button"
+            onClick={addAddressRow}
+            className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)] hover:text-white transition-colors"
+          >
+            + Add address
+          </button>
+        </div>
+        <Hint>
+          Role <strong>subject</strong> = the wallet that lost funds.{" "}
+          <strong>counterparty</strong> = where funds went (drainer,
+          exchange deposit). At least one required.
+        </Hint>
+        <div className="space-y-2 mt-2">
+          {addressRows.map((row, idx) => (
+            <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+              <select
+                value={row.chain}
+                onChange={(e) =>
+                  updateAddressRow(idx, {
+                    chain: e.target.value as ChainSlug,
+                  })
+                }
+                className="rex-input col-span-3 text-xs"
+                aria-label="Chain"
+              >
+                {SUPPORTED_CHAINS.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={row.address}
+                onChange={(e) =>
+                  updateAddressRow(idx, { address: e.target.value })
+                }
+                className="rex-input col-span-5 font-mono text-xs"
+                placeholder="0x… / bc1… / etc."
+                maxLength={200}
+                aria-label="Address"
+              />
+              <select
+                value={row.role}
+                onChange={(e) =>
+                  updateAddressRow(idx, {
+                    role: e.target.value as AddressRoleSlug,
+                  })
+                }
+                className="rex-input col-span-3 text-xs"
+                aria-label="Role"
+              >
+                {ADDRESS_ROLES.map((r) => (
+                  <option key={r.slug} value={r.slug}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => removeAddressRow(idx)}
+                className="col-span-1 text-[var(--rex-text-dim)] hover:text-[var(--rex-danger)] transition-colors text-sm font-mono"
+                aria-label="Remove address row"
+                title="Remove"
+              >
+                ✕
+              </button>
+              <input
+                type="text"
+                value={row.label}
+                onChange={(e) =>
+                  updateAddressRow(idx, { label: e.target.value })
+                }
+                className="rex-input col-span-11 col-start-1 sm:col-start-4 sm:col-span-8 text-xs"
+                placeholder='Optional label — e.g. "my Metamask"'
+                maxLength={120}
+                aria-label="Address label"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--rex-border-subtle)] pt-4 space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={anonymous}
+            onChange={(e) => setAnonymous(e.target.checked)}
+            className="accent-[var(--rex-accent)]"
+          />
+          <span className="text-sm text-[var(--rex-text-muted)]">
+            Submit anonymously (recommended)
+          </span>
+        </label>
+
+        {!anonymous && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Email (opt.)</Label>
+              <input
+                type="email"
+                value={submitterEmail}
+                onChange={(e) => setSubmitterEmail(e.target.value)}
+                className="rex-input w-full"
+                placeholder="for curator follow-up"
+              />
+            </div>
+            <div>
+              <Label>Handle (opt.)</Label>
+              <input
+                type="text"
+                value={submitterHandle}
+                onChange={(e) => setSubmitterHandle(e.target.value)}
+                maxLength={80}
+                className="rex-input w-full"
+                placeholder="@yourcalling-card"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between pt-2">
+        <Hint>
+          {anonymous
+            ? "Anonymous: no identity is stored. Graph write requires curator review only."
+            : "Identified: builds reputation. Graph write requires ≥1 accepted non-loss-report contribution; until then, queued."}
+        </Hint>
+        <button type="submit" disabled={status === "loading"} className="rex-btn">
+          {status === "loading" ? "Transmitting…" : "Submit Report ▸"}
         </button>
       </div>
 

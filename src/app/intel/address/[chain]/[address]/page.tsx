@@ -188,6 +188,7 @@ const SOURCE_LABEL: Record<AddressAttributionSource, string> = {
   "rexintel-community": "RexIntel (community)",
   etherscan: "Etherscan label",
   incident: "Intel incident",
+  "community-loss-report": "User-reported loss",
 };
 
 const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> = {
@@ -205,6 +206,13 @@ const SOURCE_TONE: Record<AddressAttributionSource, { bg: string; fg: string }> 
   },
   etherscan: { bg: "rgba(168,85,247,0.10)", fg: "#c4b5fd" },
   incident: { bg: "rgba(251,191,36,0.10)", fg: "var(--rex-warning)" },
+  // Distinct muted-amber to telegraph "unverified — submitter testimony."
+  // Dimmer than `incident` so a viewer scanning the page reads it as the
+  // weakest claim on the address.
+  "community-loss-report": {
+    bg: "rgba(251,191,36,0.06)",
+    fg: "#fbbf24aa",
+  },
 };
 
 const CATEGORY_LABEL: Record<AddressCategory, string> = {

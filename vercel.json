@@ -28,6 +28,14 @@
     {
       "path": "/api/cron/harvest-eu-sanctions",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/import-defillama-hacks",
+      "schedule": "0 23 * * 0"
+    },
+    {
+      "path": "/api/cron/import-rekt-leaderboard",
+      "schedule": "0 2 * * 1"
     }
   ]
 }

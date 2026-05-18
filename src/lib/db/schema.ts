@@ -65,6 +65,10 @@ export const submissionTypeEnum = pgEnum("submission_type", [
   "residency",
   "perks",
   "fellowship",
+  // Firsthand victim reports of lost/stolen assets. Distinct from intel so
+  // the editorial pipeline (digest cron, OG kicker, leaderboard prize pool)
+  // isn't fed by self-reported losses. See LossReportPayload below.
+  "loss_report",
 ]);
 
 export const submissionStatusEnum = pgEnum("submission_status", [
@@ -146,6 +150,10 @@ export const addressAttributionSourceEnum = pgEnum(
     "rexintel-community", // crowdsourced via /submit
     "etherscan", // Etherscan public label (manual capture)
     "incident", // derived from an approved intel submission
+    // Firsthand victim report. Lowest precedence — never overrides a
+    // sanctions/curated/incident attribution; hidden by default on /graph
+    // behind the "Include user-reported" toggle.
+    "community-loss-report",
   ],
 );
 
@@ -181,6 +189,10 @@ export const contributionEventKindEnum = pgEnum("contribution_event_kind", [
   // address-graph moat — the original tipster keeps earning as new
   // investigations build on their attribution.
   "intel_cited",
+  // First-person victim report approved by a curator. Smaller award than
+  // intel_tip (5) because the verification bar is lower — but non-zero so
+  // genuine victims still earn rep toward unlocking contributor tier.
+  "loss_report_accepted",
   // Retained for forward compat. Product rule today: trust is monotonic up,
   // moderation handles bad actors via clearance freeze/ban, not score
   // deduction. awardContributionPoints rejects this kind at runtime.
@@ -656,6 +668,42 @@ export type PerksPayload = {
   imageUrl?: string;
 };
 
+// Firsthand victim report. Categorically different from intel: a victim is
+// not a journalist. Editorial bar / digest cron explicitly skip this type.
+// On curator approval, each linked address gets a community-loss-report
+// attribution (lowest precedence). The reputation gate lives at write-time:
+// approved reports from open-tier submitters are *queued* and the attribution
+// row is only written once the submitter crosses to contributor.
+export type LossReportPayload = {
+  // One-line summary: "Drained via fake Uniswap airdrop, Apr 12".
+  headline: string;
+  // Story: what happened, when, what evidence the submitter has.
+  story: string;
+  // How the assets left their control. Drives card chips and lets us slice
+  // the dataset later ("show me all SIM-swap victims this quarter").
+  lossType:
+    | "phishing"
+    | "drain"
+    | "sim-swap"
+    | "exploit"
+    | "lost-keys"
+    | "rug-pull"
+    | "other";
+  // ISO date of the loss event. Best-effort — victims rarely have a precise
+  // timestamp, but the day they noticed is good enough.
+  lossDate: string;
+  // Self-claimed USD value lost. Used for the "$X user-reported" counter on
+  // /graph, never the verified totals. Optional — many victims don't know.
+  claimedUsd?: number;
+  // Tx hashes, archive.org snapshots, blockchain explorer links — anything
+  // the curator can use to validate the story.
+  evidenceLinks?: string[];
+  // Mirror of IntelPayload.anonymous. When true, no submitter row attaches —
+  // approval skips the reputation gate (anonymous reports either get
+  // written immediately or rejected by curator) since no rep exists to gate on.
+  anonymous?: boolean;
+};
+
 export type SubmissionPayload =
   | IntelPayload
   | EventPayload
@@ -667,7 +715,8 @@ export type SubmissionPayload =
   | CapitalPayload
   | ResidencyPayload
   | PerksPayload
-  | FellowshipPayload;
+  | FellowshipPayload
+  | LossReportPayload;
 
 export const submissions = pgTable(
   "submissions",
@@ -727,6 +776,15 @@ export const submissions = pgTable(
       () => campaigns.id,
       { onDelete: "set null" },
     ),
+    // Loss-report only. State machine for the reputation gate:
+    //   null            — not a loss_report (or pre-approval)
+    //   'queued'        — approved, but submitter is open-tier; address
+    //                     attributions are NOT written until they cross to
+    //                     contributor. Backfilled by awardContributionPoints
+    //                     on tier promotion.
+    //   'written'       — attributions have been written to address_attributions
+    //   'rejected_low_tier' — reserved; not currently produced
+    graphAttributionStatus: text("graph_attribution_status"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -750,6 +808,11 @@ export const submissions = pgTable(
     // Drives the /contributors/[slug] profile query (every submission tied
     // to a contributor) and the accuracy-score aggregate.
     submitterIdIdx: index("submissions_submitter_id_idx").on(t.submitterId),
+    // Partial index — only loss_report rows ever populate this column. Used
+    // by the tier-promotion backfill to find queued attribution work.
+    graphAttributionStatusIdx: index("submissions_graph_attribution_status_idx").on(
+      t.graphAttributionStatus,
+    ),
   }),
 );
 

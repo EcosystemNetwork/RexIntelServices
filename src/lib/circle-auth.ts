@@ -16,6 +16,7 @@ import {
   meetsTier,
 } from "./clearance";
 import { consumeEmailVerifiedCookie } from "./email-otp";
+import { runQueuedBackfillForSubmitter } from "./loss-report-attribution";
 
 /**
  * Thrown when the caller hasn't completed the email-OTP step before
@@ -612,7 +613,7 @@ export async function awardContributionPoints(args: {
     );
   }
 
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     await tx.insert(contributionEvents).values({
       submitterId: args.submitterId,
       kind: args.kind,
@@ -637,6 +638,23 @@ export async function awardContributionPoints(args: {
 
     return { points: total, tier };
   });
+
+  // Backfill queued loss_report attributions. Cheap no-op when the submitter
+  // either has no queued reports or hasn't crossed the non-loss-report-approval
+  // gate yet. Runs outside the transaction so an attribution-write failure
+  // doesn't roll back the points award the submitter just earned.
+  if (args.kind !== "loss_report_accepted") {
+    try {
+      await runQueuedBackfillForSubmitter(args.submitterId);
+    } catch (err) {
+      console.warn(
+        "[circle-auth] queued loss-report backfill failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  return result;
 }
 
 /**

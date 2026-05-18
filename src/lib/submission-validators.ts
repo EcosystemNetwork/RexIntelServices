@@ -10,6 +10,7 @@ import type {
   ResidencyPayload,
   PerksPayload,
   FellowshipPayload,
+  LossReportPayload,
   SubmissionPayload,
 } from "@/lib/db/schema";
 import { PERSONA_SLUGS, type PersonaSlug } from "@/lib/personas";
@@ -39,7 +40,8 @@ export type SubmissionType =
   | "capital"
   | "residency"
   | "perks"
-  | "fellowship";
+  | "fellowship"
+  | "loss_report";
 
 /** Dispatch by submission type. Useful when the caller has a runtime string. */
 export function validateBySubmissionType(
@@ -69,6 +71,8 @@ export function validateBySubmissionType(
       return validatePerksPayload(raw);
     case "fellowship":
       return validateFellowshipPayload(raw);
+    case "loss_report":
+      return validateLossReportPayload(raw);
   }
 }
 
@@ -133,6 +137,80 @@ export function validateIntelPayload(
       sourceGrade,
       archiveUrl,
       personas,
+    },
+  };
+}
+
+const LOSS_TYPES = [
+  "phishing",
+  "drain",
+  "sim-swap",
+  "exploit",
+  "lost-keys",
+  "rug-pull",
+  "other",
+] as const;
+
+export function validateLossReportPayload(
+  raw: unknown,
+): ValidationResult<LossReportPayload> {
+  if (!raw || typeof raw !== "object") {
+    return { ok: false, error: "payload is required" };
+  }
+  const p = raw as Record<string, unknown>;
+
+  const headline = typeof p.headline === "string" ? p.headline.trim() : "";
+  if (headline.length < 5 || headline.length > 200) {
+    return { ok: false, error: "Headline must be 5–200 characters." };
+  }
+
+  const story = typeof p.story === "string" ? p.story.trim() : "";
+  if (story.length < 50 || story.length > 3000) {
+    return {
+      ok: false,
+      error:
+        "Tell us what happened — at least 50 characters (max 3000). Include dates, services involved, and any tx hashes you have.",
+    };
+  }
+
+  if (!LOSS_TYPES.includes(p.lossType as never)) {
+    return { ok: false, error: "Loss type is required." };
+  }
+  const lossType = p.lossType as LossReportPayload["lossType"];
+
+  const lossDate = typeof p.lossDate === "string" ? p.lossDate.trim() : "";
+  if (!lossDate || isNaN(Date.parse(lossDate))) {
+    return { ok: false, error: "Loss date is required (ISO format)." };
+  }
+  // Reject future-dated losses outright. Off-by-one a few hours of clock skew
+  // is fine; off-by-months suggests a typo or a bad actor padding history.
+  if (Date.parse(lossDate) > Date.now() + 36 * 60 * 60 * 1000) {
+    return { ok: false, error: "Loss date cannot be in the future." };
+  }
+
+  const claimedUsdRaw =
+    typeof p.claimedUsd === "number"
+      ? p.claimedUsd
+      : typeof p.claimedUsd === "string" && p.claimedUsd.trim()
+        ? Number(p.claimedUsd.replace(/[,_$\s]/g, ""))
+        : NaN;
+  const claimedUsd =
+    Number.isFinite(claimedUsdRaw) && claimedUsdRaw >= 0
+      ? Math.min(Math.round(claimedUsdRaw), 10_000_000_000)
+      : undefined;
+
+  const evidenceLinks = sanitizeUrlList(p.evidenceLinks);
+
+  return {
+    ok: true,
+    payload: {
+      headline,
+      story,
+      lossType,
+      lossDate,
+      claimedUsd,
+      evidenceLinks: evidenceLinks.length ? evidenceLinks : undefined,
+      anonymous: p.anonymous === true,
     },
   };
 }

@@ -19,6 +19,7 @@ import {
   validateCapitalPayload,
   validateResidencyPayload,
   validatePerksPayload,
+  validateLossReportPayload,
   sanitizeSingleUrl,
 } from "@/lib/submission-validators";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
@@ -71,7 +72,8 @@ export async function POST(req: NextRequest) {
       | "hackathon"
       | "capital"
       | "residency"
-      | "perks";
+      | "perks"
+      | "loss_report";
     payload?: unknown;
     addresses?: unknown;
     submitterEmail?: string;
@@ -111,13 +113,14 @@ export async function POST(req: NextRequest) {
     "capital",
     "residency",
     "perks",
+    "loss_report",
   ] as const;
   type SubmissionType = (typeof ALL_TYPES)[number];
   if (!body.type || !ALL_TYPES.includes(body.type as SubmissionType)) {
     return NextResponse.json(
       {
         error:
-          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon, capital, residency, perks",
+          "type must be one of: intel, event, job, grant, accelerator, popup_city, hackathon, capital, residency, perks, loss_report",
       },
       { status: 400 },
     );
@@ -146,6 +149,8 @@ export async function POST(req: NextRequest) {
         return validateResidencyPayload(body.payload);
       case "perks":
         return validatePerksPayload(body.payload);
+      case "loss_report":
+        return validateLossReportPayload(body.payload);
     }
   })();
 
@@ -201,12 +206,13 @@ export async function POST(req: NextRequest) {
 
   let submitterHandle = body.submitterHandle?.trim().slice(0, 80) || null;
 
-  // Honor the anonymous contract at the server boundary: if an intel
-  // submission is flagged anonymous, never persist contact info — even if
-  // the client sends it. The form UI hides the inputs already, but a buggy
-  // or malicious client must not be able to bypass that promise.
+  // Honor the anonymous contract at the server boundary: if an intel or
+  // loss_report submission is flagged anonymous, never persist contact
+  // info — even if the client sends it. The form UI hides the inputs
+  // already, but a buggy or malicious client must not be able to bypass
+  // that promise.
   if (
-    submissionType === "intel" &&
+    (submissionType === "intel" || submissionType === "loss_report") &&
     (validation.payload as { anonymous?: boolean }).anonymous === true
   ) {
     submitterEmail = null;
@@ -234,10 +240,14 @@ export async function POST(req: NextRequest) {
     : undefined;
   const eventEndsAt = endsAtRaw ? new Date(endsAtRaw) : null;
 
-  // Address rows are only meaningful for intel submissions. Validate up
-  // front so a bad row fails the whole request before we write anything.
+  // Address rows are meaningful for intel and loss_report submissions
+  // (the latter being the whole point — victims naming the address(es)
+  // that were drained). Validate up front so a bad row fails the whole
+  // request before we write anything.
   const addressInputs =
-    submissionType === "intel" ? sanitizeAddresses(body.addresses) : [];
+    submissionType === "intel" || submissionType === "loss_report"
+      ? sanitizeAddresses(body.addresses)
+      : [];
 
   // Identity resolution order:
   //   1. Anonymous intel → no submitter (whistleblower contract).
@@ -253,7 +263,7 @@ export async function POST(req: NextRequest) {
   // Anonymous-intel always wins so a signed-in user can still file a
   // sensitive tip without it getting tied back to them.
   const isAnonymousIntel =
-    submissionType === "intel" &&
+    (submissionType === "intel" || submissionType === "loss_report") &&
     (validation.payload as { anonymous?: boolean }).anonymous === true;
   let submitterId: string | null = null;
   if (!isAnonymousIntel) {
@@ -317,7 +327,8 @@ export async function POST(req: NextRequest) {
     !!editUrl &&
     !honeypotTripped &&
     !!submitterEmail &&
-    submissionType !== "intel";
+    submissionType !== "intel" &&
+    submissionType !== "loss_report";
 
   const payloadNameFromValidation = String(
     (validation.payload as { name?: string; headline?: string; title?: string }).name ??
@@ -377,7 +388,9 @@ export async function POST(req: NextRequest) {
     message:
       submissionType === "intel"
         ? "Intel received. Our analysts will review and respond as warranted."
-        : `${label} received. We'll review it for the next publication.`,
+        : submissionType === "loss_report"
+          ? "Loss report received. A curator will review and, if verified, add the addresses to the public graph."
+          : `${label} received. We'll review it for the next publication.`,
   });
 }
 

@@ -6,6 +6,8 @@ import { getSession } from "@/lib/auth";
 import { awardContributionPoints } from "@/lib/circle-auth";
 import { pointsKindForSubmission } from "@/lib/clearance";
 import { awardCitationCredit } from "@/lib/citation-awards";
+import { processLossReportApproval } from "@/lib/loss-report-attribution";
+import type { LossReportPayload } from "@/lib/db/schema";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
 
 /**
@@ -105,11 +107,31 @@ export async function POST(
       console.warn("[review] citation credit failed:", err);
     }
   }
+  // Loss-report attribution: either write community-loss-report rows to the
+  // address graph now, or mark the submission queued for backfill when the
+  // open-tier submitter eventually earns a verified contribution.
+  let graphAttribution: "written" | "queued" | null = null;
+  if (isFirstApproval && row.type === "loss_report") {
+    try {
+      graphAttribution = await processLossReportApproval({
+        submissionId: row.id,
+        submitterId: row.submitterId,
+        payload: row.payload as LossReportPayload,
+      });
+    } catch (err) {
+      console.warn("[review] loss-report attribution failed:", err);
+    }
+  }
 
   // Flush cached listing queries so the new state of this row is visible
   // immediately on /events, /jobs, /hackathons etc. without waiting for the
   // 5-minute revalidate backstop.
   revalidateTag(SUBMISSIONS_TAG);
 
-  return NextResponse.json({ submission: row, award, citationsAwarded });
+  return NextResponse.json({
+    submission: row,
+    award,
+    citationsAwarded,
+    graphAttribution,
+  });
 }

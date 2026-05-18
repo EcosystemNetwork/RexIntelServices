@@ -67,6 +67,7 @@ export default async function GraphPage({
     chain?: string;
     view?: string;
     category?: string;
+    user_reported?: string;
   };
 }) {
   const filters: GraphFilters = {
@@ -75,6 +76,7 @@ export default async function GraphPage({
     chain: searchParams.chain ?? null,
     view: searchParams.view ?? "incidents",
     category: searchParams.category ?? null,
+    includeUserReported: searchParams.user_reported === "1",
   };
   const [data, lostStats, valueStats] = await Promise.all([
     fetchGraphData(filters),
@@ -120,6 +122,7 @@ export default async function GraphPage({
           chain={filters.chain ?? ""}
           view={filters.view ?? "incidents"}
           category={filters.category ?? ""}
+          includeUserReported={filters.includeUserReported === true}
         />
 
         <GraphCanvas data={data} />
@@ -145,12 +148,14 @@ function FilterBar({
   chain,
   view,
   category,
+  includeUserReported,
 }: {
   window: string;
   kind: string;
   chain: string;
   view: string;
   category: string;
+  includeUserReported: boolean;
 }) {
   return (
     <form
@@ -226,6 +231,23 @@ function FilterBar({
             </option>
           ))}
         </select>
+      </FilterGroup>
+
+      <FilterGroup label="Sources">
+        <label
+          className="flex items-center gap-2 cursor-pointer text-[11px]"
+          style={{ color: "var(--rex-text-muted)" }}
+          title="User-reported losses are firsthand victim claims, not verified by sanctions lists or curators. Off by default."
+        >
+          <input
+            type="checkbox"
+            name="user_reported"
+            value="1"
+            defaultChecked={includeUserReported}
+            className="accent-[var(--rex-accent)]"
+          />
+          Include user-reported
+        </label>
       </FilterGroup>
 
       <div className="ml-auto flex items-center gap-2">

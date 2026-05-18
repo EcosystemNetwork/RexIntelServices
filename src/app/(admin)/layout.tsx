@@ -67,6 +67,9 @@ export default async function AdminLayout({
           <NavLink href="/suppressions" icon="⊘">
             Suppressions
           </NavLink>
+          <NavLink href="/hermes" icon="⌬">
+            Hermes
+          </NavLink>
         </nav>
 
         {/* Footer: hidden on mobile (logout reachable via desktop), shown md+ */}
