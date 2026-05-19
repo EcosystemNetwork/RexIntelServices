@@ -14,10 +14,14 @@ export async function GET(
 ) {
   const sendId = params.id;
 
-  // Fire-and-forget: don't block the pixel response
-  recordOpen(sendId).catch((err) =>
-    console.error("[track open]", err),
-  );
+  // Await the tracking write. Fire-and-forget loses opens on Vercel
+  // cold-start termination; the pixel render is invisible to the user
+  // either way, so the extra ~50ms is harmless.
+  try {
+    await recordOpen(sendId);
+  } catch (err) {
+    console.error("[track open]", err);
+  }
 
   return new NextResponse(PIXEL, {
     status: 200,

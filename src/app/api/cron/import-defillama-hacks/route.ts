@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
+import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 /**
  * GET /api/cron/import-defillama-hacks
@@ -210,6 +211,11 @@ export async function GET(req: Request) {
 
   const res = await fetch(DEFILLAMA_HACKS_URL);
   if (!res.ok) {
+    await sendOpsAlert({
+      key: "import-defillama-hacks:fetch_failed",
+      subject: "[Ops] DefiLlama hacks import failed",
+      message: `Fetch failed: HTTP ${res.status} from ${DEFILLAMA_HACKS_URL}`,
+    });
     return NextResponse.json(
       {
         ok: false,

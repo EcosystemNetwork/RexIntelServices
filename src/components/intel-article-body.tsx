@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { Children, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -29,7 +30,7 @@ export function IntelArticleBody({
         className={`text-[var(--rex-text-muted)] leading-relaxed whitespace-pre-wrap ${className ?? ""}`}
         style={{ fontSize: "15px" }}
       >
-        {body}
+        {linkifyEvmRefs(body)}
       </div>
     );
   }
@@ -80,7 +81,11 @@ export function IntelArticleBody({
  */
 function addressExplorerHref(text: string): string | null {
   const trimmed = text.trim();
-  // EVM: 0x + 40 hex chars
+  // EVM tx hash: 0x + 64 hex chars
+  if (/^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
+    return `https://etherscan.io/tx/${trimmed}`;
+  }
+  // EVM address: 0x + 40 hex chars
   if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
     return `https://etherscan.io/address/${trimmed}`;
   }
@@ -97,6 +102,52 @@ function addressExplorerHref(text: string): string | null {
     return `https://solscan.io/account/${trimmed}`;
   }
   return null;
+}
+
+/**
+ * Linkify bare EVM references (addresses + tx hashes) inside free-flowing
+ * text. Matches `0x` + 64 hex (tx) or `0x` + 40 hex (address) as standalone
+ * tokens — bounded by non-hex-word chars so we don't slice into longer hex
+ * runs. EVM-only by design: BTC/Solana patterns are too lenient to apply to
+ * prose without false positives, so authors should backtick those.
+ */
+const EVM_REF_RE = /(?<![0-9a-fA-F])0x[a-fA-F0-9]{64}(?![0-9a-fA-F])|(?<![0-9a-fA-F])0x[a-fA-F0-9]{40}(?![0-9a-fA-F])/g;
+
+function linkifyEvmRefs(input: string): ReactNode {
+  EVM_REF_RE.lastIndex = 0;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = EVM_REF_RE.exec(input)) !== null) {
+    if (m.index > last) parts.push(input.slice(last, m.index));
+    const v = m[0];
+    const href =
+      v.length === 66
+        ? `https://etherscan.io/tx/${v}`
+        : `https://etherscan.io/address/${v}`;
+    parts.push(
+      <a
+        key={`evm-${key++}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-mono text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:decoration-solid break-all"
+      >
+        {v}
+      </a>,
+    );
+    last = m.index + v.length;
+  }
+  if (last === 0) return input;
+  if (last < input.length) parts.push(input.slice(last));
+  return parts;
+}
+
+function linkifyChildren(children: ReactNode): ReactNode {
+  return Children.map(children, (child) =>
+    typeof child === "string" ? linkifyEvmRefs(child) : child,
+  );
 }
 
 const INTEL_MD_COMPONENTS: Components = {
@@ -151,7 +202,7 @@ const INTEL_MD_COMPONENTS: Components = {
   ),
   p: ({ children }) => (
     <p className="text-[var(--rex-text-muted)] leading-relaxed my-4" style={{ fontSize: "15px" }}>
-      {children}
+      {linkifyChildren(children)}
     </p>
   ),
   ul: ({ children }) => (
@@ -164,13 +215,13 @@ const INTEL_MD_COMPONENTS: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  li: ({ children }) => <li className="leading-relaxed">{linkifyChildren(children)}</li>,
   blockquote: ({ children }) => (
     <blockquote
       className="border-l-2 pl-4 my-5 italic text-[var(--rex-text-muted)]"
       style={{ borderColor: "var(--rex-accent)", fontSize: "15px" }}
     >
-      {children}
+      {linkifyChildren(children)}
     </blockquote>
   ),
   code: ({ children, className }) => {
@@ -261,10 +312,11 @@ const INTEL_MD_COMPONENTS: Components = {
       className="px-3 py-2 border-b align-top text-[var(--rex-text-muted)]"
       style={{ borderColor: "var(--rex-border-subtle)" }}
     >
-      {children}
+      {linkifyChildren(children)}
     </td>
   ),
   strong: ({ children }) => (
-    <strong className="text-[var(--rex-text)] font-semibold">{children}</strong>
+    <strong className="text-[var(--rex-text)] font-semibold">{linkifyChildren(children)}</strong>
   ),
+  em: ({ children }) => <em>{linkifyChildren(children)}</em>,
 };

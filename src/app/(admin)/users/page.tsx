@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { explorerUrl } from "@/lib/chains";
 
 interface Contributor {
   id: string;
@@ -240,18 +241,39 @@ export default function UsersPage() {
                     style={{ color: "var(--rex-text-muted)" }}
                   >
                     {r.walletAddress ? (
-                      <span title={r.walletAddress}>
-                        {r.walletAddress.slice(0, 6)}…
-                        {r.walletAddress.slice(-4)}
-                        {r.walletChain && r.walletChain !== "ethereum" && (
-                          <span
-                            className="ml-1.5 text-[10px] uppercase"
-                            style={{ color: "var(--rex-text-dim)" }}
+                      (() => {
+                        const href = explorerUrl(
+                          r.walletChain ?? "ethereum",
+                          r.walletAddress,
+                        );
+                        const inner = (
+                          <>
+                            {r.walletAddress.slice(0, 6)}…
+                            {r.walletAddress.slice(-4)}
+                            {r.walletChain && r.walletChain !== "ethereum" && (
+                              <span
+                                className="ml-1.5 text-[10px] uppercase"
+                                style={{ color: "var(--rex-text-dim)" }}
+                              >
+                                {r.walletChain}
+                              </span>
+                            )}
+                          </>
+                        );
+                        return href ? (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={r.walletAddress}
+                            className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:decoration-solid"
                           >
-                            {r.walletChain}
-                          </span>
-                        )}
-                      </span>
+                            {inner}
+                          </a>
+                        ) : (
+                          <span title={r.walletAddress}>{inner}</span>
+                        );
+                      })()
                     ) : (
                       <span style={{ color: "var(--rex-text-dim)" }}>
                         no wallet

@@ -151,7 +151,7 @@ async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
-        "RexIntel/1.0 (intel graph harvester; rexintelservices@proton.me)",
+        "RexIntel/1.0 (intel graph harvester; https://rexintelservices.com)",
       Accept: "application/json,application/x-ndjson,*/*",
     },
     cache: "no-store",

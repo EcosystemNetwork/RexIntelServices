@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/json-ld";
 import { ProxiedImage } from "@/components/proxied-image";
 import { absoluteUrl } from "@/lib/site-url";
 import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
+import { SubmissionVoteStack } from "@/components/submission-vote-stack";
 
 export const dynamic = "force-dynamic";
 
@@ -204,6 +205,8 @@ export default async function PopUpCityDetailPage({
             )}
           </div>
         </article>
+
+        <SubmissionVoteStack submissionId={row.id} publicId={realId} />
       </main>
     </PublicShell>
   );

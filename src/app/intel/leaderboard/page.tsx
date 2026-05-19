@@ -2,9 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { desc } from "drizzle-orm";
 import { db, monthlyPrizes } from "@/lib/db";
-import type { IntelPayload } from "@/lib/db/schema";
+import type { SubmissionPayload } from "@/lib/db/schema";
 import { PublicShell } from "@/components/public-shell";
-import { detailHref } from "@/lib/slug";
 import {
   fetchPoolBalance,
   getPrizePoolConfig,
@@ -13,20 +12,29 @@ import {
   monthBounds,
   getMonthlyTopIntel,
 } from "@/lib/prize-pool";
+import {
+  submissionTitle,
+  submissionDetailHref,
+  submissionTypeLabel,
+  submissionIsAnonymous,
+  type SubmissionType,
+} from "@/lib/submission-display";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Leaderboard & Prize Pool — Rex Intel Services",
   description:
-    "Community-funded monthly prize pool. The top intel posts each month split the payout. Vote on what matters; donate to grow the pot.",
+    "Community-funded monthly prize pool. The top community submissions each month — intel, capital, fellowships, grants, perks, events — split the payout. Vote on what matters; donate to grow the pot.",
 };
 
 type LeaderRow = {
   rank: number;
   publicId: string;
+  type: SubmissionType;
+  href: string;
   headline: string;
-  kind: string;
+  laneLabel: string;
   submitterHandle: string | null;
   anonymous: boolean;
   voteCount: number;
@@ -51,14 +59,17 @@ export default async function LeaderboardPage() {
   ]);
 
   const leaders: LeaderRow[] = leaderRows.map((r, i) => {
-    const p = r.payload as IntelPayload;
+    const type = r.type as SubmissionType;
+    const payload = r.payload as SubmissionPayload;
     return {
       rank: i + 1,
       publicId: r.publicId,
-      headline: p.headline,
-      kind: p.kind ?? "tip",
+      type,
+      href: submissionDetailHref(type, r.publicId, payload),
+      headline: submissionTitle(type, payload),
+      laneLabel: submissionTypeLabel(type),
       submitterHandle: r.submitterHandle,
-      anonymous: p.anonymous === true,
+      anonymous: submissionIsAnonymous(type, payload),
       voteCount: r.voteCount,
     };
   });
@@ -91,10 +102,12 @@ export default async function LeaderboardPage() {
             className="text-base leading-relaxed max-w-2xl"
             style={{ color: "var(--rex-text-muted)" }}
           >
-            Donors fund the pool. Operators vote. The top three intel posts
-            each month split <strong className="text-[var(--rex-text)]">80%</strong> of
-            the pool (60/30/10); the remaining 20% rolls to next month so the
-            pot never empties.
+            Donors fund the pool. Operators vote. The top three community
+            submissions each month — intel, capital, fellowships, grants,
+            perks, events, anything you drop via /submit — split{" "}
+            <strong className="text-[var(--rex-text)]">80%</strong> of the
+            pool (60/30/10); the remaining 20% rolls to next month so the pot
+            never empties.
           </p>
         </header>
 
@@ -203,8 +216,8 @@ export default async function LeaderboardPage() {
               className="rex-card-flat p-12 text-center"
               style={{ color: "var(--rex-text-dim)" }}
             >
-              No intel published this month yet. Be the first to drop a
-              tip, original, or postmortem.
+              No community submissions published this month yet. Be the first
+              — drop intel, a fund, a fellowship, anything via /submit.
             </div>
           ) : (
             <ol className="space-y-2">
@@ -213,7 +226,7 @@ export default async function LeaderboardPage() {
                 return (
                   <li key={row.publicId}>
                     <Link
-                      href={detailHref("/intel", row.publicId, row.headline)}
+                      href={row.href}
                       className={`rex-card flex items-center gap-4 px-5 py-4 hover:bg-[var(--rex-surface-2)] transition-colors ${
                         podium ? "border-[var(--rex-accent)]" : ""
                       }`}
@@ -236,7 +249,7 @@ export default async function LeaderboardPage() {
                           style={{ color: "var(--rex-text-dim)" }}
                         >
                           <span className="uppercase tracking-widest">
-                            {row.kind}
+                            {row.laneLabel}
                           </span>
                           <span>·</span>
                           <span>
@@ -249,7 +262,7 @@ export default async function LeaderboardPage() {
                           {row.anonymous && (
                             <span
                               className="ml-1"
-                              title="Anonymous intel earns points but can't claim prizes"
+                              title="Anonymous submissions earn points but can't claim prizes"
                               style={{ color: "var(--rex-text-dim)" }}
                             >
                               · prize ineligible
@@ -291,8 +304,9 @@ export default async function LeaderboardPage() {
             </li>
             <li>
               <strong className="text-[var(--rex-text)]">2.</strong> Operators vote on
-              intel that&apos;s published this month. Magic-link confirm — one
-              vote per email per intel.
+              any community submission published this month — intel, capital,
+              fellowships, grants, perks, events. Magic-link confirm — one
+              vote per email per submission.
             </li>
             <li>
               <strong className="text-[var(--rex-text)]">3.</strong> At month end, the
@@ -301,8 +315,9 @@ export default async function LeaderboardPage() {
             </li>
             <li>
               <strong className="text-[var(--rex-text)]">4.</strong> Winners with a
-              listed submitter email are contacted directly. Anonymous intel
-              earns points but the prize rolls — no contact, no payout.
+              listed submitter email are contacted directly. Anonymous
+              submissions earn points but the prize rolls — no contact, no
+              payout.
             </li>
           </ul>
           <p

@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/json-ld";
 import { ProgramHero } from "@/components/program-hero";
 import { absoluteUrl } from "@/lib/site-url";
 import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
+import { SubmissionVoteStack } from "@/components/submission-vote-stack";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +163,8 @@ export default async function AcceleratorDetailPage({
             </a>
           )}
         </article>
+
+        <SubmissionVoteStack submissionId={row.id} publicId={realId} />
       </main>
     </PublicShell>
   );

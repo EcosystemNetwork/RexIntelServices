@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, submissions, voteTokens, suppressions } from "@/lib/db";
-import type { IntelPayload } from "@/lib/db/schema";
+import type { SubmissionPayload } from "@/lib/db/schema";
+import {
+  submissionTitle,
+  type SubmissionType,
+} from "@/lib/submission-display";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { sendVoteMagicLinkEmail } from "@/lib/email/vote-magic-link-email";
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   const publicId = body.publicId?.toLowerCase().trim();
   if (!publicId || !/^[0-9a-f]{16}$/.test(publicId)) {
-    return NextResponse.json({ error: "Invalid intel reference." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid submission reference." }, { status: 400 });
   }
 
   // Per-(email, intel) ceiling — one token request per email per intel per
@@ -126,21 +130,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Validate the intel BEFORE the suppression check so a non-suppressed and
-  // a suppressed email at the same valid intel do roughly equal DB work.
-  // (Some residual timing leak remains because only the non-suppressed path
-  // does the token insert + Resend dispatch; the dispatch is fire-and-forget
-  // so its cost is largely off the response timeline.)
+  // Validate the submission BEFORE the suppression check so a non-suppressed
+  // and a suppressed email at the same valid submission do roughly equal DB
+  // work. (Some residual timing leak remains because only the non-suppressed
+  // path does the token insert + Resend dispatch; the dispatch is fire-and-
+  // forget so its cost is largely off the response timeline.)
+  //
+  // Accepts any approved community submission type except loss_report, which
+  // is walled off from the prize pool by design (victim self-reports are not
+  // editorial intel).
   const [intel] = await db
     .select({
       id: submissions.id,
+      type: submissions.type,
       payload: submissions.payload,
     })
     .from(submissions)
     .where(
       and(
         eq(submissions.publicId, publicId),
-        eq(submissions.type, "intel"),
+        ne(submissions.type, "loss_report"),
         eq(submissions.status, "approved"),
       ),
     )
@@ -148,7 +157,7 @@ export async function POST(req: NextRequest) {
 
   if (!intel) {
     return NextResponse.json(
-      { error: "That intel doesn't exist or isn't live." },
+      { error: "That submission doesn't exist or isn't live." },
       { status: 404 },
     );
   }
@@ -165,7 +174,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: true });
   }
 
-  const headline = (intel.payload as IntelPayload).headline;
+  const headline = submissionTitle(
+    intel.type as SubmissionType,
+    intel.payload as SubmissionPayload,
+  );
 
   // Burn a fresh single-use token. 24 bytes = 192 bits of entropy. The
   // raw token only ever exists in the email link — DB stores sha256(token)

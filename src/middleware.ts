@@ -160,7 +160,8 @@ export async function middleware(req: NextRequest) {
         error: "ai_agent_blocked",
         message:
           "RexIntel does not allow AI-crawler access to the public HTML surface. Use the paid agent API (coming soon) for programmatic data access.",
-        humans: "If you're seeing this, please email rexintelservices@proton.me",
+        humans:
+          "If you're seeing this in error or want to report content / request a takedown, email rexintelservices@proton.me or DM https://x.com/rexintelservice",
       }),
       {
         status: 403,

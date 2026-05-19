@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { detailHref } from "@/lib/slug";
+import { explorerUrl } from "@/lib/chains";
 import type {
   GraphData,
   GraphEdge,
@@ -359,7 +360,21 @@ function SelectedDetail({
             {sourceLabel ? ` · ${sourceLabel}` : ""}
           </div>
           <div className="font-mono text-xs text-[var(--rex-text)] mt-1 break-all">
-            {node.address}
+            {(() => {
+              const href = explorerUrl(node.chain, node.address);
+              return href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--rex-accent-2)] underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                >
+                  {node.address}
+                </a>
+              ) : (
+                node.address
+              );
+            })()}
           </div>
           {node.ownerName && (
             <div className="text-sm text-[var(--rex-text)] mt-1 font-semibold">

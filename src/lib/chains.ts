@@ -86,6 +86,52 @@ export function explorerUrl(chain: string, address: string): string | null {
   }
 }
 
+/**
+ * Best-effort block-explorer URL for a transaction hash on the given chain.
+ * Mirrors `explorerUrl` but for tx pages. Returns null for chains without a
+ * known tx explorer path.
+ */
+export function txExplorerUrl(chain: string, txHash: string): string | null {
+  switch (chain) {
+    case "ethereum":
+      return `https://etherscan.io/tx/${txHash}`;
+    case "bitcoin":
+      return `https://mempool.space/tx/${txHash}`;
+    case "solana":
+      return `https://solscan.io/tx/${txHash}`;
+    case "tron":
+      return `https://tronscan.org/#/transaction/${txHash}`;
+    case "bsc":
+      return `https://bscscan.com/tx/${txHash}`;
+    case "polygon":
+      return `https://polygonscan.com/tx/${txHash}`;
+    case "arbitrum":
+      return `https://arbiscan.io/tx/${txHash}`;
+    case "optimism":
+      return `https://optimistic.etherscan.io/tx/${txHash}`;
+    case "base":
+      return `https://basescan.org/tx/${txHash}`;
+    case "avalanche":
+      return `https://snowtrace.io/tx/${txHash}`;
+    case "ton":
+      return `https://tonscan.org/tx/${txHash}`;
+    case "near":
+      return `https://nearblocks.io/txns/${txHash}`;
+    case "sui":
+      return `https://suiscan.xyz/mainnet/tx/${txHash}`;
+    case "aptos":
+      return `https://explorer.aptoslabs.com/txn/${txHash}`;
+    case "ripple":
+      return `https://xrpscan.com/tx/${txHash}`;
+    case "litecoin":
+      return `https://litecoinspace.org/tx/${txHash}`;
+    case "casper":
+      return `https://cspr.live/deploy/${txHash}`;
+    default:
+      return null;
+  }
+}
+
 /** Display label for a chain slug, falling back to the slug capitalized. */
 export function chainLabel(slug: string): string {
   const c = SUPPORTED_CHAINS.find((x) => x.slug === slug);

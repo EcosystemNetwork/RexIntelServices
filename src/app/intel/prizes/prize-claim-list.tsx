@@ -161,7 +161,7 @@ export function PrizeClaimList() {
       <div className="rex-card p-5">
         <p className="text-sm text-[var(--rex-text)]">
           Sign in to see your prize history. Use the Sign in button in the
-          header — same email you submitted intel with.
+          header — same email you submitted with.
         </p>
       </div>
     );
@@ -298,8 +298,8 @@ export function PrizeClaimList() {
             className="text-sm mt-2"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            Submit intel that lands in the monthly top 5 and the next
-            settlement on the 1st will pay your wallet.
+            Drop a submission via /submit that lands in the monthly top 5
+            and the next settlement on the 1st will pay your wallet.
           </p>
         </div>
       )}

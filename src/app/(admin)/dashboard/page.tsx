@@ -10,7 +10,7 @@ import {
   intelAddresses,
   PERSONA_LABELS,
   type PersonaSlug,
-  type IntelPayload,
+  type SubmissionPayload,
 } from "@/lib/db";
 import Link from "next/link";
 import {
@@ -19,6 +19,12 @@ import {
   currentYearMonth,
   getMonthlyTopIntel,
 } from "@/lib/prize-pool";
+import {
+  submissionTitle,
+  submissionTypeLabel,
+  submissionIsAnonymous,
+  type SubmissionType,
+} from "@/lib/submission-display";
 
 export const dynamic = "force-dynamic";
 
@@ -223,8 +229,10 @@ export default async function Dashboard() {
             ) : (
               <ol className="space-y-2">
                 {monthTop3.map((row, i) => {
-                  const p = row.payload as IntelPayload;
-                  const isAnonymous = p.anonymous === true;
+                  const type = row.type as SubmissionType;
+                  const payload = row.payload as SubmissionPayload;
+                  const title = submissionTitle(type, payload);
+                  const isAnonymous = submissionIsAnonymous(type, payload);
                   return (
                     <li
                       key={row.publicId}
@@ -240,7 +248,13 @@ export default async function Dashboard() {
                         href={`/submissions?q=${row.publicId}`}
                         className="flex-1 min-w-0 text-white hover:text-[var(--rex-accent)] truncate"
                       >
-                        {p.headline}
+                        <span
+                          className="font-mono text-[10px] uppercase tracking-widest mr-1.5"
+                          style={{ color: "var(--rex-text-dim)" }}
+                        >
+                          {submissionTypeLabel(type)}
+                        </span>
+                        {title}
                       </Link>
                       <span
                         className="font-mono text-[11px]"

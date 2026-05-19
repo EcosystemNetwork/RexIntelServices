@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
+import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 /**
  * GET /api/cron/import-rekt-leaderboard
@@ -215,7 +216,7 @@ export async function GET(req: Request) {
     const res = await fetch(REKT_URL, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; RexIntel-importer/1.0; +https://rexintel.com)",
+          "Mozilla/5.0 (compatible; RexIntel-importer/1.0; +https://rexintelservices.com)",
       },
     });
     if (!res.ok) {
@@ -244,11 +245,17 @@ export async function GET(req: Request) {
     }
     entries = lb;
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await sendOpsAlert({
+      key: "import-rekt-leaderboard:fetch_threw",
+      subject: "[Ops] REKT leaderboard import failed",
+      message: `Fetch / parse threw before processing entries.\n\n${message}`,
+    });
     return NextResponse.json(
       {
         ok: false,
         error: "rekt_fetch_threw",
-        message: err instanceof Error ? err.message : String(err),
+        message,
       },
       { status: 502 },
     );

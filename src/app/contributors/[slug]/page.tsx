@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/json-ld";
 import { detailHref } from "@/lib/slug";
 import { absoluteUrl } from "@/lib/site-url";
 import { TIER_THRESHOLDS } from "@/lib/clearance";
+import { explorerUrl } from "@/lib/chains";
 
 export const dynamic = "force-dynamic";
 
@@ -250,9 +251,27 @@ export default async function ContributorPage({
               ◆ {tierLabel}
             </span>
           </div>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-4 leading-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-[var(--rex-text)] mb-2 leading-tight">
             @{name}
           </h1>
+          {!contributor.displayHandle && contributor.walletAddress
+            ? (() => {
+                const href = explorerUrl("ethereum", contributor.walletAddress);
+                return href ? (
+                  <div className="mb-4 text-[10px] font-mono uppercase tracking-widest">
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                      title={contributor.walletAddress}
+                    >
+                      Etherscan ↗
+                    </a>
+                  </div>
+                ) : null;
+              })()
+            : null}
 
           {contributor.bio && (
             <p

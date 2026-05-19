@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { Turnstile } from "@/components/turnstile";
 
 /**
- * Voting widget for the intel detail page.
+ * Voting widget for any community submission detail page. The API routes
+ * remain under /api/intel/vote/* for backwards compatibility, but the
+ * server accepts any approved submission type (intel, capital, fellowship,
+ * grant, perks, etc.) — loss_report is the only excluded type.
  *
  * Three states:
  *   "idle"          — initial; shows current count + "Vote" button

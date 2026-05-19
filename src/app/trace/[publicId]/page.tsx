@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { asc, eq } from "drizzle-orm";
 import { db, hackTraces, hackTraceHops, addresses } from "@/lib/db";
 import { PublicShell } from "@/components/public-shell";
-import { explorerUrl } from "@/lib/chains";
+import { explorerUrl, txExplorerUrl } from "@/lib/chains";
 
 export const dynamic = "force-dynamic";
 
@@ -343,6 +343,20 @@ function HopRow({ hop, chain }: { hop: TraceHop; chain: string }) {
       >
         {hop.toLabel ?? toShort}
       </Link>
+      {(() => {
+        const addrHref = explorerUrl(chain, toAddr);
+        return addrHref ? (
+          <a
+            href={addrHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-text)]"
+            title={toAddr}
+          >
+            explorer ↗
+          </a>
+        ) : null;
+      })()}
       {categoryTag ? (
         <span
           className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
@@ -360,14 +374,19 @@ function HopRow({ hop, chain }: { hop: TraceHop; chain: string }) {
           (~${Number(hop.amountUsd).toLocaleString()})
         </span>
       ) : null}
-      <a
-        href={`https://etherscan.io/tx/${hop.txHash}`}
-        target="_blank"
-        rel="noreferrer"
-        className="text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] ml-auto"
-      >
-        tx ↗
-      </a>
+      {(() => {
+        const txHref = txExplorerUrl(chain, hop.txHash) ?? `https://etherscan.io/tx/${hop.txHash}`;
+        return (
+          <a
+            href={txHref}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] ml-auto"
+          >
+            tx ↗
+          </a>
+        );
+      })()}
       {terminalLabel ? (
         <span
           className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-sm"

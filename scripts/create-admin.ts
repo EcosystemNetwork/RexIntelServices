@@ -5,7 +5,7 @@
  * the FK targets used by review/award routes exist before that email
  * ever signs in. Authentication itself is Magic-Link OTP — there is
  * no password — but the allowlist is env-driven via OPERATOR_EMAILS
- * (defaulting to `rexintelservices@proton.me`).
+ * (required; the script aborts if the email isn't on the allowlist).
  *
  * The script is optional: `findOrCreateOperatorUser` upserts on first
  * Magic-Link login too. Use this when you want the row to exist ahead

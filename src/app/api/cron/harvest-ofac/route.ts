@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { harvestOfac } from "@/lib/harvesters/ofac";
+import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 /**
  * GET /api/cron/harvest-ofac
@@ -25,9 +26,15 @@ export async function GET(req: Request) {
     );
     return NextResponse.json({ ok: true, durationMs: Date.now() - startedAt, ...result });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[harvest-ofac] failed:", err);
+    await sendOpsAlert({
+      key: "harvest-ofac:errored",
+      subject: "[Ops] OFAC harvester failed",
+      message: `OFAC SDN harvest threw after ${Date.now() - startedAt}ms.\n\n${message}`,
+    });
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: message },
       { status: 500 },
     );
   }

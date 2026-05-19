@@ -10,12 +10,14 @@ import { JsonLd } from "@/components/json-ld";
 import { ProxiedImage } from "@/components/proxied-image";
 import { absoluteUrl } from "@/lib/site-url";
 import { parsePublicId, detailSegment, detailHref } from "@/lib/slug";
+import { SubmissionVoteStack } from "@/components/submission-vote-stack";
 
 export const dynamic = "force-dynamic";
 
 const loadEvent = cache(async (publicId: string) => {
   const [row] = await db
     .select({
+      id: submissions.id,
       payload: submissions.payload,
       submitterHandle: submissions.submitterHandle,
       submitterSlug: submitters.slug,
@@ -303,6 +305,8 @@ export default async function EventDetailPage({
             )}
           </p>
         )}
+
+        <SubmissionVoteStack submissionId={row.id} publicId={realId} />
       </main>
     </PublicShell>
   );

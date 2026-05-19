@@ -151,7 +151,7 @@ const OFAC_MAX_BYTES = 120 * 1024 * 1024;
 async function fetchXml(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "RexIntel/1.0 (intel graph harvester; rexintelservices@proton.me)",
+      "User-Agent": "RexIntel/1.0 (intel graph harvester; https://rexintelservices.com)",
       Accept: "application/xml,text/xml,*/*",
     },
     cache: "no-store",

@@ -5,6 +5,7 @@ import type {
   BountyClaimEvidence,
   BountyClaimRejectionReason,
 } from "@/lib/db/schema";
+import { explorerUrl } from "@/lib/chains";
 
 type ClaimRow = {
   claimPublicId: string;
@@ -261,14 +262,28 @@ function ClaimCard({
               {claim.evidence.chain ? ` · ${claim.evidence.chain}` : ""}
             </div>
             <ul className="space-y-1">
-              {claim.evidence.targetAddresses.map((a) => (
-                <li
-                  key={a}
-                  className="text-[11px] font-mono text-[var(--rex-text-muted)] break-all"
-                >
-                  {a}
-                </li>
-              ))}
+              {claim.evidence.targetAddresses.map((a) => {
+                const href = explorerUrl(claim.evidence.chain ?? "ethereum", a);
+                return (
+                  <li
+                    key={a}
+                    className="text-[11px] font-mono text-[var(--rex-text-muted)] break-all"
+                  >
+                    {href ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                      >
+                        {a}
+                      </a>
+                    ) : (
+                      a
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
           {claim.evidence.suspectedEntity ? (

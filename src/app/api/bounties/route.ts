@@ -16,6 +16,7 @@ import {
   bountyAccessUrl,
   sendBountyFundingEmail,
 } from "@/lib/email/bounty-funding-email";
+import { getOnchainEscrowConfig, uuidToKey } from "@/lib/bounty-escrow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,11 +105,11 @@ export async function GET(req: NextRequest) {
 // =====================================================================
 
 export async function POST(req: NextRequest) {
-  // Custody-rail kill switch. Circle DCW was ripped 2026-05-18; the
-  // replacement rail isn't picked yet, so accepting new bounties would
-  // create dead rows the victim can never fund. Flip the env to "true"
-  // once the new escrow rail (Privy / self-custody EOA / on-chain
-  // escrow contract) ships.
+  // Custody-rail kill switch. Set BOUNTY_CUSTODY_RAIL_ENABLED=true in
+  // Vercel once the BountyEscrow contract is deployed and
+  // BOUNTY_ESCROW_ADDRESS is set. The flag + address both must be set —
+  // if the flag is on but the address is missing we'd hand the victim
+  // a half-formed funding URL with no contract to send to.
   if (process.env.BOUNTY_CUSTODY_RAIL_ENABLED !== "true") {
     return NextResponse.json(
       {
@@ -116,6 +117,18 @@ export async function POST(req: NextRequest) {
         error: "custody_rail_disabled",
         message:
           "Bounty creation is temporarily paused while the escrow rail is rebuilt.",
+      },
+      { status: 503 },
+    );
+  }
+  const escrowConfig = getOnchainEscrowConfig();
+  if (!escrowConfig.contractAddress) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "custody_rail_misconfigured",
+        message:
+          "BOUNTY_CUSTODY_RAIL_ENABLED is true but BOUNTY_ESCROW_ADDRESS is unset.",
       },
       { status: 503 },
     );
@@ -282,16 +295,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Escrow rail is currently un-wired. Circle DCW was removed when we moved
-  // off Circle entirely; a replacement custody answer (Privy server wallets,
-  // self-custody EOA, or an on-chain escrow contract) hasn't been picked
-  // yet. Bounty rows still create — the public listing renders the offer —
-  // but no on-chain escrow exists for them, so payouts cannot fire. The
-  // create response carries a warning flag the client can surface to the
-  // victim. See project_recovery_bounties_v1 memory for the v1.1 plan.
-  const escrowAddress: string | null = null;
-  const walletProvisionWarning =
-    "custody_rail_pending: bounty escrow rail is being rebuilt; payouts not available yet";
+  // On-chain escrow rail (BountyEscrow contract on Base). The bountyKey is
+  // a bytes32 derived deterministically from the row UUID — the contract
+  // doesn't interpret the key, it's just an opaque slot in `principal[]`.
+  // The victim funds via two txs (USDC.approve + escrow.fundBounty) which
+  // the funding email + /bounties/[publicId]/fund page surface.
+  const bountyKey = uuidToKey(created.id);
+  const blockchainLabel = escrowConfig.chainId === 84532 ? "BASE-SEPOLIA" : "BASE";
 
   // Send funding-instructions email. Non-fatal: if Resend is down or env
   // isn't set we still return the access token in the response so the UI
@@ -304,8 +314,10 @@ export async function POST(req: NextRequest) {
       accessUrl,
       fundingAmountUsdc:
         kind === "recovery" ? null : (body.flatAmountUsdc as number),
-      depositAddress: escrowAddress,
-      blockchain: "BASE",
+      escrowAddress: escrowConfig.contractAddress,
+      usdcAddress: escrowConfig.tokenContract,
+      bountyKey,
+      blockchain: blockchainLabel,
       victimVerified: victimVerifiedAt != null,
     });
   } catch (err) {
@@ -327,8 +339,12 @@ export async function POST(req: NextRequest) {
     victimVerified: victimVerifiedAt != null,
     // Returned ONCE — store it client-side or in email immediately.
     victimAccessToken: accessToken.raw,
-    escrowAddress,
-    walletProvisionWarning,
+    escrow: {
+      contractAddress: escrowConfig.contractAddress,
+      usdcAddress: escrowConfig.tokenContract,
+      chainId: escrowConfig.chainId,
+      bountyKey,
+    },
     fundingUrl: `/bounties/${created.publicId}/fund${tokenSuffix}`,
     bountyUrl: `/bounties/${created.publicId}${tokenSuffix}`,
   });

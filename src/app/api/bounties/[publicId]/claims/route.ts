@@ -15,6 +15,7 @@ import {
 } from "@/lib/bounty";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/origin-check";
+import { getOnchainEscrowConfig, uuidToKey } from "@/lib/bounty-escrow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -237,6 +238,7 @@ export async function POST(
   // double-insert; doing the read first lets us 200 instead of 409.
   const [existing] = await db
     .select({
+      id: bountyClaims.id,
       publicId: bountyClaims.publicId,
       bondAmountUsdc: bountyClaims.bondAmountUsdc,
     })
@@ -253,6 +255,7 @@ export async function POST(
       ok: true,
       publicId: existing.publicId,
       bondAmountUsdc: existing.bondAmountUsdc,
+      escrow: buildEscrowInstructions(existing.id, bounty.id),
       existed: true,
     });
   }
@@ -270,6 +273,7 @@ export async function POST(
       status: "submitted",
     })
     .returning({
+      id: bountyClaims.id,
       publicId: bountyClaims.publicId,
       bondAmountUsdc: bountyClaims.bondAmountUsdc,
     });
@@ -285,6 +289,34 @@ export async function POST(
     ok: true,
     publicId: inserted!.publicId,
     bondAmountUsdc: inserted!.bondAmountUsdc,
+    escrow: buildEscrowInstructions(inserted!.id, bounty.id),
     existed: false,
   });
+}
+
+/**
+ * Build the postBond(claimKey, bountyKey, amount) instructions the claimant
+ * needs to lock their bond on-chain. Returns null when the escrow address
+ * isn't configured — the claim row still exists in the DB but the bond
+ * posting flow is gated.
+ */
+function buildEscrowInstructions(
+  claimUuid: string,
+  bountyUuid: string,
+): {
+  contractAddress: string;
+  usdcAddress: string;
+  chainId: number;
+  bountyKey: string;
+  claimKey: string;
+} | null {
+  const cfg = getOnchainEscrowConfig();
+  if (!cfg.contractAddress) return null;
+  return {
+    contractAddress: cfg.contractAddress,
+    usdcAddress: cfg.tokenContract,
+    chainId: cfg.chainId,
+    bountyKey: uuidToKey(bountyUuid),
+    claimKey: uuidToKey(claimUuid),
+  };
 }

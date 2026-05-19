@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import {
   db,
   submissions,
@@ -123,9 +123,12 @@ export async function POST(req: NextRequest) {
 
   const publicId = body.publicId?.toLowerCase().trim();
   if (!publicId || !/^[0-9a-f]{16}$/.test(publicId)) {
-    return NextResponse.json({ error: "Invalid intel reference." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid submission reference." }, { status: 400 });
   }
 
+  // Any approved community submission can be voted on for the monthly prize
+  // pool. Loss reports are the only type excluded — they're victim self-
+  // reports, deliberately walled off from the editorial pipeline.
   const [intel] = await db
     .select({
       id: submissions.id,
@@ -135,7 +138,7 @@ export async function POST(req: NextRequest) {
     .where(
       and(
         eq(submissions.publicId, publicId),
-        eq(submissions.type, "intel"),
+        ne(submissions.type, "loss_report"),
         eq(submissions.status, "approved"),
       ),
     )
@@ -143,7 +146,7 @@ export async function POST(req: NextRequest) {
 
   if (!intel) {
     return NextResponse.json(
-      { error: "That intel doesn't exist or isn't live." },
+      { error: "That submission doesn't exist or isn't live." },
       { status: 404 },
     );
   }

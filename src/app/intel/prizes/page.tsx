@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Your Prize Pool Wins — Rex Intel Services",
   description:
-    "Claim your monthly intel prize pool winnings. Pull-based USDC payouts from the IntelPrizePool contract on Base.",
+    "Claim your monthly community prize pool winnings. Pull-based USDC payouts from the IntelPrizePool contract on Base.",
 };
 
 export default function PrizeClaimPage() {
@@ -30,10 +30,11 @@ export default function PrizeClaimPage() {
             className="mt-3 text-sm max-w-2xl"
             style={{ color: "var(--rex-text-dim)" }}
           >
-            Top intel each month splits the community prize pool 50/25/15/7/3
-            of 80% of the pot. Wins are settled on the 1st via the
-            IntelPrizePool contract on Base — pull-based, so you claim into
-            your Magic wallet whenever you want.
+            Top community submissions each month — intel, capital,
+            fellowships, grants, perks, events — split the prize pool
+            50/25/15/7/3 of 80% of the pot. Wins are settled on the 1st via
+            the IntelPrizePool contract on Base — pull-based, so you claim
+            into your Magic wallet whenever you want.
           </p>
         </header>
         <PrizeClaimList />

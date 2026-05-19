@@ -1,5 +1,6 @@
-import { and, eq, desc, gte, lt, sql } from "drizzle-orm";
+import { and, eq, desc, gte, lt, ne, sql } from "drizzle-orm";
 import { db, submissions, intelVotes, subscribers } from "@/lib/db";
+import type { SubmissionType } from "@/lib/submission-display";
 
 /**
  * Community prize pool config + balance fetcher.
@@ -399,9 +400,19 @@ export function normalizeWalletAddress(addr: string): string {
 }
 
 /**
- * Top-N intel by vote count for a given month. Used by both the public
- * intel-page banner and the admin dashboard so the two views never drift.
- * Returns [] for callers that handle empty gracefully.
+ * Top-N community submissions by vote count for a given month. Spans every
+ * approved submission type (intel, capital, fellowship, grant, accelerator,
+ * etc.) — anything the community submits via /submit competes in the same
+ * pool. `loss_report` is excluded because victim self-reports are not
+ * editorial intel and the digest/leaderboard pipeline deliberately walls
+ * them off (see schema.ts LossReportPayload comment).
+ *
+ * Used by the public leaderboard, the prize-pool banner, the admin
+ * dashboard, and the monthly settlement cron, so the four surfaces never
+ * drift. Returns [] for callers that handle empty gracefully.
+ *
+ * Function name is preserved for backwards compatibility with existing
+ * callers; "intel" here is the historical lane name, not a type filter.
  *
  * Sybil guard: only votes from subscribers who existed at least
  * VOTE_COOLING_HOURS hours before the vote was cast count toward the
@@ -414,6 +425,7 @@ export const VOTE_COOLING_HOURS = 24;
 
 export type LeaderboardRow = {
   publicId: string;
+  type: SubmissionType;
   payload: unknown;
   submitterEmail: string | null;
   submitterHandle: string | null;
@@ -440,6 +452,7 @@ export async function getMonthlyTopIntel(opts: {
   const rows = await db
     .select({
       publicId: submissions.publicId,
+      type: submissions.type,
       payload: submissions.payload,
       submitterEmail: submissions.submitterEmail,
       submitterHandle: submissions.submitterHandle,
@@ -468,7 +481,10 @@ export async function getMonthlyTopIntel(opts: {
     )
     .where(
       and(
-        eq(submissions.type, "intel"),
+        // All community submission types compete in one pool. Loss reports
+        // are the only exclusion — victim self-reports are walled off from
+        // the editorial pipeline by design (see schema.ts LossReportPayload).
+        ne(submissions.type, "loss_report"),
         eq(submissions.status, "approved"),
         gte(submissions.publishedAt, start),
         lt(submissions.publishedAt, end),
@@ -477,11 +493,12 @@ export async function getMonthlyTopIntel(opts: {
     .groupBy(
       submissions.id,
       submissions.publicId,
+      submissions.type,
       submissions.payload,
       submissions.submitterEmail,
       submissions.submitterHandle,
     )
     .orderBy(desc(sql`count(${subscribers.id})`))
     .limit(opts.limit);
-  return rows;
+  return rows as LeaderboardRow[];
 }

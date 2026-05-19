@@ -12,6 +12,11 @@ import {
 } from "@/lib/prize-pool";
 import { fetchValueStats } from "@/lib/graph-data";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
+import {
+  submissionTitle,
+  type SubmissionType,
+} from "@/lib/submission-display";
+import type { SubmissionPayload } from "@/lib/db/schema";
 import { Chip, EmptyState, FilterBar, SpicyTag } from "./_shared";
 
 const SEVERITY_TONE: Record<
@@ -185,8 +190,14 @@ export async function PrizePoolBanner() {
       })
     : pool.amount;
   const leaderRow = leader[0];
+  // The leader can be any community submission type now (intel, capital,
+  // grant, fellowship, etc.), so pull the title via the cross-type helper
+  // instead of casting blindly to IntelPayload.
   const leaderHead = leaderRow
-    ? (leaderRow.payload as IntelPayload).headline
+    ? submissionTitle(
+        leaderRow.type as SubmissionType,
+        leaderRow.payload as SubmissionPayload,
+      )
     : null;
 
   return (

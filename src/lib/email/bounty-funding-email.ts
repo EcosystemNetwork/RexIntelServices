@@ -3,12 +3,14 @@ import { siteUrl } from "../site-url";
 
 /**
  * Funding-instructions email sent after a draft bounty is created.
- * Carries the one-shot access link + (eventually) the per-bounty escrow
- * deposit address. Custody rail is currently paused (Circle was ripped
- * 2026-05-18; replacement TBD), so `depositAddress` is always null and
- * the email surfaces a "rail being rebuilt" notice instead — kept wired
- * so we don't have to re-thread the email pipeline when the new rail
- * lands.
+ *
+ * As of 2026-05-18 the custody rail is the on-chain BountyEscrow contract
+ * on Base. Funding is a two-step user action:
+ *   1. approve(escrowAddress, amount) on the USDC token contract
+ *   2. fundBounty(bountyKey, amount) on the BountyEscrow contract
+ * The email surfaces both contract addresses + the bountyKey so victims
+ * can fund via any web3 wallet, Etherscan write-contract UI, or the
+ * /bounties/[publicId]/fund page on the site.
  *
  * Resend-only — silently no-ops if RESEND_API_KEY isn't configured so
  * dev environments don't fail bounty creation.
@@ -32,9 +34,16 @@ type Args = {
   accessUrl: string; // absolute URL with ?token=
   /** USDC amount the victim needs to send. Null for kind=recovery (no fixed amount). */
   fundingAmountUsdc: number | null;
-  /** Per-bounty escrow deposit address. Currently always null (custody rail paused). */
-  depositAddress: string | null;
-  /** "BASE" or "BASE-SEPOLIA" — drives the human-readable network name + faucet URL note. */
+  /** BountyEscrow contract address on the target chain. Null when the on-chain
+   *  rail is not yet configured (BOUNTY_ESCROW_ADDRESS unset) — the email
+   *  surfaces a "rail not yet provisioned" notice instead. */
+  escrowAddress: string | null;
+  /** USDC ERC-20 contract address the victim approves. Required when
+   *  escrowAddress is set. */
+  usdcAddress: string | null;
+  /** bytes32 bountyKey to pass to fundBounty(). Derived from the bounty UUID. */
+  bountyKey: string | null;
+  /** "BASE" or "BASE-SEPOLIA" — drives the human-readable network name. */
   blockchain: string;
   victimVerified: boolean;
 };
@@ -52,7 +61,9 @@ export async function sendBountyFundingEmail({
   bountyPublicId,
   accessUrl,
   fundingAmountUsdc,
-  depositAddress,
+  escrowAddress,
+  usdcAddress,
+  bountyKey,
   blockchain,
   victimVerified,
 }: Args): Promise<{ sent: boolean; reason?: string }> {
@@ -62,24 +73,37 @@ export async function sendBountyFundingEmail({
     return { sent: false, reason: "DIGEST_FROM_EMAIL not configured" };
 
   const network = networkLabel(blockchain);
-  const amountLine =
+  const amountText =
     fundingAmountUsdc != null
-      ? `Send ${fundingAmountUsdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC on ${network}`
-      : `Send any amount of USDC on ${network} to fund the recovery share`;
-  const depositLine = depositAddress
-    ? `Deposit address: ${depositAddress}`
-    : `Deposit address: (not yet provisioned — contact support)`;
+      ? `${fundingAmountUsdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
+      : `any amount of USDC (the recovery share)`;
+
+  const railReady = Boolean(escrowAddress && usdcAddress && bountyKey);
 
   const subject = `Funding instructions — your RexIntel bounty ${bountyPublicId}`;
   const verifyLine = victimVerified
     ? "Your email is already verified — once funds arrive the bounty publishes automatically."
     : "Click the access link below and complete the one-time email verification. Until verified, your bounty stays private even after funding.";
 
+  const instructionsText = railReady
+    ? [
+        `Send ${amountText} on ${network} via two web3 transactions:`,
+        ``,
+        `  1. On the USDC contract, call approve(${escrowAddress}, <amount>)`,
+        `     USDC: ${usdcAddress}`,
+        ``,
+        `  2. On the BountyEscrow contract, call fundBounty(<bountyKey>, <amount>)`,
+        `     BountyEscrow: ${escrowAddress}`,
+        `     bountyKey:    ${bountyKey}`,
+        ``,
+        `Or fund from the site: ${siteUrl()}/bounties/${bountyPublicId}/fund`,
+      ].join("\n")
+    : `Send ${amountText} on ${network}. The on-chain escrow rail isn't yet provisioned for this draft — contact support and we'll attach a deposit address.`;
+
   const text = [
     `Your draft bounty is ready to fund.`,
     ``,
-    amountLine + ".",
-    depositLine,
+    instructionsText,
     ``,
     `Access link (save this — it's the only way back to your draft):`,
     accessUrl,
@@ -91,14 +115,24 @@ export async function sendBountyFundingEmail({
     `— Rex Intel Services`,
   ].join("\n");
 
+  const railBlockHtml = railReady
+    ? `<div style="background:#f4f4f5;padding:14px;border-radius:6px;margin:16px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;color:#111;">
+    <p style="font-size:13px;color:#555;margin:0 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-transform:uppercase;letter-spacing:1px;">Send ${amountText} on ${network}</p>
+    <p style="margin:0 0 6px;"><strong style="color:#555;">Step 1 — USDC.approve(escrow, amount)</strong></p>
+    <p style="margin:0 0 10px;color:#111;">USDC: ${usdcAddress}</p>
+    <p style="margin:0 0 6px;"><strong style="color:#555;">Step 2 — escrow.fundBounty(bountyKey, amount)</strong></p>
+    <p style="margin:0;color:#111;">BountyEscrow: ${escrowAddress}<br/>bountyKey: ${bountyKey}</p>
+  </div>
+  <p style="font-size:13px;color:#555;margin:0 0 16px;">Or fund from the site: <a href="${siteUrl()}/bounties/${bountyPublicId}/fund" style="color:#2563eb;">${siteUrl()}/bounties/${bountyPublicId}/fund</a></p>`
+    : `<div style="background:#fef3c7;padding:14px;border-radius:6px;margin:16px 0;">
+    <p style="font-size:13px;color:#92400e;margin:0;">Send ${amountText} on ${network}. The on-chain escrow rail isn't yet provisioned for this draft — contact support and we'll attach a deposit address.</p>
+  </div>`;
+
   const html = `<!doctype html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;max-width:560px;margin:0 auto;padding:24px;line-height:1.5;">
   <p style="font-size:14px;color:#555;margin:0 0 8px;">Your draft bounty <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${bountyPublicId}</code> is ready to fund.</p>
 
-  <div style="background:#f4f4f5;padding:14px;border-radius:6px;margin:16px 0;">
-    <p style="font-size:13px;color:#555;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">${amountLine}</p>
-    <p style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;color:#111;margin:0;">${depositLine}</p>
-  </div>
+  ${railBlockHtml}
 
   <p style="font-size:13px;color:#555;margin:0 0 6px;">Access link <span style="color:#888;">(save this — it's the only way back to your draft):</span></p>
   <p style="margin:0 0 16px;"><a href="${accessUrl}" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;color:#2563eb;">${accessUrl}</a></p>

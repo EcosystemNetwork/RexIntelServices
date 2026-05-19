@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, submissions } from "@/lib/db";
-import type { ResidencyPayload } from "@/lib/db/schema";
+import type { PopupCityPayload, ResidencyPayload } from "@/lib/db/schema";
 import { detailHref } from "@/lib/slug";
 import { logoUrlFor } from "@/lib/logo";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
@@ -37,7 +37,7 @@ const getResidenciesRows = unstable_cache(
     const now = new Date();
     const pastFloor = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const baseFilter = and(
-      eq(submissions.type, "residency"),
+      inArray(submissions.type, ["residency", "popup_city"]),
       eq(submissions.status, "approved"),
     );
     const effectiveEnd = sql`COALESCE(${submissions.eventEndsAt}, ${submissions.eventStartsAt})`;
@@ -84,7 +84,7 @@ const getResidenciesRows = unstable_cache(
         .where(and(baseFilter, pastWindow)),
     ]);
   },
-  ["intel-lane-residencies-v2"],
+  ["intel-lane-residencies-v3"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
@@ -105,7 +105,7 @@ export async function ResidenciesLane({
 
   const visible = visibleRows.map((r) => ({
     ...r,
-    payload: r.payload as ResidencyPayload,
+    payload: r.payload as ResidencyPayload & Partial<PopupCityPayload>,
   }));
 
   const href = (next: {
@@ -126,14 +126,21 @@ export async function ResidenciesLane({
   return (
     <>
       <PasteHint>
-        Running a builder residency?{" "}
+        Running a residency or hosting a pop-up city?{" "}
         <Link
           href="/submit?type=residency"
           className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors underline decoration-dotted underline-offset-2"
         >
-          Submit it
+          Submit a residency
         </Link>{" "}
-        — programs from join-thebridge.com, lu.ma residencies, and similar trusted hosts publish instantly.
+        ·{" "}
+        <Link
+          href="/submit?type=popup_city"
+          className="text-[var(--rex-accent)] hover:text-[var(--rex-text)] transition-colors underline decoration-dotted underline-offset-2"
+        >
+          Submit a pop-up city
+        </Link>{" "}
+        — programs from join-thebridge.com, lu.ma, edgecity.live, zuzalu.city and similar trusted hosts publish instantly.
       </PasteHint>
 
       <FilterBar
@@ -183,8 +190,8 @@ export async function ResidenciesLane({
       {visible.length === 0 ? (
         <EmptyState>
           {showPast
-            ? "No residencies wrapped in the last 30 days."
-            : "No residencies match this filter. Know one we should add?"}
+            ? "No programs wrapped in the last 30 days."
+            : "No programs match this filter. Know one we should add?"}
         </EmptyState>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -208,7 +215,7 @@ function ResidencyCard({
   featured = false,
 }: {
   publicId: string;
-  payload: ResidencyPayload;
+  payload: ResidencyPayload & Partial<PopupCityPayload>;
   featured?: boolean;
 }) {
   // Dates are optional — rolling programs (AGI House, Founders Inc, AI
@@ -271,12 +278,19 @@ function ResidencyCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 text-[10px] font-mono uppercase tracking-widest flex-wrap">
           {featured && <FeaturedTag />}
-          <OrgLogo
-            src={logoUrlFor(payload.organizationUrl, payload.url, payload.applyUrl)}
-            org={payload.organization}
-            size="sm"
-          />
-          <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+          {payload.organization && (
+            <>
+              <OrgLogo
+                src={logoUrlFor(payload.organizationUrl, payload.url, payload.applyUrl)}
+                org={payload.organization}
+                size="sm"
+              />
+              <span style={{ color: "var(--rex-text-dim)" }}>{payload.organization}</span>
+            </>
+          )}
+          {payload.focus && !payload.organization && (
+            <span style={{ color: "var(--rex-text-muted)" }}>{payload.focus}</span>
+          )}
           {payload.cohortSize && (
             <span style={{ color: "var(--rex-text-muted)" }}>· {payload.cohortSize}</span>
           )}
@@ -295,7 +309,7 @@ function ResidencyCard({
           className="text-xs mt-0.5 font-mono"
           style={{ color: "var(--rex-text-dim)" }}
         >
-          {range || (hasDates ? null : "Rolling cohort")}
+          {range || (hasDates ? null : "Rolling intake")}
           {location && `${range || !hasDates ? " · " : ""}${location}`}
         </div>
       </div>

@@ -61,7 +61,7 @@ export async function harvestL2Beat(): Promise<L2BeatHarvestResult> {
   const res = await fetch(L2BEAT_URL, {
     headers: {
       "User-Agent":
-        "RexIntel/1.0 (intel graph harvester; rexintelservices@proton.me)",
+        "RexIntel/1.0 (intel graph harvester; https://rexintelservices.com)",
       Accept: "application/json",
     },
     cache: "no-store",

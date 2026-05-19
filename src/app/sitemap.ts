@@ -25,8 +25,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1.0 },
     { url: `${base}/intel`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${base}/intel/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/intel/prizes`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/events`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${base}/hackathons`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/fellowships`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/perks`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
+    { url: `${base}/contributors`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
+    { url: `${base}/bounties`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${base}/trace`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${base}/graph`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
     { url: `${base}/intel?lane=cities`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/intel?lane=grants`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${base}/intel?lane=accelerators`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
@@ -39,16 +46,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Submissions — one entry per (type, publicId). Pull the human-readable
   // title field (varies per type) so the sitemap entry matches the canonical
-  // slug-prefixed URL the detail page redirects to. Also pull eventType so
-  // we can split hackathons (stored as type='event' + eventType='hackathon')
-  // off into the /hackathons routes where they're actually rendered.
+  // slug-prefixed URL the detail page redirects to.
   const subs = await db
     .select({
       type: submissions.type,
       publicId: submissions.publicId,
       publishedAt: submissions.publishedAt,
       updatedAt: submissions.updatedAt,
-      eventType: sql<string | null>`${submissions.payload}->>'eventType'`,
       slugTitle: sql<string | null>`COALESCE(
         ${submissions.payload}->>'name',
         ${submissions.payload}->>'title',
@@ -62,12 +66,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Path prefix per submission type. Keep this list aligned with the
   // public route folders — anything mismatched simply gets dropped.
+  // Hackathons (type='event' + payload.eventType='hackathon') route to
+  // /events/{slug} because no /hackathons/[publicId] page exists; the
+  // /hackathons listing card itself also links to /events/{slug}.
   const PATH_PREFIX: Record<string, string> = {
     intel: "/intel",
     event: "/events",
     popup_city: "/pop-up-cities",
     grant: "/grants",
     accelerator: "/accelerators",
+    fellowship: "/fellowships",
     job: "/jobs",
     capital: "/capital",
     perks: "/perks",
@@ -76,13 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const submissionEntries: MetadataRoute.Sitemap = [];
   for (const s of subs) {
-    // Hackathons live under type='event' with payload.eventType='hackathon';
-    // route them to /hackathons (where the listing actually renders) instead
-    // of /events.
-    const prefix =
-      s.type === "event" && s.eventType === "hackathon"
-        ? "/hackathons"
-        : PATH_PREFIX[s.type];
+    const prefix = PATH_PREFIX[s.type];
     if (!prefix) continue;
     submissionEntries.push({
       url: `${base}${prefix}/${detailSegment(s.publicId, s.slugTitle)}`,

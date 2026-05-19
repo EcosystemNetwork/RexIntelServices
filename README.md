@@ -118,7 +118,7 @@ Fill in:
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — rate limiting on public endpoints
 - `CRON_SECRET` — shared secret for Vercel Cron headers
 - `DIGEST_FROM_EMAIL` / `DIGEST_FROM_NAME` — sender used by the weekly digest cron
-- `OPERATOR_EMAILS` — comma-separated allowlist for operator Magic-Link sign-in (defaults to `rexintelservices@proton.me`)
+- `OPERATOR_EMAILS` — comma-separated allowlist for operator Magic-Link sign-in (REQUIRED; empty allowlist locks everyone out)
 - `NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY` / `MAGIC_SECRET_KEY` — Magic-Link auth (live `pk_live_`/`sk_live_`, test `pk_test_`/`sk_test_`)
 - `NEXT_PUBLIC_MAGIC_RPC_URL` / `NEXT_PUBLIC_MAGIC_CHAIN_ID` — chain Magic provisions contributor wallets on (defaults to Base mainnet, `8453`)
 - `ETHERSCAN_API_KEY` — powers `/trace` (free key from etherscan.io); optional `ETHERSCAN_RPS` override

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { harvestOpenSanctions } from "@/lib/harvesters/opensanctions";
+import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 
 /**
  * GET /api/cron/harvest-eu-sanctions
@@ -29,9 +30,15 @@ export async function GET(req: Request) {
     );
     return NextResponse.json({ ok: true, durationMs: Date.now() - startedAt, ...result });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[harvest-eu] failed:", err);
+    await sendOpsAlert({
+      key: "harvest-eu:errored",
+      subject: "[Ops] EU sanctions harvester failed",
+      message: `EU sanctions (OpenSanctions eu_fsf) harvest threw after ${Date.now() - startedAt}ms.\n\n${message}`,
+    });
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: message },
       { status: 500 },
     );
   }

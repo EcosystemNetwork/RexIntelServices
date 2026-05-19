@@ -12,7 +12,6 @@ import { FellowshipsLane } from "./_lanes/fellowships";
 import { GrantsLane } from "./_lanes/grants";
 import { CapitalLane } from "./_lanes/capital";
 import { PerksLane } from "./_lanes/perks";
-import { CitiesLane } from "./_lanes/cities";
 import { ResidenciesLane } from "./_lanes/residencies";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,6 @@ type Lane =
   | "accelerators"
   | "fellowships"
   | "grants"
-  | "cities"
   | "capital"
   | "residencies"
   | "perks";
@@ -34,7 +32,6 @@ const LANES: { id: Lane; label: string }[] = [
   { id: "grants", label: "Grants" },
   { id: "capital", label: "Capital" },
   { id: "perks", label: "Perks" },
-  { id: "cities", label: "Cities" },
   { id: "residencies", label: "Residencies" },
 ];
 
@@ -97,18 +94,6 @@ const LANE_COPY: Record<
     submitHref: "/submit?type=grant",
     submitLabel: "+ Add Grant ▸",
   },
-  cities: {
-    kicker: "▸ Intel · Pop-Up Cities",
-    title: "Show up, build together.",
-    subtitle:
-      "Multi-week residencies — Zuzalu, Edge City, Crecimiento and the next generation of pop-up gatherings. Application-based intake.",
-    classification: [
-      { text: "● Open Channel // Intel · Pop-Up Residencies" },
-      { text: "Multi-week Gatherings / Apply", show: "sm" },
-    ],
-    submitHref: "/submit?type=popup_city",
-    submitLabel: "+ Add City ▸",
-  },
   capital: {
     kicker: "▸ Intel · Capital",
     title: "Funds taking cold pitches.",
@@ -121,15 +106,15 @@ const LANE_COPY: Record<
   },
   residencies: {
     kicker: "▸ Intel · Residencies",
-    title: "Programs that put builders in a room together.",
+    title: "Show up, build together.",
     subtitle:
-      "Multi-week founder + builder residencies — cohort retreats, themed sprints, application-based intake. Distinct from pop-up cities (festivals) and accelerators (equity checks).",
+      "Multi-week residencies and pop-up cities — Zuzalu, Edge City, Crecimiento, AGI House, The Bridge, Founders Inc. Cohort retreats, themed sprints, application-based intake.",
     classification: [
-      { text: "● Open Channel // Intel · Builder Residencies" },
-      { text: "Cohort Retreats / Apply", show: "sm" },
+      { text: "● Open Channel // Intel · Residencies + Pop-Up Cities" },
+      { text: "Cohort Programs / Apply", show: "sm" },
     ],
     submitHref: "/submit?type=residency",
-    submitLabel: "+ Add Residency ▸",
+    submitLabel: "+ Add Program ▸",
   },
   perks: {
     kicker: "▸ Intel · Perks",
@@ -146,11 +131,12 @@ const LANE_COPY: Record<
 };
 
 function laneFrom(value: string | undefined): Lane {
+  // Old `?lane=cities` links collapse into the merged residencies lane.
+  if (value === "cities") return "residencies";
   if (
     value === "accelerators" ||
     value === "fellowships" ||
     value === "grants" ||
-    value === "cities" ||
     value === "capital" ||
     value === "residencies" ||
     value === "perks"
@@ -172,9 +158,8 @@ export function generateMetadata({
     accelerators: "Accelerators — Intel · Rex Intel Services",
     fellowships: "Fellowships — Intel · Rex Intel Services",
     grants: "Grants — Intel · Rex Intel Services",
-    cities: "Pop-Up Cities — Intel · Rex Intel Services",
     capital: "Capital — Funds taking pitches · Rex Intel Services",
-    residencies: "Residencies — Intel · Rex Intel Services",
+    residencies: "Residencies + Pop-Up Cities — Intel · Rex Intel Services",
     perks: "Perks — Credits + Vendor Programs · Rex Intel Services",
   };
   // Canonical points to the lane URL only — strip filter/severity/category/view
@@ -288,13 +273,6 @@ export default async function IntelHubPage({
         )}
         {lane === "perks" && (
           <PerksLane filter={searchParams.filter} soon={searchParams.soon} />
-        )}
-        {lane === "cities" && (
-          <CitiesLane
-            view={searchParams.view}
-            sector={searchParams.sector}
-            soon={searchParams.soon}
-          />
         )}
       </main>
     </PublicShell>

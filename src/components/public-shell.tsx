@@ -79,6 +79,13 @@ export function PublicShell({
                 X ▸
               </a>
               <span className="text-[var(--rex-border)]">│</span>
+              <a
+                href="mailto:rexintelservices@proton.me"
+                className="hover:text-[var(--rex-accent)] transition-colors"
+              >
+                Contact ▸
+              </a>
+              <span className="text-[var(--rex-border)]">│</span>
               <span>Located in the Exclusive Economic Zone</span>
             </div>
             <div className="mono-label flex items-center gap-3">

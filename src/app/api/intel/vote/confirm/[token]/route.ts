@@ -10,8 +10,11 @@ import {
   submissions,
   submitters,
 } from "@/lib/db";
-import type { IntelPayload } from "@/lib/db/schema";
-import { detailHref } from "@/lib/slug";
+import type { SubmissionPayload } from "@/lib/db/schema";
+import {
+  submissionDetailHref,
+  type SubmissionType,
+} from "@/lib/submission-display";
 import { absoluteUrl } from "@/lib/site-url";
 import {
   VOTER_COOKIE_NAME,
@@ -77,6 +80,7 @@ export async function GET(
   const [intel] = await db
     .select({
       id: submissions.id,
+      type: submissions.type,
       publicId: submissions.publicId,
       payload: submissions.payload,
       status: submissions.status,
@@ -86,7 +90,7 @@ export async function GET(
     .where(eq(submissions.id, claimed.submissionId))
     .limit(1);
 
-  if (!intel || intel.status !== "approved") {
+  if (!intel || intel.status !== "approved" || intel.type === "loss_report") {
     return redirectToHome("invalid");
   }
 
@@ -160,12 +164,13 @@ export async function GET(
     if (monthlyVotes >= MONTHLY_VOTE_CAP) {
       // Still set the voter cookie — they're a confirmed identity, future
       // months they should one-click vote again — but bounce with a cap
-      // status so the intel page can surface the right message.
-      const headlineForCap =
-        (intel.payload as IntelPayload).headline ?? "intel";
-      const target = absoluteUrl(
-        `${detailHref("/intel", intel.publicId, headlineForCap)}?vote=cap`,
+      // status so the detail page can surface the right message.
+      const capHref = submissionDetailHref(
+        intel.type as SubmissionType,
+        intel.publicId,
+        intel.payload as SubmissionPayload,
       );
+      const target = absoluteUrl(`${capHref}?vote=cap`);
       const cookie = buildVoterCookie(subscriberId);
       const res = NextResponse.redirect(target, 302);
       if (cookie) {
@@ -201,10 +206,12 @@ export async function GET(
     // handler is one. The catch is paranoia.
   }
 
-  const headline = (intel.payload as IntelPayload).headline ?? "intel";
-  const target = absoluteUrl(
-    `${detailHref("/intel", intel.publicId, headline)}?voted=1`,
+  const targetHref = submissionDetailHref(
+    intel.type as SubmissionType,
+    intel.publicId,
+    intel.payload as SubmissionPayload,
   );
+  const target = absoluteUrl(`${targetHref}?voted=1`);
 
   const cookie = buildVoterCookie(subscriberId);
   const res = NextResponse.redirect(target, 302);

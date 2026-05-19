@@ -23,13 +23,12 @@ import { isSameOrigin } from "./origin-check";
 //      creates the `users` row, and calls `createSession()` here.
 //
 // Allowlist is env-driven: `OPERATOR_EMAILS` (comma-separated). When
-// unset, only `rexintelservices@proton.me` is admitted — same email registered
-// by `scripts/create-admin.ts`. Add a teammate by appending to the env
-// var; no DB write required for the allowlist itself.
+// unset, the allowlist is empty and no one can authenticate — set the
+// env var on Vercel before deploy. Add a teammate by appending to the
+// env var; no DB write required for the allowlist itself.
 // =====================================================================
 
 const SESSION_COOKIE = "newsletter_session";
-const DEFAULT_OPERATOR_EMAIL = "rexintelservices@proton.me";
 
 interface SessionData {
   userId: string;
@@ -89,19 +88,17 @@ export async function getSession(): Promise<SessionData | null> {
 /**
  * Allowlist of operator emails — only these addresses can authenticate
  * against the admin portal. Sourced from `OPERATOR_EMAILS` (comma-
- * separated). When unset, defaults to `rexintelservices@proton.me`.
+ * separated). When unset, returns an empty list and no one can log in.
  *
  * Comparison is case-insensitive; whitespace is trimmed.
  */
 export function operatorEmails(): string[] {
   const raw = process.env.OPERATOR_EMAILS;
-  const list = raw
-    ? raw
-        .split(",")
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean)
-    : [DEFAULT_OPERATOR_EMAIL];
-  return list;
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function isOperatorEmail(email: string): boolean {
