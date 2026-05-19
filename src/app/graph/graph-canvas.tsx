@@ -197,6 +197,27 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     return m;
   }, [data.edges]);
 
+  // Address node id → incident nodes that reference it. Powers the "Appears in
+  // stories" section of the modal so a wallet links back to its source intel.
+  const incidentsByAddressId = useMemo(() => {
+    const incidents = new Map<string, IncidentNode>();
+    for (const n of data.nodes) {
+      if (n.kind === "incident") incidents.set(n.id, n);
+    }
+    const m = new Map<string, IncidentNode[]>();
+    for (const e of data.edges) {
+      if (e.kind !== "incident-address") continue;
+      const s = typeof e.source === "string" ? e.source : (e.source as FGNode).id;
+      const t = typeof e.target === "string" ? e.target : (e.target as FGNode).id;
+      const inc = incidents.get(s);
+      if (!inc) continue;
+      const arr = m.get(t) ?? [];
+      arr.push(inc);
+      m.set(t, arr);
+    }
+    return m;
+  }, [data.nodes, data.edges]);
+
   // Expand from a seed id by `hops` edges. Returns the closed set including
   // the seed. Used by focus mode to isolate a 1- or 2-hop neighborhood.
   const expand = useCallback(
@@ -503,14 +524,78 @@ export function GraphCanvas({ data }: { data: GraphData }) {
       <Legend view={data.meta.view} />
 
       {selected && (
-        <SelectedDetail
+        <NodeDetailModal
           node={selected}
+          linkedIncidents={
+            selected.kind === "address"
+              ? (incidentsByAddressId.get(selected.id) ?? [])
+              : []
+          }
           isFocused={focusId === selected.id}
           onClose={() => setSelected(null)}
-          onFocus={() => setFocusId(selected.id)}
+          onFocus={() => {
+            setFocusId(selected.id);
+            setSelected(null);
+          }}
           onClearFocus={() => setFocusId(null)}
         />
       )}
+    </div>
+  );
+}
+
+function NodeDetailModal({
+  node,
+  linkedIncidents,
+  isFocused,
+  onClose,
+  onFocus,
+  onClearFocus,
+}: {
+  node: SelectedNode;
+  linkedIncidents: IncidentNode[];
+  isFocused: boolean;
+  onClose: () => void;
+  onFocus: () => void;
+  onClearFocus: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        aria-hidden="true"
+      />
+      <div
+        className="relative z-10 w-full max-w-xl max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SelectedDetail
+          node={node}
+          linkedIncidents={linkedIncidents}
+          isFocused={isFocused}
+          onClose={onClose}
+          onFocus={onFocus}
+          onClearFocus={onClearFocus}
+        />
+      </div>
     </div>
   );
 }
@@ -714,12 +799,14 @@ function Swatch({ color, label }: { color: string; label: string }) {
 
 function SelectedDetail({
   node,
+  linkedIncidents,
   isFocused,
   onClose,
   onFocus,
   onClearFocus,
 }: {
   node: SelectedNode;
+  linkedIncidents: IncidentNode[];
   isFocused: boolean;
   onClose: () => void;
   onFocus: () => void;
@@ -816,6 +903,32 @@ function SelectedDetail({
           ✕
         </button>
       </div>
+      {linkedIncidents.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-[var(--rex-border-subtle)]">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] mb-2">
+            Appears in {linkedIncidents.length} stor
+            {linkedIncidents.length === 1 ? "y" : "ies"}
+          </div>
+          <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {linkedIncidents.map((inc) => (
+              <li key={inc.id} className="text-xs leading-snug">
+                <Link
+                  href={detailHref("/intel", inc.publicId, inc.headline)}
+                  className="text-[var(--rex-text)] hover:text-[var(--rex-accent)] transition-colors"
+                >
+                  <span className="text-[var(--rex-accent)] mr-1.5">▸</span>
+                  {inc.headline}
+                </Link>
+                {(inc.intelKind || inc.severity) && (
+                  <span className="ml-1 font-mono text-[10px] text-[var(--rex-text-dim)] uppercase tracking-widest">
+                    {[inc.intelKind, inc.severity].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mt-3 flex items-center gap-3">
         <Link
           href={href}

@@ -27,8 +27,8 @@ import { SOURCE_PRECEDENCE } from "./address-attribution";
  * (incidents first, then sanctions sources, then curated, then community).
  */
 
-const NODE_CAP = 600;
-const ADDRESS_CAP = 500;
+const NODE_CAP = 2500;
+const ADDRESS_CAP = 2000;
 
 export type IncidentNode = {
   id: string;

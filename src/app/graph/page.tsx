@@ -119,10 +119,10 @@ export default async function GraphPage({
   };
 }) {
   const filters: GraphFilters = {
-    window: searchParams.window ?? "90",
+    window: searchParams.window ?? "all",
     kind: searchParams.kind ?? "all",
     chain: searchParams.chain ?? null,
-    view: searchParams.view ?? "incidents",
+    view: searchParams.view ?? "combined",
     category: searchParams.category ?? null,
     includeUserReported: searchParams.user_reported === "1",
     severity: searchParams.severity ?? null,
@@ -178,10 +178,10 @@ export default async function GraphPage({
         ) : null}
 
         <FilterBar
-          window={filters.window ?? "90"}
+          window={filters.window ?? "all"}
           kind={filters.kind ?? "all"}
           chain={filters.chain ?? ""}
-          view={filters.view ?? "incidents"}
+          view={filters.view ?? "combined"}
           category={filters.category ?? ""}
           severity={filters.severity ?? ""}
           source={filters.source ?? ""}
