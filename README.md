@@ -15,12 +15,13 @@ Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
 ### Public surfaces
 
 - **Landing** (`/`) — Hero, subscriber capture, signal preview
-- **Intel** (`/intel`) — Lane-switcher across Signals, Accel, Fellowships, Grants, Capital, Perks, Cities, Residencies; list / grid view toggle
-- **Intel detail** (`/intel/[publicId]`) — Public intel pages with kind kicker (tip / original / incident), source attribution, OG cards
+- **Intel** (`/intel`) — Lane-switcher across Signals, Accel, Fellowships, Grants, Capital, Perks, Cities, Residencies; list / grid view toggle (default grid). Theme-adaptive: respects `prefers-color-scheme` with a flash-free no-paint script.
+- **Intel detail** (`/intel/[publicId]`) — Public intel pages with kind kicker (tip / original / incident), source attribution, OG cards. Featured investigative pieces (RexIntel Investigations Desk) sort to the top.
 - **Address graph** (`/graph`) — Force-directed visualization of on-chain entity relationships; community-data toggle (industry-only vs industry + community)
 - **Address lookup** (`/intel/address/[chain]/[address]`) — Per-address attribution view fed by harvesters + community submissions
 - **Victim trace** (`/trace`, `/trace/[publicId]`) — Etherscan-driven 3-hop outbound BFS with shareable result pages; counterparties land in the moat as `victim-trace`-sourced rows
-- **Recovery bounties** (`/bounties`, `/bounties/new`, `/bounties/[publicId]`) — Public bounty board with victim-verification via email OTP and white-hat claim submission
+- **Recovery bounties** (`/bounties`, `/bounties/new`, `/bounties/[publicId]`) — Public bounty board with victim-verification via email OTP and white-hat claim submission. **Custody rail is currently paused** (`BOUNTY_CUSTODY_RAIL_ENABLED=false`); listings + claim submissions remain open while a new escrow rail is selected.
+- **Expo** (`/expo`) — AI & Big Data Expo submission portal: investigator briefs + Gemini-powered RAG query interface over the moat layer
 - **Submit** (`/submit`, `/submit/edit/[token]`) — Public intake for intel, programs, capital, events, jobs, perks; token-gated edits for in-flight submissions
 - **Leaderboard** (`/intel/leaderboard`) — Contributor ranking + community prize pool balance
 - **Contributors** (`/contributors`, `/contributors/[slug]`) — Contributor profiles
@@ -62,6 +63,7 @@ Built on Next.js 14, Drizzle + Postgres, Resend, and Upstash.
 | `/api/cron/harvest-luma` | daily 13:00 UTC | Harvest curated Luma events |
 | `/api/cron/backfill-program-images` | daily 14:00 UTC | Fetch missing OG / hero images for programs |
 | `/api/cron/draft-digest` | Sun 22:00 UTC | Auto-draft the weekly digest from approved intel |
+| `/api/cron/gemini-draft-intel` | daily 16:00 UTC | Auto-draft pending intel for ≥$1M DefiLlama hacks via Gemini Pro |
 
 ---
 
@@ -120,6 +122,8 @@ Fill in:
 - `NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY` / `MAGIC_SECRET_KEY` — Magic-Link auth (live `pk_live_`/`sk_live_`, test `pk_test_`/`sk_test_`)
 - `NEXT_PUBLIC_MAGIC_RPC_URL` / `NEXT_PUBLIC_MAGIC_CHAIN_ID` — chain Magic provisions contributor wallets on (defaults to Base mainnet, `8453`)
 - `ETHERSCAN_API_KEY` — powers `/trace` (free key from etherscan.io); optional `ETHERSCAN_RPS` override
+- `GEMINI_API_KEY` — powers `/expo` RAG query interface and the `gemini-draft-intel` cron
+- `BOUNTY_CUSTODY_RAIL_ENABLED` — `false` while the escrow rail is being re-selected; gates `/bounties/new` and POST
 - `DIGEST_BYPASS_EDITORIAL_BAR` — `true` only when force-drafting an empty week (default off)
 
 ### 5. Database
@@ -175,6 +179,11 @@ npx tsx scripts/seed-intel-tips.ts
 npx tsx scripts/seed-intel-originals.ts
 npx tsx scripts/seed-intel-incidents.ts
 npx tsx scripts/seed-intel-addresses.ts
+
+# Investigations Desk pieces (featured at top of /intel):
+npx tsx scripts/seed-intel-casper-hackathon-expose.ts
+npx tsx scripts/seed-intel-investigations-2026-05-18.ts   # Despark / Oriolo / Pink Drainer
+npx tsx scripts/seed-intel-github-key-sweeper-expose.ts
 ```
 
 ---
@@ -261,6 +270,14 @@ Every intel record carries a `kind`:
 
 ---
 
+## Investigations Desk
+
+RexIntel runs an investigations pillar alongside the wire. Each piece is anonymous in copy by default (sources protected; identifying material held in the case file and shared only with credentialed legal / journalistic / forensics counterparties on request), follows a fixed editorial structure (lede + on-chain timeline + "what we are not saying / what we are saying" + methodology + CTA), and ships as a featured `kind=original` intel record sorted to the top of `/intel`.
+
+Featured pieces live alongside their drafts under `drafts/` and are version-controlled with the article copy. Re-running the corresponding seed script in `scripts/` refreshes the live record idempotently. Naming doctrine: corporate principals in their official capacity are named; private individuals are not named until a regulator or court does so first.
+
+---
+
 ## Tech
 
 - **Next.js 14** (App Router) on Node
@@ -272,7 +289,8 @@ Every intel record carries a `kind`:
 - **react-force-graph-2d** for the address graph
 - **papaparse** + **exceljs** for subscriber CSV import / XLSX export
 - **Etherscan API** for the victim trace tool
-- **Tailwind** for styling, custom dark theme
+- **Google Gemini** for the `/expo` RAG query interface and the daily intel-draft cron
+- **Tailwind** for styling, theme-adaptive design tokens (light / dark via `data-theme` attribute with `prefers-color-scheme` default and flash-free no-paint script)
 - **Vercel Analytics** + **Speed Insights**
 
 ---
