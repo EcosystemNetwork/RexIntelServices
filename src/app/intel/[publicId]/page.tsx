@@ -22,6 +22,8 @@ import { ClearanceWall } from "@/components/clearance-wall";
 import { IntelHero } from "@/components/intel-hero";
 import { IntelArticleBody } from "@/components/intel-article-body";
 import { IntelMediaGallery } from "@/components/intel-media-gallery";
+import { IntelMiniGraph } from "@/components/intel-mini-graph";
+import { fetchIntelSubgraph } from "@/lib/graph-data";
 
 export const dynamic = "force-dynamic";
 
@@ -263,6 +265,11 @@ export default async function IntelDetailPage({
   }
 
   const relatedIntel = await loadRelatedIntel(row.id, payload);
+  // Per-story mini-graph: this incident + its linked addresses + one-hop
+  // co-incident neighbors. Returns null when the article has zero linked
+  // addresses, in which case we skip the section entirely (nothing to
+  // draw).
+  const miniGraph = await fetchIntelSubgraph(row.id);
 
   // Incident-class intel is gated behind the `contributor` clearance tier.
   // Public lanes still get the headline, kind/severity tags, source byline,
@@ -550,6 +557,26 @@ export default async function IntelDetailPage({
                 style={{ color: "var(--rex-text-dim)" }}
               >
                 Snapshot preserved against link-rot.
+              </p>
+            </Section>
+          )}
+
+          {miniGraph && !isGated && (
+            <Section label="Address graph">
+              <IntelMiniGraph data={miniGraph} />
+              <p
+                className="text-[10px] mt-3 font-mono leading-relaxed"
+                style={{ color: "var(--rex-text-dim)" }}
+              >
+                Every node aggregates into the public address graph at{" "}
+                <Link
+                  href="/graph"
+                  className="text-[var(--rex-accent)] hover:underline"
+                >
+                  /graph
+                </Link>
+                . Co-incidents are other approved RexIntel stories that
+                share at least one of these addresses.
               </p>
             </Section>
           )}

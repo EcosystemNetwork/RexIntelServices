@@ -82,6 +82,10 @@ export type GraphMeta = {
   view: GraphView;
   chain: string | null;
   category: AddressCategory | null;
+  severity: IntelPayload["severity"] | null;
+  source: AddressAttributionSource | null;
+  ownerKind: AddressOwnerKind | null;
+  minConfidence: number;
   nodeCount: number;
   edgeCount: number;
   incidentCount: number;
@@ -146,6 +150,17 @@ export type ValueStats = {
   // Per-token breakdown for rows with native_amount + native_symbol set.
   // Powers the "174k BTC tracked · 514k ETH frozen" line on /graph.
   byToken: ValueTokenBucket[];
+  // Every approved intel piece in the corpus, grouped by editorial kind.
+  // Surfaced on /graph so the data block at the top reflects the full
+  // investigation footprint, not just priced addresses. `incident` +
+  // `original` are the load-bearing investigation classes; `tip` is the
+  // long tail of community sightings.
+  stories: {
+    total: number;
+    incident: number;
+    original: number;
+    tip: number;
+  };
 };
 
 /**
@@ -252,12 +267,36 @@ export async function fetchValueStats(
     .map(([symbol, v]) => ({ symbol, ...v }))
     .sort((a, b) => b.totalUsd - a.totalUsd);
 
+  // Story totals — every approved intel piece, grouped by kind. The header
+  // counter has historically only reflected priced addresses; stories whose
+  // referenced addresses don't have a balance snapshot were invisible at the
+  // top. This restores them as a first-class total.
+  const storyRows = await db
+    .select({
+      kind: sql<string>`coalesce(${submissions.payload}->>'kind', 'tip')`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(submissions)
+    .where(
+      and(eq(submissions.type, "intel"), eq(submissions.status, "approved")),
+    )
+    .groupBy(sql`coalesce(${submissions.payload}->>'kind', 'tip')`);
+  const stories = { total: 0, incident: 0, original: 0, tip: 0 };
+  for (const r of storyRows) {
+    const n = Number(r.n ?? 0);
+    stories.total += n;
+    if (r.kind === "incident") stories.incident += n;
+    else if (r.kind === "original") stories.original += n;
+    else stories.tip += n;
+  }
+
   return {
     totalUsd,
     walletCount: valued.length,
     addressCount,
     byCategory,
     byToken,
+    stories,
   };
 }
 
@@ -339,12 +378,53 @@ export type GraphFilters = {
   // (and only that) are included. Default false — these are self-reported
   // and lower-confidence than the sanctions/curated/incident-derived stack.
   includeUserReported?: boolean | null;
+  // Incident severity filter. `null` → any. Applied to incident-anchored
+  // nodes only; institutional addresses are unaffected.
+  severity?: string | null;
+  // Address attribution source filter. `null` → any. Drops address nodes
+  // whose primarySource doesn't match (incident addresses pass through
+  // unrestricted so the incident still has its anchor).
+  source?: string | null;
+  // Address owner-kind filter. Same shape as `source`.
+  ownerKind?: string | null;
+  // Minimum confidence (0-100). Drops address nodes whose confidence is
+  // null or below the threshold. Default 0 → no filter.
+  minConfidence?: number | null;
 };
 
 const VIEW_VALUES = new Set<GraphView>([
   "incidents",
   "institutional",
   "combined",
+]);
+
+const SEVERITY_VALUES = new Set(["low", "medium", "high", "critical"]);
+
+const SOURCE_VALUES = new Set<AddressAttributionSource>([
+  "ofac",
+  "ofsi",
+  "eu-sanctions",
+  "defillama",
+  "rexintel-curated",
+  "rexintel-community",
+  "etherscan",
+  "incident",
+  "community-loss-report",
+  "victim-trace",
+  "bounty-claim",
+]);
+
+const OWNER_KIND_VALUES = new Set<AddressOwnerKind>([
+  "exchange",
+  "dao",
+  "foundation",
+  "government",
+  "individual",
+  "protocol",
+  "market-maker",
+  "criminal-group",
+  "estate",
+  "unknown",
 ]);
 
 const CATEGORY_VALUES = new Set<AddressCategory>([
@@ -377,12 +457,20 @@ export function normalizeFilters(input: GraphFilters): {
   view: GraphView;
   category: AddressCategory | null;
   includeUserReported: boolean;
+  severity: IntelPayload["severity"] | null;
+  source: AddressAttributionSource | null;
+  ownerKind: AddressOwnerKind | null;
+  minConfidence: number;
 } {
   const windowParam = input.window ?? "90";
-  const kindParam = input.kind ?? "incident";
+  const kindParam = input.kind ?? "all";
   const chainParam = input.chain ?? undefined;
   const viewParam = (input.view ?? "incidents") as GraphView;
   const categoryParam = (input.category ?? null) as AddressCategory | null;
+  const severityParam = input.severity ?? null;
+  const sourceParam = input.source ?? null;
+  const ownerKindParam = input.ownerKind ?? null;
+  const minConfRaw = input.minConfidence;
 
   const windowDays =
     windowParam === "all"
@@ -407,6 +495,24 @@ export function normalizeFilters(input: GraphFilters): {
 
   const includeUserReported = input.includeUserReported === true;
 
+  const severity =
+    severityParam && SEVERITY_VALUES.has(severityParam)
+      ? (severityParam as IntelPayload["severity"])
+      : null;
+  const source =
+    sourceParam && SOURCE_VALUES.has(sourceParam as AddressAttributionSource)
+      ? (sourceParam as AddressAttributionSource)
+      : null;
+  const ownerKind =
+    ownerKindParam && OWNER_KIND_VALUES.has(ownerKindParam as AddressOwnerKind)
+      ? (ownerKindParam as AddressOwnerKind)
+      : null;
+  const minConfidence = (() => {
+    const n = typeof minConfRaw === "number" ? minConfRaw : Number(minConfRaw);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(100, Math.round(n)));
+  })();
+
   return {
     windowDays,
     kindFilter,
@@ -415,6 +521,10 @@ export function normalizeFilters(input: GraphFilters): {
     view,
     category,
     includeUserReported,
+    severity,
+    source,
+    ownerKind,
+    minConfidence,
   };
 }
 
@@ -428,6 +538,10 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
     view,
     category,
     includeUserReported,
+    severity,
+    source,
+    ownerKind,
+    minConfidence,
   } = norm;
 
   const sinceDate =
@@ -470,7 +584,8 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
       (r) =>
         r.payload.kind != null &&
         (kindFilter as Array<string | undefined>).includes(r.payload.kind),
-    );
+    )
+    .filter((r) => (severity ? r.payload.severity === severity : true));
 
   const linkRows =
     candidates.length > 0
@@ -506,7 +621,19 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
           )
       : [];
 
-  const incidentsWithLinks = new Set(linkRows.map((l) => l.submissionId));
+  // Pre-filter link rows by attribution-level filters. Incident addresses
+  // that fail the source/ownerKind/min-confidence gate are dropped before we
+  // decide which incidents survive — an incident with zero surviving links
+  // ends up with no anchor, so we exclude it from the canvas too.
+  const passesAttrFilter = (l: (typeof linkRows)[number]) => {
+    if (source && l.primarySource !== source) return false;
+    if (ownerKind && l.ownerKind !== ownerKind) return false;
+    if (minConfidence > 0 && (l.confidence ?? 0) < minConfidence) return false;
+    return true;
+  };
+  const filteredLinkRows = linkRows.filter(passesAttrFilter);
+
+  const incidentsWithLinks = new Set(filteredLinkRows.map((l) => l.submissionId));
 
   const incidentNodes: IncidentNode[] = candidates
     .filter((c) => incidentsWithLinks.has(c.id))
@@ -522,7 +649,7 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
     }));
 
   const addressNodeById = new Map<string, AddressNode>();
-  for (const l of linkRows) {
+  for (const l of filteredLinkRows) {
     if (!addressNodeById.has(l.addressId)) {
       addressNodeById.set(l.addressId, {
         id: `addr:${l.addressId}`,
@@ -562,6 +689,11 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
             isNotNull(addresses.category),
             ...(chain ? [eq(addresses.chain, chain)] : []),
             ...(category ? [eq(addresses.category, category)] : []),
+            ...(source ? [eq(addresses.primarySource, source)] : []),
+            ...(ownerKind ? [eq(addresses.ownerKind, ownerKind)] : []),
+            ...(minConfidence > 0
+              ? [gte(addresses.confidence, minConfidence)]
+              : []),
             // When the toggle is off, exclude addresses whose ONLY attribution
             // is community-class (community-loss-report = self-reported story,
             // victim-trace = on-chain-evidenced auto-trace). Sanctions/curated/
@@ -606,7 +738,9 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
   const addressNodes = [...addressNodeById.values()];
 
   // ----- Edges -----
-  const incidentAddressEdges: GraphEdge[] = linkRows.map((l) => ({
+  // Use the post-filter link rows so we don't ship dangling edges into the
+  // canvas when the user narrows by source/owner/min-confidence.
+  const incidentAddressEdges: GraphEdge[] = filteredLinkRows.map((l) => ({
     kind: "incident-address",
     source: `inc:${l.submissionId}`,
     target: `addr:${l.addressId}`,
@@ -616,7 +750,7 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
   // Address-address co-occurrence: two addresses sharing an incident.
   const coWeight = new Map<string, number>();
   const submissionToAddrs = new Map<string, string[]>();
-  for (const l of linkRows) {
+  for (const l of filteredLinkRows) {
     const arr = submissionToAddrs.get(l.submissionId) ?? [];
     arr.push(l.addressId);
     submissionToAddrs.set(l.submissionId, arr);
@@ -692,6 +826,10 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
       view,
       chain: chain ?? null,
       category,
+      severity,
+      source,
+      ownerKind,
+      minConfidence,
       nodeCount: nodes.length,
       edgeCount: edges.length,
       incidentCount: incidentNodes.length,
@@ -738,4 +876,204 @@ function priority(n: GraphNode): number {
   // Lower source rank (e.g. ofac=0) → higher priority. Invert.
   const base = 500 - sourceRank;
   return base + (an.category ? 10 : 0) + (an.confidence ?? 0) / 100;
+}
+
+// =====================================================================
+// PER-STORY SUBGRAPH
+//
+// fetchIntelSubgraph returns the tiny graph for a single intel detail
+// page: this incident + its directly-linked addresses + one-hop
+// neighbors (other approved incidents that share any of those
+// addresses). Returns null when the incident has zero linked addresses
+// — there's nothing to draw, and the intel-detail page hides the
+// mini-graph section.
+//
+// Co-incident cap: 12. The mini-graph is meant to be scannable, not a
+// browser of the full institutional graph. Sorted by published-at desc
+// so the freshest related coverage wins the cap.
+// =====================================================================
+
+export type IntelSubgraph = {
+  incident: IncidentNode;
+  addresses: AddressNode[];
+  // addressId → role on the *root* incident. Co-incident roles aren't
+  // surfaced (their own pages render the full address list).
+  rolesByAddressId: Record<string, "subject" | "counterparty" | "observed">;
+  coIncidents: IncidentNode[];
+  // Edges include root → its addresses AND co-incidents → shared addresses,
+  // so the canvas can draw both halves of the neighbor relationship.
+  edges: Array<{
+    kind: "incident-address";
+    source: string;
+    target: string;
+    role: "subject" | "counterparty" | "observed";
+  }>;
+};
+
+const SUBGRAPH_CO_INCIDENT_CAP = 12;
+
+export async function fetchIntelSubgraph(
+  submissionId: string,
+): Promise<IntelSubgraph | null> {
+  const [rootRow] = await db
+    .select({
+      id: submissions.id,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.id, submissionId),
+        eq(submissions.type, "intel"),
+        eq(submissions.status, "approved"),
+      ),
+    )
+    .limit(1);
+  if (!rootRow) return null;
+
+  const rootPayload = rootRow.payload as IntelPayload;
+  const rootLinks = await db
+    .select({
+      addressId: intelAddresses.addressId,
+      role: intelAddresses.role,
+      chain: addresses.chain,
+      address: addresses.address,
+      label: addresses.label,
+      category: addresses.category,
+      ownerName: addresses.ownerName,
+      ownerKind: addresses.ownerKind,
+      primarySource: addresses.primarySource,
+      confidence: addresses.confidence,
+    })
+    .from(intelAddresses)
+    .innerJoin(addresses, eq(intelAddresses.addressId, addresses.id))
+    .where(eq(intelAddresses.submissionId, rootRow.id));
+
+  if (rootLinks.length === 0) return null;
+
+  const incident: IncidentNode = {
+    id: `inc:${rootRow.id}`,
+    kind: "incident",
+    publicId: rootRow.publicId,
+    headline: rootPayload.headline,
+    severity: rootPayload.severity,
+    intelKind: rootPayload.kind,
+    publishedAt: rootRow.publishedAt ? rootRow.publishedAt.toISOString() : null,
+    category: rootPayload.category,
+  };
+
+  const addressNodes: AddressNode[] = rootLinks.map((l) => ({
+    id: `addr:${l.addressId}`,
+    kind: "address",
+    chain: l.chain,
+    address: l.address,
+    label: l.label,
+    category: l.category ?? null,
+    ownerName: l.ownerName ?? null,
+    ownerKind: l.ownerKind ?? null,
+    primarySource: l.primarySource ?? null,
+    confidence: l.confidence ?? null,
+  }));
+
+  const rolesByAddressId: Record<
+    string,
+    "subject" | "counterparty" | "observed"
+  > = {};
+  for (const l of rootLinks) {
+    rolesByAddressId[`addr:${l.addressId}`] = l.role;
+  }
+
+  const edges: IntelSubgraph["edges"] = rootLinks.map((l) => ({
+    kind: "incident-address",
+    source: `inc:${rootRow.id}`,
+    target: `addr:${l.addressId}`,
+    role: l.role,
+  }));
+
+  // One-hop co-incidents: approved intel rows other than the root that
+  // link to ANY of the same addresses. Most recent first so the cap
+  // keeps the freshest coverage.
+  const addressIds = rootLinks.map((l) => l.addressId);
+  const coRows = await db
+    .select({
+      submissionId: intelAddresses.submissionId,
+      addressId: intelAddresses.addressId,
+      role: intelAddresses.role,
+      publicId: submissions.publicId,
+      payload: submissions.payload,
+      publishedAt: submissions.publishedAt,
+    })
+    .from(intelAddresses)
+    .innerJoin(submissions, eq(intelAddresses.submissionId, submissions.id))
+    .where(
+      and(
+        inArray(intelAddresses.addressId, addressIds),
+        ne(intelAddresses.submissionId, rootRow.id),
+        eq(submissions.type, "intel"),
+        eq(submissions.status, "approved"),
+      ),
+    )
+    .orderBy(desc(submissions.publishedAt));
+
+  // Group co-incident links by submission so we can build one node per
+  // co-incident with all its shared-address edges attached.
+  const coById = new Map<
+    string,
+    {
+      submissionId: string;
+      publicId: string;
+      payload: IntelPayload;
+      publishedAt: Date | null;
+      links: Array<{
+        addressId: string;
+        role: "subject" | "counterparty" | "observed";
+      }>;
+    }
+  >();
+  for (const r of coRows) {
+    const entry = coById.get(r.submissionId) ?? {
+      submissionId: r.submissionId,
+      publicId: r.publicId,
+      payload: r.payload as IntelPayload,
+      publishedAt: r.publishedAt,
+      links: [],
+    };
+    entry.links.push({ addressId: r.addressId, role: r.role });
+    coById.set(r.submissionId, entry);
+  }
+
+  const coIncidents: IncidentNode[] = [];
+  for (const entry of [...coById.values()].slice(
+    0,
+    SUBGRAPH_CO_INCIDENT_CAP,
+  )) {
+    coIncidents.push({
+      id: `inc:${entry.submissionId}`,
+      kind: "incident",
+      publicId: entry.publicId,
+      headline: entry.payload.headline,
+      severity: entry.payload.severity,
+      intelKind: entry.payload.kind,
+      publishedAt: entry.publishedAt ? entry.publishedAt.toISOString() : null,
+      category: entry.payload.category,
+    });
+    for (const l of entry.links) {
+      edges.push({
+        kind: "incident-address",
+        source: `inc:${entry.submissionId}`,
+        target: `addr:${l.addressId}`,
+        role: l.role,
+      });
+    }
+  }
+
+  return {
+    incident,
+    addresses: addressNodes,
+    rolesByAddressId,
+    coIncidents,
+    edges,
+  };
 }

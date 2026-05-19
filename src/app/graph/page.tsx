@@ -58,6 +58,50 @@ const CATEGORY_CHOICES = [
   { value: "mev-bot", label: "MEV Bot" },
 ] as const;
 
+const SEVERITY_CHOICES = [
+  { value: "", label: "Any" },
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+] as const;
+
+const SOURCE_CHOICES = [
+  { value: "", label: "Any" },
+  { value: "ofac", label: "OFAC" },
+  { value: "ofsi", label: "OFSI" },
+  { value: "eu-sanctions", label: "EU sanctions" },
+  { value: "rexintel-curated", label: "RexIntel curated" },
+  { value: "rexintel-community", label: "RexIntel community" },
+  { value: "defillama", label: "DefiLlama" },
+  { value: "etherscan", label: "Etherscan" },
+  { value: "incident", label: "Incident-derived" },
+  { value: "community-loss-report", label: "Community loss report" },
+  { value: "victim-trace", label: "Victim trace" },
+  { value: "bounty-claim", label: "Bounty claim" },
+] as const;
+
+const OWNER_KIND_CHOICES = [
+  { value: "", label: "Any" },
+  { value: "exchange", label: "Exchange" },
+  { value: "dao", label: "DAO" },
+  { value: "foundation", label: "Foundation" },
+  { value: "government", label: "Government" },
+  { value: "individual", label: "Individual" },
+  { value: "protocol", label: "Protocol" },
+  { value: "market-maker", label: "Market maker" },
+  { value: "criminal-group", label: "Criminal group" },
+  { value: "estate", label: "Bankruptcy estate" },
+  { value: "unknown", label: "Unknown" },
+] as const;
+
+const CONFIDENCE_CHOICES = [
+  { value: "0", label: "Any" },
+  { value: "50", label: "≥ 50" },
+  { value: "70", label: "≥ 70" },
+  { value: "90", label: "≥ 90" },
+] as const;
+
 export default async function GraphPage({
   searchParams,
 }: {
@@ -68,15 +112,25 @@ export default async function GraphPage({
     view?: string;
     category?: string;
     user_reported?: string;
+    severity?: string;
+    source?: string;
+    owner_kind?: string;
+    min_confidence?: string;
   };
 }) {
   const filters: GraphFilters = {
     window: searchParams.window ?? "90",
-    kind: searchParams.kind ?? "incident",
+    kind: searchParams.kind ?? "all",
     chain: searchParams.chain ?? null,
     view: searchParams.view ?? "incidents",
     category: searchParams.category ?? null,
     includeUserReported: searchParams.user_reported === "1",
+    severity: searchParams.severity ?? null,
+    source: searchParams.source ?? null,
+    ownerKind: searchParams.owner_kind ?? null,
+    minConfidence: searchParams.min_confidence
+      ? Number(searchParams.min_confidence)
+      : null,
   };
   const includeUserReported = filters.includeUserReported === true;
   const [data, lostStats, valueStats] = await Promise.all([
@@ -102,9 +156,10 @@ export default async function GraphPage({
             Address Graph
           </h1>
           <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
-            Every incident-tagged intel piece, plus the addresses it names.
-            Toggle <strong className="text-[var(--rex-text)]">Institutional</strong> to
-            overlay sanctioned wallets (OFAC, OFSI, EU), exchanges,
+            Every approved investigation and incident, plus the on-chain
+            addresses each names. Toggle{" "}
+            <strong className="text-[var(--rex-text)]">Institutional</strong>{" "}
+            to overlay sanctioned wallets (OFAC, OFSI, EU), exchanges,
             foundations, mixers, bridges, market-makers, and famous
             lost/dormant coins. Co-occurrence edges show clusters. Click
             any node to open the source.
@@ -124,10 +179,14 @@ export default async function GraphPage({
 
         <FilterBar
           window={filters.window ?? "90"}
-          kind={filters.kind ?? "incident"}
+          kind={filters.kind ?? "all"}
           chain={filters.chain ?? ""}
           view={filters.view ?? "incidents"}
           category={filters.category ?? ""}
+          severity={filters.severity ?? ""}
+          source={filters.source ?? ""}
+          ownerKind={filters.ownerKind ?? ""}
+          minConfidence={String(filters.minConfidence ?? 0)}
           includeUserReported={filters.includeUserReported === true}
         />
 
@@ -217,6 +276,10 @@ function FilterBar({
   chain,
   view,
   category,
+  severity,
+  source,
+  ownerKind,
+  minConfidence,
   includeUserReported,
 }: {
   window: string;
@@ -224,6 +287,10 @@ function FilterBar({
   chain: string;
   view: string;
   category: string;
+  severity: string;
+  source: string;
+  ownerKind: string;
+  minConfidence: string;
   includeUserReported: boolean;
 }) {
   return (
@@ -300,6 +367,64 @@ function FilterBar({
             </option>
           ))}
         </select>
+      </FilterGroup>
+
+      <FilterGroup label="Severity">
+        <select
+          name="severity"
+          defaultValue={severity}
+          className="rex-input text-xs min-w-[120px]"
+        >
+          {SEVERITY_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </FilterGroup>
+
+      <FilterGroup label="Attribution">
+        <select
+          name="source"
+          defaultValue={source}
+          className="rex-input text-xs min-w-[160px]"
+          title="Filter address nodes by their primary attribution source — OFAC, OFSI, EU sanctions, curated, etc."
+        >
+          {SOURCE_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </FilterGroup>
+
+      <FilterGroup label="Owner kind">
+        <select
+          name="owner_kind"
+          defaultValue={ownerKind}
+          className="rex-input text-xs min-w-[140px]"
+          title="Filter by what kind of entity owns the address — exchange, government, individual, etc."
+        >
+          {OWNER_KIND_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </FilterGroup>
+
+      <FilterGroup label="Min confidence">
+        <div className="flex gap-1">
+          {CONFIDENCE_CHOICES.map((c) => (
+            <RadioPill
+              key={c.value}
+              name="min_confidence"
+              value={c.value}
+              label={c.label}
+              active={minConfidence === c.value}
+            />
+          ))}
+        </div>
       </FilterGroup>
 
       <FilterGroup label="Sources">
@@ -382,9 +507,28 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
           <div className="text-xs text-[var(--rex-text-muted)] mt-1 max-w-xl">
             Aggregate USD value at {stats.walletCount} priced address
             {stats.walletCount === 1 ? "" : "es"} (of {stats.addressCount}{" "}
-            tracked total). Sums lost, government-seized, and other priced
-            categories at last-snapshot prices — see the per-category and
-            per-token breakdowns below.
+            tracked total) across{" "}
+            <a
+              href="/intel"
+              className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:text-[var(--rex-text)] transition-colors"
+            >
+              {stats.stories.total.toLocaleString()} stor
+              {stats.stories.total === 1 ? "y" : "ies"}
+            </a>
+            {stats.stories.incident + stats.stories.original > 0 ? (
+              <>
+                {" "}
+                ({stats.stories.incident} incident
+                {stats.stories.incident === 1 ? "" : "s"} ·{" "}
+                {stats.stories.original} original
+                {stats.stories.original === 1 ? "" : "s"} ·{" "}
+                {stats.stories.tip} tip
+                {stats.stories.tip === 1 ? "" : "s"})
+              </>
+            ) : null}
+            . Sums lost, government-seized, and other priced categories at
+            last-snapshot prices — see the per-category and per-token
+            breakdowns below.
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-2 shrink-0">
@@ -420,6 +564,35 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
         </div>
       </div>
 
+      <div className="border-t border-[var(--rex-border-subtle)] mt-4 pt-3">
+        <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] mb-2">
+          Stories on file — every approved RexIntel piece
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+          <StoryTile
+            label="All stories"
+            value={stats.stories.total}
+            accent
+            href="/intel"
+          />
+          <StoryTile
+            label="Incidents"
+            value={stats.stories.incident}
+            href="/intel?kind=incident"
+          />
+          <StoryTile
+            label="Originals"
+            value={stats.stories.original}
+            href="/intel?kind=original"
+          />
+          <StoryTile
+            label="Tips"
+            value={stats.stories.tip}
+            href="/intel?kind=tip"
+          />
+        </div>
+      </div>
+
       {stats.byToken.length > 0 ? (
         <div className="border-t border-[var(--rex-border-subtle)] mt-4 pt-3">
           <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] mb-2">
@@ -446,6 +619,40 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function StoryTile({
+  label,
+  value,
+  href,
+  accent,
+}: {
+  label: string;
+  value: number;
+  href: string;
+  accent?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      className="border-l border-[var(--rex-border-subtle)] pl-3 hover:border-[var(--rex-accent)] transition-colors group"
+    >
+      <div
+        className="text-[9px] font-mono uppercase tracking-widest"
+        style={{
+          color: accent ? "var(--rex-accent)" : "var(--rex-text-dim)",
+        }}
+      >
+        {label}
+      </div>
+      <div className="text-sm font-mono text-[var(--rex-text)] group-hover:text-[var(--rex-accent)] transition-colors">
+        {value.toLocaleString()}
+      </div>
+      <div className="text-[10px] font-mono text-[var(--rex-text-dim)]">
+        {value === 1 ? "piece" : "pieces"}
+      </div>
+    </a>
   );
 }
 

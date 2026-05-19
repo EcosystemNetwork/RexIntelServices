@@ -5,6 +5,7 @@ import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
 import { sendOpsAlert } from "@/lib/email/admin-alert-email";
+import { autoExtractAndLinkIntelAddresses } from "@/lib/intel-address-extraction";
 
 /**
  * GET /api/cron/import-defillama-hacks
@@ -295,14 +296,42 @@ export async function GET(req: Request) {
         })
         .where(eq(submissions.id, existing[0].id));
       updated++;
+      // Re-run extraction so updated bodies (curators may add addresses to
+      // a harvested postmortem) feed the graph. Idempotent — see notes in
+      // intel-address-extraction.ts.
+      try {
+        await autoExtractAndLinkIntelAddresses(existing[0].id, payload);
+      } catch (err) {
+        rowErrors.push({
+          name: h.name ?? "unknown",
+          error:
+            "address auto-extract: " +
+            (err instanceof Error ? err.message : String(err)),
+        });
+      }
     } else {
-      await db.insert(submissions).values({
-        type: "intel",
-        status: "approved",
-        payload,
-        publishedAt: new Date(),
-      });
+      const [created] = await db
+        .insert(submissions)
+        .values({
+          type: "intel",
+          status: "approved",
+          payload,
+          publishedAt: new Date(),
+        })
+        .returning({ id: submissions.id });
       inserted++;
+      if (created) {
+        try {
+          await autoExtractAndLinkIntelAddresses(created.id, payload);
+        } catch (err) {
+          rowErrors.push({
+            name: h.name ?? "unknown",
+            error:
+              "address auto-extract: " +
+              (err instanceof Error ? err.message : String(err)),
+          });
+        }
+      }
     }
     } catch (err) {
       // Per-row safety net: a single bad upstream entry shouldn't abort the

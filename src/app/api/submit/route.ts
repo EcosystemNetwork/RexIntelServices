@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, sql } from "drizzle-orm";
-import {
-  db,
-  submissions,
-  addresses,
-  intelAddresses,
-  submitters,
-} from "@/lib/db";
-import type { AddressRole } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { db, submissions, submitters } from "@/lib/db";
 import {
   validateIntelPayload,
   validateEventPayload,
@@ -31,13 +24,11 @@ import { absoluteUrl } from "@/lib/site-url";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { detectPotentialDuplicate } from "@/lib/submission-dedup";
 import { detailHref } from "@/lib/slug";
-
-type AddressInput = {
-  chain: string;
-  address: string;
-  role: AddressRole;
-  label?: string;
-};
+import type { AddressRole } from "@/lib/db/schema";
+import {
+  type AddressInput,
+  linkAddressesToSubmission,
+} from "@/lib/intel-address-extraction";
 
 /**
  * Public API endpoint for community-submitted intel and events.
@@ -392,77 +383,6 @@ export async function POST(req: NextRequest) {
           ? "Loss report received. A curator will review and, if verified, add the addresses to the public graph."
           : `${label} received. We'll review it for the next publication.`,
   });
-}
-
-/**
- * Upsert each address into the addresses table and link it to the
- * submission via the intel_addresses junction. Dedupes per (chain,
- * lowercased address) so re-submitting the same address points at the
- * same row.
- */
-async function linkAddressesToSubmission(
-  submissionId: string,
-  inputs: AddressInput[],
-) {
-  for (const input of inputs) {
-    // Try the existing-row path first since it's the common case once the
-    // graph has any history.
-    const [existing] = await db
-      .select({ id: addresses.id })
-      .from(addresses)
-      .where(
-        and(
-          eq(addresses.chain, input.chain),
-          sql`lower(${addresses.address}) = lower(${input.address})`,
-        ),
-      )
-      .limit(1);
-
-    let addressId = existing?.id;
-    if (!addressId) {
-      // Defamation guard: a submission is "pending" at this point — no
-      // curator approval. Free-form user `label` must NOT land on
-      // addresses.label (which renders as the H1 on the address detail
-      // page) before review. Labels are only promoted via curator-side
-      // tooling or harvester-driven attribution rows.
-      const [inserted] = await db
-        .insert(addresses)
-        .values({
-          chain: input.chain,
-          address: input.address,
-          label: null,
-        })
-        .onConflictDoNothing()
-        .returning({ id: addresses.id });
-      if (inserted) {
-        addressId = inserted.id;
-      } else {
-        // A concurrent insert won the race — re-read.
-        const [raceRow] = await db
-          .select({ id: addresses.id })
-          .from(addresses)
-          .where(
-            and(
-              eq(addresses.chain, input.chain),
-              sql`lower(${addresses.address}) = lower(${input.address})`,
-            ),
-          )
-          .limit(1);
-        addressId = raceRow?.id;
-      }
-    }
-
-    if (!addressId) continue;
-
-    await db
-      .insert(intelAddresses)
-      .values({
-        submissionId,
-        addressId,
-        role: input.role,
-      })
-      .onConflictDoNothing();
-  }
 }
 
 /**

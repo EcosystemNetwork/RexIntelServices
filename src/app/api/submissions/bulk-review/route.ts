@@ -7,8 +7,13 @@ import { awardContributionPoints } from "@/lib/magic-auth";
 import { pointsKindForSubmission } from "@/lib/clearance";
 import { awardCitationCredit } from "@/lib/citation-awards";
 import { processLossReportApproval } from "@/lib/loss-report-attribution";
-import type { LossReportPayload } from "@/lib/db/schema";
+import type { IntelPayload, LossReportPayload } from "@/lib/db/schema";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
+import { autoExtractAndLinkIntelAddresses } from "@/lib/intel-address-extraction";
+import {
+  checkIntelEvidence,
+  NO_EVIDENCE_ERROR_MESSAGE,
+} from "@/lib/intel-evidence-check";
 
 /**
  * Admin-only: review N submissions with the same action in a single call.
@@ -57,6 +62,60 @@ export async function POST(req: NextRequest) {
     action === "approve" ? "approved" : action === "reject" ? "rejected" : "spam";
   const now = new Date();
 
+  // Editorial-bar pre-filter. For approve actions, fetch the candidate
+  // intel rows up-front and drop any that fail the evidence check from
+  // the update set. Blocked rows stay pending and surface in the
+  // response so the moderator can fix them one-by-one (or bypass via
+  // the single-row endpoint with a notes reason). Non-intel rows skip
+  // the check entirely.
+  const blocked: Array<{ id: string; reason: string }> = [];
+  let allowedIds = ids;
+  if (action === "approve") {
+    const candidates = await db
+      .select({
+        id: submissions.id,
+        type: submissions.type,
+        payload: submissions.payload,
+      })
+      .from(submissions)
+      .where(
+        and(
+          inArray(submissions.id, ids),
+          eq(submissions.status, "pending"),
+        ),
+      );
+    const allowed: string[] = [];
+    for (const c of candidates) {
+      if (c.type !== "intel") {
+        allowed.push(c.id);
+        continue;
+      }
+      const check = await checkIntelEvidence({
+        submissionId: c.id,
+        payload: c.payload as IntelPayload,
+      });
+      if (check.ok) {
+        allowed.push(c.id);
+      } else {
+        blocked.push({ id: c.id, reason: "no-evidence" });
+      }
+    }
+    allowedIds = allowed;
+  }
+
+  if (allowedIds.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      updatedCount: 0,
+      requestedCount: ids.length,
+      awardedCount: 0,
+      citationsAwarded: 0,
+      autoExtractedAddresses: 0,
+      blocked,
+      error: blocked.length > 0 ? NO_EVIDENCE_ERROR_MESSAGE : undefined,
+    });
+  }
+
   // For approvals we need (type, payload, submitterId) to issue points, so
   // capture the rows we actually updated rather than just their ids. The
   // pending-only filter ensures we never double-award on a retry.
@@ -71,7 +130,7 @@ export async function POST(req: NextRequest) {
     })
     .where(
       and(
-        inArray(submissions.id, ids),
+        inArray(submissions.id, allowedIds),
         eq(submissions.status, "pending"),
       ),
     )
@@ -84,6 +143,7 @@ export async function POST(req: NextRequest) {
 
   let awardedCount = 0;
   let citationsAwarded = 0;
+  let autoExtractedAddresses = 0;
   if (action === "approve") {
     // Sequential rather than Promise.all — awardContributionPoints runs a
     // transaction per call, and parallel writes against the same submitter
@@ -98,6 +158,22 @@ export async function POST(req: NextRequest) {
           awardedByUserId: session.userId,
         });
         awardedCount += 1;
+      }
+      // Auto-extract on-chain addresses from the intel payload so they
+      // land in the public graph immediately. Runs BEFORE citation credit
+      // so the citation step sees the freshly-linked addresses (citations
+      // are awarded per shared address). Same idempotency guarantees as
+      // the single-row review path.
+      if (r.type === "intel") {
+        try {
+          const res = await autoExtractAndLinkIntelAddresses(
+            r.id,
+            r.payload as IntelPayload,
+          );
+          autoExtractedAddresses += res.linked;
+        } catch (err) {
+          console.warn("[bulk-review] address auto-extract failed:", err);
+        }
       }
       // Citation credit fires for every intel approval, including anonymous
       // currents (the *prior* authors are what's being rewarded).
@@ -138,5 +214,7 @@ export async function POST(req: NextRequest) {
     requestedCount: ids.length,
     awardedCount,
     citationsAwarded,
+    autoExtractedAddresses,
+    blocked,
   });
 }

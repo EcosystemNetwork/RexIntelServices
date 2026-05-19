@@ -7,8 +7,13 @@ import { awardContributionPoints } from "@/lib/magic-auth";
 import { pointsKindForSubmission } from "@/lib/clearance";
 import { awardCitationCredit } from "@/lib/citation-awards";
 import { processLossReportApproval } from "@/lib/loss-report-attribution";
-import type { LossReportPayload } from "@/lib/db/schema";
+import type { IntelPayload, LossReportPayload } from "@/lib/db/schema";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
+import { autoExtractAndLinkIntelAddresses } from "@/lib/intel-address-extraction";
+import {
+  checkIntelEvidence,
+  NO_EVIDENCE_ERROR_MESSAGE,
+} from "@/lib/intel-evidence-check";
 
 /**
  * Admin-only: approve / reject / mark-spam a submission.
@@ -27,7 +32,7 @@ export async function POST(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { action?: string; notes?: string };
+  let body: { action?: string; notes?: string; bypassEvidenceCheck?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -55,6 +60,39 @@ export async function POST(
     .limit(1);
   if (!prior) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
+  // Editorial-bar guard. Block approve when an intel row has no evidence
+  // attached — see lib/intel-evidence-check.ts. Only enforced on the
+  // first pending → approved transition; re-reviewing an already-approved
+  // row (rare) skips the check since it'd already passed once. Bypass
+  // requires an explicit notes field so the override is auditable.
+  if (
+    action === "approve" &&
+    prior.type === "intel" &&
+    prior.status !== "approved"
+  ) {
+    const check = await checkIntelEvidence({
+      submissionId: prior.id,
+      payload: prior.payload as IntelPayload,
+      bypass: body.bypassEvidenceCheck === true,
+    });
+    if (!check.ok) {
+      return NextResponse.json(
+        { error: NO_EVIDENCE_ERROR_MESSAGE, code: "no-evidence" },
+        { status: 422 },
+      );
+    }
+    if (check.reason === "bypass" && !body.notes?.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            "bypassEvidenceCheck requires a notes string explaining the offline evidence kept out of public copy.",
+          code: "bypass-needs-notes",
+        },
+        { status: 422 },
+      );
+    }
   }
 
   const now = new Date();
@@ -92,6 +130,25 @@ export async function POST(
       submissionId: row.id,
       awardedByUserId: session.userId,
     });
+  }
+  // Auto-extract on-chain addresses from the intel payload (body, links,
+  // sources, archive) and link them via intel_addresses so they land in
+  // the public graph immediately. Runs BEFORE citation credit so the
+  // citation step sees the freshly-linked addresses too — citations are
+  // awarded per shared address, and an article with addresses only in
+  // prose used to award none. Idempotent: the PK on intel_addresses +
+  // onConflictDoNothing means curator-asserted roles win on collision.
+  let autoExtractedAddresses = 0;
+  if (isFirstApproval && row.type === "intel") {
+    try {
+      const res = await autoExtractAndLinkIntelAddresses(
+        row.id,
+        row.payload as IntelPayload,
+      );
+      autoExtractedAddresses = res.linked;
+    } catch (err) {
+      console.warn("[review] address auto-extract failed:", err);
+    }
   }
   // Citation credit: any prior approved intel that linked the same addresses
   // earns its original author +1 each (capped). Runs even for anonymous
@@ -132,6 +189,7 @@ export async function POST(
     submission: row,
     award,
     citationsAwarded,
+    autoExtractedAddresses,
     graphAttribution,
   });
 }

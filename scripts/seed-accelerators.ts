@@ -316,6 +316,21 @@ const accelerators: AcceleratorPayload[] = [
     rolling: true,
     tags: ["coinbase", "base", "ventures", "cdp", "agentkit"],
   },
+  {
+    name: "1752 Lightning Round",
+    organization: "1752vc",
+    organizationUrl: "https://www.1752.vc/",
+    description:
+      "Recurring remote pitch competition from 1752vc (Southern California) for AI-first B2B founders with traction — revenue, pilots, active users, or enterprise demand. Top 5 finalists pitch live on Zoom (7-minute pitch + 5-minute Q&A); winner takes a $100k investment and a fast-track into 1752 Accelerate. All finalists get press distribution, newsletter spotlight (100k+ subs), and access to a $1M+ perks package.",
+    investment:
+      "$100k investment for the winner; finalist fast-track into 1752 Accelerate",
+    investmentUsd: 100000,
+    location: "Remote (Zoom)",
+    focus: "AI-first B2B founders with meaningful traction",
+    applyUrl: "https://www.sparkxyz.io/applications/1842",
+    rolling: true,
+    tags: ["1752", "ai", "b2b", "saas", "pitch-competition"],
+  },
 ];
 // Ambassador / champion / fellow programs live in scripts/seed-ambassadors.ts.
 
