@@ -24,14 +24,18 @@
  * Sender defaults to "Rex Intel <intel@rexintelservices.com>" (matches the
  * verified Resend domain used by automations.ts). Override with --from / --from-name.
  */
-import "dotenv/config";
+// Must come first — ESM hoists imports in source order, and ../src/lib/db
+// reads DATABASE_URL at module load. See scripts/_load-env.ts for merge rules.
+import "./_load-env";
+
 import { desc, eq } from "drizzle-orm";
 import { Resend } from "resend";
 import { db, campaigns } from "../src/lib/db";
 import { TEMPLATES, getTemplate } from "../src/lib/email/templates";
 
-const DEFAULT_FROM_EMAIL = "intel@rexintelservices.com";
-const DEFAULT_FROM_NAME = "Rex Intel";
+const DEFAULT_FROM_EMAIL =
+  process.env.DIGEST_FROM_EMAIL ?? "intel@rexintelservices.com";
+const DEFAULT_FROM_NAME = process.env.DIGEST_FROM_NAME ?? "Rex Intel";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

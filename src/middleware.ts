@@ -24,6 +24,10 @@ const PUBLIC_ROUTES = [
   // is to mint the session cookie — gating it behind the very cookie
   // it issues would create a chicken-and-egg lockout.
   "/api/auth/operator/magic-login",
+  // Same chicken-and-egg shape as magic-login: this route mints the
+  // operator session from an existing community Magic session, so the
+  // caller never has the operator cookie when they hit it.
+  "/api/auth/operator/auto-upgrade",
   "/api/auth/logout",
   "/api/webhooks/",
   "/api/track/",

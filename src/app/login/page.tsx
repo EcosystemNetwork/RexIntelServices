@@ -1,26 +1,29 @@
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { PublicShell } from "@/components/public-shell";
-import {
-  createSession,
-  findOrCreateOperatorUser,
-  getSession,
-  isOperatorEmail,
-} from "@/lib/auth";
+import { getSession, isOperatorEmail } from "@/lib/auth";
 import { getMagicSession } from "@/lib/magic-auth";
 import { db, submitters } from "@/lib/db";
 import { LoginForm } from "./login-form";
 
 export const dynamic = "force-dynamic";
 
-// If the visitor already holds an operator session, jump straight to the
-// dashboard. If they hold only a community Magic session and the email on
-// that session is allowlisted, mint the operator session inline and skip
-// the second OTP round-trip — the DID token was already validated when the
-// community session was minted.
-async function tryAutoUpgrade(): Promise<void> {
-  const op = await getSession();
-  if (op) redirect("/dashboard");
+// Detect the two short-circuits that skip the OTP modal:
+//   1. Operator session present → straight to /dashboard.
+//   2. Community Magic session present + email is on the operator
+//      allowlist → hand off to the auto-upgrade Route Handler, which
+//      mints the operator session and redirects to /dashboard. Cookie
+//      mutation has to live in a Route Handler — Next.js 14 forbids
+//      cookies().set() from Server Component renders.
+//
+// `?upgrade=skip` on the inbound URL is the loopback signal from the
+// auto-upgrade route when it decided not to mint (no magic session, or
+// email not allowlisted). Honour it to avoid a redirect cycle.
+async function tryAutoUpgrade(searchParams: {
+  upgrade?: string;
+}): Promise<void> {
+  if (await getSession()) redirect("/dashboard");
+  if (searchParams.upgrade === "skip") return;
 
   const magic = await getMagicSession();
   if (!magic) return;
@@ -33,13 +36,15 @@ async function tryAutoUpgrade(): Promise<void> {
   const email = row?.email;
   if (!email || !isOperatorEmail(email)) return;
 
-  const user = await findOrCreateOperatorUser(email);
-  await createSession({ userId: user.id, email: user.email });
-  redirect("/dashboard");
+  redirect("/api/auth/operator/auto-upgrade");
 }
 
-export default async function LoginPage() {
-  await tryAutoUpgrade();
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: { upgrade?: string };
+}) {
+  await tryAutoUpgrade(searchParams);
 
   return (
     <PublicShell
