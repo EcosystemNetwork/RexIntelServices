@@ -52,8 +52,13 @@ export async function POST(req: NextRequest) {
       replyTo: body.replyTo ?? null,
       previewText: body.previewText ?? null,
       htmlBody: body.htmlBody,
+      bodyDoc: body.bodyDoc ?? null,
       textBody: body.textBody ?? null,
       targetTagIds: body.targetTagIds ?? [],
+      segmentId: body.segmentId ?? null,
+      subjectB: body.subjectB ?? null,
+      abSampleSize: body.abSampleSize ?? null,
+      abWinnerMetric: body.abWinnerMetric ?? null,
       status: "draft",
     })
     .returning();

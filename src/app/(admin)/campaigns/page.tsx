@@ -17,6 +17,7 @@ interface Campaign {
   scheduledFor: string | null;
   sentAt: string | null;
   createdAt: string;
+  progressStartedAt: string | null;
 }
 
 export default function CampaignsPage() {
@@ -35,6 +36,16 @@ export default function CampaignsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // While any campaign is sending, refresh the list every 5s so the inline
+  // progress bars reflect the worker's per-minute tick. Stop the moment
+  // nothing is mid-send.
+  useEffect(() => {
+    const anySending = rows.some((r) => r.status === "sending");
+    if (!anySending) return;
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [rows]);
 
   async function duplicate(id: string) {
     setBusyId(id);
@@ -155,7 +166,37 @@ export default function CampaignsPage() {
                     className="text-right font-mono text-xs"
                     style={{ color: "var(--rex-text-muted)" }}
                   >
-                    {c.sentCount ?? 0}
+                    {c.status === "sending" && (c.recipientCount ?? 0) > 0 ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <span>
+                          {(c.sentCount ?? 0).toLocaleString()}
+                          <span style={{ color: "var(--rex-text-dim)" }}>
+                            /{c.recipientCount?.toLocaleString()}
+                          </span>
+                        </span>
+                        <div
+                          className="h-1 rounded-full overflow-hidden"
+                          style={{
+                            width: 60,
+                            background: "rgba(95,185,31,0.15)",
+                          }}
+                        >
+                          <div
+                            className="h-full transition-all duration-500"
+                            style={{
+                              width: `${
+                                ((c.sentCount ?? 0) /
+                                  Math.max(1, c.recipientCount ?? 1)) *
+                                100
+                              }%`,
+                              background: "var(--rex-accent)",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      c.sentCount ?? 0
+                    )}
                   </td>
                   <td
                     className="text-right font-mono text-xs"

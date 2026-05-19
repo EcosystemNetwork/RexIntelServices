@@ -6,6 +6,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/continue-sending",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/draft-digest",
       "schedule": "0 22 * * 0"
     },

@@ -7,10 +7,12 @@ import {
   sends,
   suppressions,
   subscriberTags,
+  segments,
   type Campaign,
 } from "../db";
 import { renderCampaignForRecipient } from "./render";
 import { sendCreditEmails } from "./credit-emails";
+import { resolveSegment } from "../segments";
 
 // Lazy-initialize so importing this module doesn't throw when RESEND_API_KEY
 // is unset (e.g. during the cron route's auth check, or local dev without
@@ -57,17 +59,34 @@ async function getRecipients(campaign: Campaign): Promise<string[]> {
     .from(suppressions);
   const suppressedEmails = new Set(suppressedRows.map((r) => r.email.toLowerCase()));
 
-  // Resolve the candidate set by tag intersection (or "all active" if no tags).
-  // null means "no tag filter — every active subscriber is a candidate".
-  const targetTags = (campaign.targetTagIds ?? []) as string[];
+  // Resolve the candidate set. Order of precedence:
+  //   1. segmentId set  → live-resolve the saved segment's filter
+  //   2. tags set        → tag-union (any of the listed tags) [legacy path]
+  //   3. neither         → every active subscriber is a candidate
   let candidateIds: string[] | null = null;
-  if (targetTags.length > 0) {
-    const rows = await db
-      .selectDistinct({ id: subscriberTags.subscriberId })
-      .from(subscriberTags)
-      .where(inArray(subscriberTags.tagId, targetTags));
-    candidateIds = rows.map((r) => r.id);
+  if (campaign.segmentId) {
+    const [seg] = await db
+      .select()
+      .from(segments)
+      .where(eq(segments.id, campaign.segmentId))
+      .limit(1);
+    if (!seg) {
+      throw new Error(
+        `Campaign ${campaign.id} references missing segment ${campaign.segmentId}`,
+      );
+    }
+    candidateIds = await resolveSegment(seg.filterJson);
     if (candidateIds.length === 0) return [];
+  } else {
+    const targetTags = (campaign.targetTagIds ?? []) as string[];
+    if (targetTags.length > 0) {
+      const rows = await db
+        .selectDistinct({ id: subscriberTags.subscriberId })
+        .from(subscriberTags)
+        .where(inArray(subscriberTags.tagId, targetTags));
+      candidateIds = rows.map((r) => r.id);
+      if (candidateIds.length === 0) return [];
+    }
   }
 
   // One unified query — applies status, tag-membership (if any), and the
@@ -90,21 +109,46 @@ async function getRecipients(campaign: Campaign): Promise<string[]> {
     .map((r) => r.id);
 }
 
-/**
- * Send a campaign. Designed to be safely re-runnable: if it crashes halfway,
- * calling it again will only send to remaining recipients.
- *
- * For a real production system, you'd run this from a background worker
- * (e.g. a long-running Node process, Inngest, Trigger.dev, or BullMQ).
- * For 5-50k subscribers this is totally fine to invoke from an API route
- * if your hosting allows long requests, but Vercel serverless caps at 60s
- * on Hobby and 300s on Pro - so consider self-hosting or a worker.
- */
-export async function sendCampaign(campaignId: string): Promise<{
+export interface SendCampaignOptions {
+  /**
+   * Run at most this many batches (each ≤BATCH_SIZE recipients), then return
+   * without marking the campaign as `sent`. The remaining recipients stay in
+   * the pool for the next worker tick. Used by `/api/cron/continue-sending`
+   * to keep individual ticks well inside the 300s Vercel function ceiling.
+   *
+   * When undefined, the function runs every remaining batch (legacy behavior).
+   */
+  maxBatches?: number;
+}
+
+export interface SendCampaignResult {
   totalQueued: number;
   totalSent: number;
   totalFailed: number;
-}> {
+  /**
+   * True when every recipient has been processed in this invocation
+   * (so the caller can mark the campaign as `sent`). False when the
+   * worker yielded mid-list because maxBatches was hit.
+   */
+  complete: boolean;
+  /** Remaining recipient count after this invocation. */
+  remaining: number;
+}
+
+/**
+ * Send a campaign. Designed to be safely re-runnable AND incrementally
+ * resumable: callers can pass `maxBatches` to yield after a chunk, letting a
+ * cron-driven worker stream through tens of thousands of recipients across
+ * many ticks without ever hitting a serverless timeout.
+ *
+ * The campaign is marked `sent` only when the full recipient list is drained.
+ * Mid-flight invocations leave `status='sending'` so the next worker tick
+ * picks it up.
+ */
+export async function sendCampaign(
+  campaignId: string,
+  options: SendCampaignOptions = {},
+): Promise<SendCampaignResult> {
   const [campaign] = await db
     .select()
     .from(campaigns)
@@ -116,26 +160,93 @@ export async function sendCampaign(campaignId: string): Promise<{
     throw new Error("Campaign already sent");
   }
 
-  // Mark as sending
+  // Mark as sending + stamp progress-start the first time we touch it.
+  // progress_started_at being null means "no worker has claimed this yet".
+  // We don't overwrite it on subsequent ticks — stuck-detection in the
+  // cron sweeper uses this exact moment.
   await db
     .update(campaigns)
-    .set({ status: "sending", updatedAt: new Date() })
+    .set({
+      status: "sending",
+      progressStartedAt: campaign.progressStartedAt ?? new Date(),
+      updatedAt: new Date(),
+    })
     .where(eq(campaigns.id, campaignId));
 
-  const recipientIds = await getRecipients(campaign);
+  const allRecipientIds = await getRecipients(campaign);
+
+  // Snapshot full audience size on the very first claim. AB or not, this
+  // is the denominator for progress / done-detection from here on.
+  if ((campaign.recipientCount ?? 0) === 0) {
+    // alreadySent is empty on first claim, so allRecipientIds IS the full
+    // audience. For continuing ticks, recipientCount is preserved from this
+    // initial set so progress math stays consistent across A/B phases.
+    await db
+      .update(campaigns)
+      .set({ recipientCount: allRecipientIds.length })
+      .where(eq(campaigns.id, campaignId));
+  }
+
+  // ---- A/B phase logic ----
+  // SAMPLE → WAIT → FINAL. Each cron tick picks the phase by inspecting
+  // sentCount, abSampleSize, and abWinnerPickedAt; the sender stays a pure
+  // function from (campaign state, recipient pool) → batch behavior.
+  const abEnabled =
+    !!campaign.subjectB && (campaign.abSampleSize ?? 0) > 0;
+  const sentSoFar = campaign.sentCount ?? 0;
+  const sampleSize = abEnabled ? campaign.abSampleSize ?? 0 : 0;
+
+  const inWaitPhase =
+    abEnabled && !campaign.abWinnerPickedAt && sentSoFar >= sampleSize;
+  if (inWaitPhase) {
+    // The sample has been fully sent. The winner-pick worker will fire once
+    // the wait window elapses; until then, this campaign sits idle. Return
+    // a non-complete result so the cron keeps it in `sending`.
+    console.log(
+      `[campaign ${campaignId}] A/B sample drained — waiting for winner pick`,
+    );
+    return {
+      totalQueued: allRecipientIds.length,
+      totalSent: 0,
+      totalFailed: 0,
+      complete: false,
+      remaining: allRecipientIds.length,
+    };
+  }
+
+  let recipientIds = allRecipientIds;
+  let abAssignments: Map<string, "a" | "b"> | null = null;
+
+  if (abEnabled && !campaign.abWinnerPickedAt) {
+    // SAMPLE PHASE: this tick can send up to (sampleSize - sentSoFar) more.
+    const remainingSample = Math.max(0, sampleSize - sentSoFar);
+    recipientIds = allRecipientIds.slice(0, remainingSample);
+    // Deterministic A/B split across the global sample index.
+    abAssignments = new Map(
+      recipientIds.map((id, idx) => [
+        id,
+        (sentSoFar + idx) % 2 === 0 ? "a" : "b",
+      ]),
+    );
+  }
+  // else: NORMAL or FINAL phase — send `recipientIds` as-is with
+  // abWinnerSubject (when present) overriding campaign.subject below.
+
   console.log(
-    `[campaign ${campaignId}] sending to ${recipientIds.length} recipients`,
+    `[campaign ${campaignId}] ${recipientIds.length} recipients in this tick` +
+      (options.maxBatches ? ` (max ${options.maxBatches} batches)` : "") +
+      (abAssignments ? " — A/B sample" : "") +
+      (campaign.abWinnerPickedAt ? " — A/B final" : ""),
   );
-
-  await db
-    .update(campaigns)
-    .set({ recipientCount: recipientIds.length })
-    .where(eq(campaigns.id, campaignId));
 
   let totalSent = 0;
   let totalFailed = 0;
+  const maxBatches = options.maxBatches ?? Number.POSITIVE_INFINITY;
+  let batchesRun = 0;
 
   for (let i = 0; i < recipientIds.length; i += BATCH_SIZE) {
+    if (batchesRun >= maxBatches) break;
+    batchesRun++;
     const batchIds = recipientIds.slice(i, i + BATCH_SIZE);
     const batchSubs = await db
       .select()
@@ -151,6 +262,7 @@ export async function sendCampaign(campaignId: string): Promise<{
           campaignId,
           subscriberId: s.id,
           status: "queued" as const,
+          abVariant: abAssignments?.get(s.id) ?? null,
         })),
       )
       .onConflictDoNothing()
@@ -172,12 +284,19 @@ export async function sendCampaign(campaignId: string): Promise<{
             sendId,
             baseUrl: BASE_URL,
           });
+          // Subject: variant-aware in the sample phase, winner in the rest.
+          const variant = abAssignments?.get(sub.id);
+          const subjectForRecipient = variant === "b"
+            ? campaign.subjectB ?? campaign.subject
+            : campaign.abWinnerPickedAt && campaign.abWinnerSubject
+              ? campaign.abWinnerSubject
+              : campaign.subject;
           return {
             sendId,
             subscriberId: sub.id,
             from: `${campaign.fromName} <${campaign.fromEmail}>`,
             to: [sub.email],
-            subject: applyMergeTags(campaign.subject, sub),
+            subject: applyMergeTags(subjectForRecipient, sub),
             html,
             text,
             replyTo: campaign.replyTo ?? undefined,
@@ -236,44 +355,80 @@ export async function sendCampaign(campaignId: string): Promise<{
       }
     }
 
-    // Update running totals on the campaign row
-    await db
-      .update(campaigns)
-      .set({
-        sentCount: totalSent,
-      })
-      .where(eq(campaigns.id, campaignId));
+    // The aggregate sentCount bump happens once at end-of-tick, below.
+    // Within a single tick (≤30s for the cron worker, ≤4s for the user-
+    // triggered fast path) there is nothing for a poller to observe
+    // between batches, so per-batch DB writes are pure overhead.
 
-    if (i + BATCH_SIZE < recipientIds.length) {
+    if (i + BATCH_SIZE < recipientIds.length && batchesRun < maxBatches) {
       await new Promise((r) => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));
     }
   }
 
-  const finalStatus = totalFailed === recipientIds.length ? "failed" : "sent";
-  const sentAt = new Date();
+  // Did this invocation drain every recipient in the full audience? In the
+  // A/B sample phase, draining `recipientIds` (the sample slice) is NOT
+  // completion — the post-sample winner-final phase still has to ship.
+  // So `complete` is judged against allRecipientIds and overridden by the
+  // AB phase machine.
+  const processed = Math.min(maxBatches * BATCH_SIZE, recipientIds.length);
+  const drainedThisTick = processed >= recipientIds.length;
+  const stillSampling =
+    abEnabled && !campaign.abWinnerPickedAt;
+  const remainingFinal = Math.max(
+    0,
+    allRecipientIds.length - (sentSoFar + processed),
+  );
+  const complete = drainedThisTick && !stillSampling && remainingFinal === 0;
+  const remaining = stillSampling
+    ? allRecipientIds.length - (sentSoFar + processed)
+    : remainingFinal;
+  const now = new Date();
+
+  // Aggregate counters across ticks. sentCount is sum-of-progress; the
+  // per-tick `totalSent` is added to whatever was already on the row.
   await db
     .update(campaigns)
     .set({
-      status: finalStatus,
-      sentAt,
-      sentCount: totalSent,
-      updatedAt: sentAt,
+      sentCount: sql`COALESCE(${campaigns.sentCount}, 0) + ${totalSent}`,
+      updatedAt: now,
     })
     .where(eq(campaigns.id, campaignId));
 
-  // Submitter-credit emails — only when the campaign actually went out.
-  // Wrapped so a transactional-email failure can never fail the campaign
-  // result we return to the caller (worst case: a creditable submitter
-  // doesn't get their thank-you email; the briefing itself still shipped).
-  if (finalStatus === "sent") {
-    try {
-      const sentCampaign = { ...campaign, sentAt, status: "sent" as const };
-      const credit = await sendCreditEmails(sentCampaign);
-      console.log(
-        `[campaign ${campaignId}] credit emails: ${credit.sent}/${credit.attempted} sent, ${credit.failed} failed`,
-      );
-    } catch (err) {
-      console.error(`[campaign ${campaignId}] credit-email hook failed:`, err);
+  let finalStatus: "sending" | "sent" | "failed" = "sending";
+  if (complete) {
+    // Read post-update aggregates to know whether the whole campaign failed.
+    const [row] = await db
+      .select({
+        sentCount: campaigns.sentCount,
+        recipientCount: campaigns.recipientCount,
+      })
+      .from(campaigns)
+      .where(eq(campaigns.id, campaignId))
+      .limit(1);
+    const totalEverSent = row?.sentCount ?? 0;
+    const everRecipients = row?.recipientCount ?? 0;
+    finalStatus = totalEverSent === 0 && everRecipients > 0 ? "failed" : "sent";
+
+    await db
+      .update(campaigns)
+      .set({
+        status: finalStatus,
+        sentAt: now,
+        updatedAt: now,
+      })
+      .where(eq(campaigns.id, campaignId));
+
+    // Submitter-credit emails — only when the campaign actually went out.
+    if (finalStatus === "sent") {
+      try {
+        const sentCampaign = { ...campaign, sentAt: now, status: "sent" as const };
+        const credit = await sendCreditEmails(sentCampaign);
+        console.log(
+          `[campaign ${campaignId}] credit emails: ${credit.sent}/${credit.attempted} sent, ${credit.failed} failed`,
+        );
+      } catch (err) {
+        console.error(`[campaign ${campaignId}] credit-email hook failed:`, err);
+      }
     }
   }
 
@@ -281,6 +436,8 @@ export async function sendCampaign(campaignId: string): Promise<{
     totalQueued: recipientIds.length,
     totalSent,
     totalFailed,
+    complete,
+    remaining,
   };
 }
 

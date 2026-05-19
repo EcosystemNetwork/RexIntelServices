@@ -1,12 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import { TEMPLATES, type NewsletterTemplate } from "@/lib/email/templates";
+import type { TiptapNode } from "@/components/email-editor/serialize";
+
+// Tiptap pulls ProseMirror + several extensions — keep it out of the
+// composer's initial bundle so HTML-only campaign drafts don't pay for it.
+const EmailEditor = dynamic(() => import("@/components/email-editor"), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="text-sm p-4"
+      style={{ color: "var(--rex-text-dim)" }}
+    >
+      Loading visual editor…
+    </div>
+  ),
+});
 
 interface Tag {
   id: string;
   name: string;
   subscriberCount: number;
+}
+
+interface Segment {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 interface RecipientCount {
@@ -30,9 +53,40 @@ export default function CampaignComposerPage() {
     fromEmail: "",
     replyTo: "",
     previewText: "",
-    htmlBody: DEFAULT_TEMPLATE,
+    htmlBody: DEFAULT_BODY,
     targetTagIds: [] as string[],
+    segmentId: "" as string,
+    subjectB: "" as string,
+    abSampleSize: 0 as number,
+    abWinnerMetric: "open_rate" as "open_rate" | "click_rate",
   });
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  // Visual editor (Tiptap) vs raw HTML textarea. Visual is the default for
+  // fresh drafts; HTML mode is the fallback when the body is a hand-written
+  // template that the visual schema can't reconstruct.
+  const [editorMode, setEditorMode] = useState<"visual" | "html">("html");
+  const [bodyDoc, setBodyDoc] = useState<TiptapNode | null>(null);
+  // Live send progress when the campaign is mid-flight. The async worker
+  // increments sentCount tick-by-tick; we poll while status='sending'.
+  const [progress, setProgress] = useState<{
+    sentCount: number;
+    recipientCount: number;
+    status: string;
+  } | null>(null);
+  const [preflight, setPreflight] = useState<{
+    ok: boolean;
+    checks: Array<{
+      id: string;
+      label: string;
+      severity: "ok" | "warn" | "block";
+      message: string;
+    }>;
+    recipientCount: number;
+  } | null>(null);
+  const [showPreflight, setShowPreflight] = useState(false);
+  const [preflightLoading, setPreflightLoading] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(initialId);
   const [campaignStatus, setCampaignStatus] = useState<string>("draft");
   const [busy, setBusy] = useState(false);
@@ -43,6 +97,7 @@ export default function CampaignComposerPage() {
     "idle" | "scheduled" | "error"
   >("idle");
   const [tags, setTags] = useState<Tag[]>([]);
+  const [segmentsList, setSegmentsList] = useState<Segment[]>([]);
   const [count, setCount] = useState<RecipientCount | null>(null);
   const [countLoading, setCountLoading] = useState(false);
   const [testTo, setTestTo] = useState("");
@@ -54,11 +109,14 @@ export default function CampaignComposerPage() {
 
   const readonly = READONLY_STATUSES.has(campaignStatus);
 
-  // Load tags once
+  // Load tags + segments once
   useEffect(() => {
     fetch("/api/tags")
       .then((r) => r.json())
       .then((d) => setTags(d.tags ?? []));
+    fetch("/api/segments")
+      .then((r) => r.json())
+      .then((d) => setSegmentsList(d.segments ?? []));
   }, []);
 
   // Load existing campaign if ?id= is present
@@ -81,7 +139,18 @@ export default function CampaignComposerPage() {
         previewText: campaign.previewText ?? "",
         htmlBody: campaign.htmlBody,
         targetTagIds: campaign.targetTagIds ?? [],
+        segmentId: campaign.segmentId ?? "",
+        subjectB: campaign.subjectB ?? "",
+        abSampleSize: campaign.abSampleSize ?? 0,
+        abWinnerMetric: campaign.abWinnerMetric ?? "open_rate",
       });
+      if (campaign.bodyDoc) {
+        setBodyDoc(campaign.bodyDoc as TiptapNode);
+        setEditorMode("visual");
+      } else {
+        setBodyDoc(null);
+        setEditorMode("html");
+      }
       setCampaignStatus(campaign.status);
       if (campaign.scheduledFor) {
         // datetime-local needs "YYYY-MM-DDTHH:mm" in local time
@@ -95,6 +164,36 @@ export default function CampaignComposerPage() {
       setLoadingExisting(false);
     })();
   }, [initialId]);
+
+  // Poll the campaign while it's sending so the operator sees worker progress
+  // tick-by-tick instead of watching a dead spinner. Stops the moment the
+  // status transitions out of 'sending'.
+  useEffect(() => {
+    if (!campaignId || campaignStatus !== "sending") return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const poll = async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}`);
+      if (cancelled) return;
+      if (!res.ok) return;
+      const { campaign } = await res.json();
+      setProgress({
+        sentCount: campaign.sentCount ?? 0,
+        recipientCount: campaign.recipientCount ?? 0,
+        status: campaign.status,
+      });
+      if (campaign.status !== "sending") {
+        setCampaignStatus(campaign.status);
+        return;
+      }
+      timer = setTimeout(poll, 3000);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [campaignId, campaignStatus]);
 
   // Refresh recipient count when the campaign exists or its tag-targeting changes
   useEffect(() => {
@@ -114,11 +213,15 @@ export default function CampaignComposerPage() {
 
   async function persist(): Promise<string | null> {
     // Either create a draft (if no id yet) or PATCH the existing campaign.
+    // bodyDoc rides alongside htmlBody — server treats htmlBody as the
+    // source of truth at send time and bodyDoc as a round-trip aid for
+    // re-opening the campaign in visual mode.
+    const payload = { ...form, bodyDoc: editorMode === "visual" ? bodyDoc : null };
     if (campaignId) {
       const res = await fetch(`/api/campaigns/${campaignId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -130,7 +233,7 @@ export default function CampaignComposerPage() {
     const res = await fetch("/api/campaigns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -149,23 +252,36 @@ export default function CampaignComposerPage() {
     setBusy(false);
   }
 
+  async function openPreflight() {
+    const id = campaignId ?? (await persist());
+    if (!id) return;
+    setPreflightLoading(true);
+    setShowPreflight(true);
+    const res = await fetch(`/api/campaigns/${id}/preflight`);
+    const data = await res.json();
+    setPreflight(data);
+    setPreflightLoading(false);
+  }
+
   async function send() {
     const id = campaignId ?? (await persist());
     if (!id) return;
-    if (
-      !confirm(
-        `Send this campaign now to ${count?.count ?? "?"} recipient${count?.count === 1 ? "" : "s"}? This cannot be undone.`,
-      )
-    )
-      return;
-
+    setShowPreflight(false);
     setBusy(true);
     const res = await fetch(`/api/campaigns/${id}/send`, { method: "POST" });
     const data = await res.json();
     setBusy(false);
     setSendResult(data);
     if (res.ok) {
-      setTimeout(() => router.push("/campaigns"), 2000);
+      // Worker took the campaign. Flip local status to 'sending' so the
+      // progress-polling effect spins up; stay on this page so the operator
+      // watches sentCount climb instead of staring at the campaigns table.
+      setCampaignStatus("sending");
+      setProgress({
+        sentCount: data.totalSent ?? 0,
+        recipientCount: (data.totalSent ?? 0) + (data.remaining ?? 0),
+        status: "sending",
+      });
     }
   }
 
@@ -288,6 +404,40 @@ export default function CampaignComposerPage() {
     }));
   }
 
+  function applyTemplate(t: NewsletterTemplate) {
+    // Replace the *body* unconditionally — the picker is an explicit user action.
+    // Subject/previewText only overwrite when empty, so reopening the picker on a
+    // half-edited draft doesn't blow away the subject line you just wrote.
+    setForm((f) => ({
+      ...f,
+      htmlBody: t.htmlBody,
+      subject: f.subject || t.subject,
+      previewText: f.previewText || t.previewText,
+    }));
+    setAppliedTemplateId(t.id);
+    setShowTemplatePicker(false);
+  }
+
+  function insertMergeTag(tag: "firstName" | "lastName" | "email") {
+    const token = `{{${tag}}}`;
+    const ta = bodyRef.current;
+    if (!ta) {
+      // No focus on the textarea — append at end.
+      setForm((f) => ({ ...f, htmlBody: f.htmlBody + token }));
+      return;
+    }
+    const start = ta.selectionStart ?? ta.value.length;
+    const end = ta.selectionEnd ?? ta.value.length;
+    const next = ta.value.slice(0, start) + token + ta.value.slice(end);
+    setForm((f) => ({ ...f, htmlBody: next }));
+    // Restore caret after the inserted token on next paint.
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = start + token.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  }
+
   if (loadingExisting) {
     return (
       <div className="p-10" style={{ color: "var(--rex-text-dim)" }}>
@@ -348,13 +498,61 @@ export default function CampaignComposerPage() {
         <div
           className="mb-6 rounded-lg p-3 text-sm"
           style={{
-            background: "rgba(251,191,36,0.08)",
-            border: "1px solid rgba(251,191,36,0.3)",
+            background:
+              campaignStatus === "sending"
+                ? "rgba(95,185,31,0.08)"
+                : "rgba(251,191,36,0.08)",
+            border:
+              campaignStatus === "sending"
+                ? "1px solid rgba(95,185,31,0.35)"
+                : "1px solid rgba(251,191,36,0.3)",
             color: "var(--rex-text-muted)",
           }}
         >
-          This campaign has already been {campaignStatus}. Editing is disabled —
-          duplicate it to send a follow-up.
+          {campaignStatus === "sending" && progress ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <span style={{ color: "var(--rex-accent)" }} className="font-medium">
+                  Sending in progress…
+                </span>
+                <span className="font-mono text-xs">
+                  {progress.sentCount.toLocaleString()} /{" "}
+                  {progress.recipientCount.toLocaleString()}{" "}
+                  <span style={{ color: "var(--rex-text-dim)" }}>
+                    (
+                    {progress.recipientCount > 0
+                      ? Math.round(
+                          (progress.sentCount / progress.recipientCount) * 100,
+                        )
+                      : 0}
+                    %)
+                  </span>
+                </span>
+              </div>
+              <div
+                className="h-1.5 rounded-full overflow-hidden"
+                style={{ background: "rgba(95,185,31,0.15)" }}
+              >
+                <div
+                  className="h-full transition-all duration-500"
+                  style={{
+                    width: `${progress.recipientCount > 0 ? (progress.sentCount / progress.recipientCount) * 100 : 0}%`,
+                    background: "var(--rex-accent)",
+                    boxShadow: "0 0 8px var(--rex-accent)",
+                  }}
+                />
+              </div>
+              <p className="text-xs" style={{ color: "var(--rex-text-dim)" }}>
+                Worker resumes every minute. Safe to close this tab — the send
+                continues in the background.
+              </p>
+            </div>
+          ) : (
+            <>
+              This campaign has already been {campaignStatus}. Editing is
+              disabled — duplicate it to send a follow-up.
+            </>
+          )}
         </div>
       )}
 
@@ -427,11 +625,27 @@ export default function CampaignComposerPage() {
           <Field
             label="Audience"
             hint={
-              tags.length === 0
+              form.segmentId
+                ? "Targeting a saved segment. Tags below are ignored."
+                : tags.length === 0
                 ? "No tags created yet. Sends to every active subscriber."
-                : "Select tags to send only to those segments. Empty = all active subscribers."
+                : "Pick a saved segment, or use tag union. Empty = all active subscribers."
             }
           >
+            <select
+              value={form.segmentId}
+              onChange={(e) => update("segmentId", e.target.value)}
+              className="rex-input mb-2"
+              disabled={readonly}
+            >
+              <option value="">— No segment (use tags below) —</option>
+              {segmentsList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                  {s.description ? ` · ${s.description}` : ""}
+                </option>
+              ))}
+            </select>
             {tags.length === 0 ? (
               <div
                 className="text-sm"
@@ -443,10 +657,20 @@ export default function CampaignComposerPage() {
                 >
                   Create a tag
                 </a>{" "}
-                to enable segment targeting.
+                or{" "}
+                <a
+                  href="/segments"
+                  className="underline hover:text-[var(--rex-accent)]"
+                >
+                  build a segment
+                </a>{" "}
+                to enable targeted sending.
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div
+                className="flex flex-wrap gap-2"
+                style={{ opacity: form.segmentId ? 0.4 : 1 }}
+              >
                 {tags.map((t) => {
                   const on = form.targetTagIds.includes(t.id);
                   return (
@@ -454,7 +678,7 @@ export default function CampaignComposerPage() {
                       key={t.id}
                       type="button"
                       onClick={() => toggleTag(t.id)}
-                      disabled={readonly}
+                      disabled={readonly || !!form.segmentId}
                       className="px-2.5 py-1 rounded-full text-xs border transition-colors"
                       style={{
                         borderColor: on
@@ -479,16 +703,184 @@ export default function CampaignComposerPage() {
           </Field>
 
           <Field
-            label="HTML body"
-            hint="Use {{firstName}} for personalization. Links are auto-tracked."
+            label="A/B subject test (optional)"
+            hint="Variant B sent to half of the sample. After the wait window, the winner ships to the rest."
           >
-            <textarea
-              value={form.htmlBody}
-              onChange={(e) => update("htmlBody", e.target.value)}
-              className="rex-input font-mono text-xs"
-              style={{ height: "288px", resize: "vertical" }}
+            <input
+              value={form.subjectB}
+              onChange={(e) => update("subjectB", e.target.value)}
+              className="rex-input"
+              placeholder="Alternative subject line — leave empty to disable"
               disabled={readonly}
             />
+            {form.subjectB && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label
+                    className="block text-[10px] uppercase tracking-wider mb-1"
+                    style={{ color: "var(--rex-text-dim)" }}
+                  >
+                    Sample size
+                  </label>
+                  <input
+                    type="number"
+                    value={form.abSampleSize || ""}
+                    onChange={(e) =>
+                      update("abSampleSize", parseInt(e.target.value, 10) || 0)
+                    }
+                    className="rex-input"
+                    placeholder="e.g. 600 (10% of 6k)"
+                    disabled={readonly}
+                  />
+                </div>
+                <div>
+                  <label
+                    className="block text-[10px] uppercase tracking-wider mb-1"
+                    style={{ color: "var(--rex-text-dim)" }}
+                  >
+                    Winner metric
+                  </label>
+                  <select
+                    value={form.abWinnerMetric}
+                    onChange={(e) =>
+                      update(
+                        "abWinnerMetric",
+                        e.target.value as "open_rate" | "click_rate",
+                      )
+                    }
+                    className="rex-input"
+                    disabled={readonly}
+                  >
+                    <option value="open_rate">Open rate</option>
+                    <option value="click_rate">Click rate</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </Field>
+
+          <Field
+            label="Email body"
+            hint={
+              editorMode === "visual"
+                ? "Click anywhere to write. Use Insert ▾ for stat cards, CTA buttons, wallet chips, and merge tags."
+                : "Pick a RexIntel template, paste your own HTML, or switch to Visual mode for block-based editing."
+            }
+          >
+            <div
+              className="flex flex-wrap items-center gap-2 mb-2 p-2 rounded-md border"
+              style={{
+                borderColor: "var(--rex-border-subtle)",
+                background: "var(--rex-surface)",
+              }}
+            >
+              <div
+                className="flex rounded border overflow-hidden"
+                style={{ borderColor: "var(--rex-border)" }}
+              >
+                {(["visual", "html"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      if (m === "visual" && !bodyDoc) {
+                        // First switch to visual — confirm the textarea HTML
+                        // will not be back-parsed (would be lossy for tables).
+                        if (
+                          form.htmlBody &&
+                          !confirm(
+                            "Switching to Visual mode starts with a blank document. Your current HTML body stays in HTML mode. Continue?",
+                          )
+                        )
+                          return;
+                      }
+                      setEditorMode(m);
+                    }}
+                    disabled={readonly}
+                    className="text-xs px-3 py-1"
+                    style={{
+                      background:
+                        editorMode === m
+                          ? "rgba(95,185,31,0.15)"
+                          : "transparent",
+                      color:
+                        editorMode === m
+                          ? "var(--rex-accent)"
+                          : "var(--rex-text-muted)",
+                      fontWeight: editorMode === m ? 700 : 400,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <div
+                className="w-px self-stretch"
+                style={{ background: "var(--rex-border)" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowTemplatePicker(true)}
+                disabled={readonly}
+                className="rex-btn-ghost text-xs"
+                style={{ padding: "4px 10px" }}
+              >
+                {appliedTemplateId
+                  ? `✦ ${TEMPLATES.find((t) => t.id === appliedTemplateId)?.name ?? "Template"}`
+                  : "✦ Use a template"}
+              </button>
+              {editorMode === "html" && (
+                <>
+                  <div
+                    className="w-px self-stretch"
+                    style={{ background: "var(--rex-border)" }}
+                  />
+                  <span
+                    className="text-[10px] uppercase tracking-wider"
+                    style={{ color: "var(--rex-text-dim)" }}
+                  >
+                    Insert
+                  </span>
+                  {(["firstName", "lastName", "email"] as const).map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => insertMergeTag(tag)}
+                      disabled={readonly}
+                      className="text-xs font-mono px-2 py-1 rounded border"
+                      style={{
+                        borderColor: "var(--rex-border)",
+                        color: "var(--rex-accent)",
+                        background: "transparent",
+                      }}
+                    >
+                      {`{{${tag}}}`}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+            {editorMode === "visual" ? (
+              <EmailEditor
+                initialDoc={bodyDoc}
+                disabled={readonly}
+                onChange={(doc, html) => {
+                  setBodyDoc(doc);
+                  update("htmlBody", html);
+                }}
+              />
+            ) : (
+              <textarea
+                ref={bodyRef}
+                value={form.htmlBody}
+                onChange={(e) => update("htmlBody", e.target.value)}
+                className="rex-input font-mono text-xs"
+                style={{ height: "360px", resize: "vertical" }}
+                disabled={readonly}
+              />
+            )}
           </Field>
         </div>
 
@@ -676,15 +1068,15 @@ export default function CampaignComposerPage() {
                   {campaignId ? "✓ Save changes" : "Save draft"}
                 </button>
                 <button
-                  onClick={send}
+                  onClick={openPreflight}
                   disabled={busy || !form.htmlBody || !form.fromEmail}
                   className="rex-btn"
                 >
                   {busy
                     ? "Sending…"
                     : count
-                      ? `Send to ${count.count.toLocaleString()} recipient${count.count === 1 ? "" : "s"}`
-                      : "Send to all active subscribers"}
+                      ? `Review & send to ${count.count.toLocaleString()} recipient${count.count === 1 ? "" : "s"}`
+                      : "Review & send"}
                 </button>
               </div>
 
@@ -771,6 +1163,333 @@ export default function CampaignComposerPage() {
           ) : null}
         </div>
       </div>
+
+      {showTemplatePicker && (
+        <TemplatePickerModal
+          currentId={appliedTemplateId}
+          onPick={applyTemplate}
+          onClose={() => setShowTemplatePicker(false)}
+        />
+      )}
+
+      {showPreflight && (
+        <PreflightModal
+          loading={preflightLoading}
+          preflight={preflight}
+          onSend={send}
+          onClose={() => setShowPreflight(false)}
+          busy={busy}
+        />
+      )}
+    </div>
+  );
+}
+
+function PreflightModal({
+  loading,
+  preflight,
+  onSend,
+  onClose,
+  busy,
+}: {
+  loading: boolean;
+  preflight: {
+    ok: boolean;
+    checks: Array<{
+      id: string;
+      label: string;
+      severity: "ok" | "warn" | "block";
+      message: string;
+    }>;
+    recipientCount: number;
+  } | null;
+  onSend: () => void;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const blockers = preflight?.checks.filter((c) => c.severity === "block") ?? [];
+  const warnings = preflight?.checks.filter((c) => c.severity === "warn") ?? [];
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ background: "rgba(0,0,0,0.78)" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="rex-card flex flex-col"
+        style={{
+          width: "min(700px, 100%)",
+          maxHeight: "90vh",
+          background: "var(--rex-bg)",
+        }}
+      >
+        <header
+          className="flex items-center justify-between p-5 border-b"
+          style={{ borderColor: "var(--rex-border-subtle)" }}
+        >
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-widest mb-0.5"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              Pre-send checklist
+            </p>
+            <h2 className="font-display text-xl text-white">
+              {loading
+                ? "Running checks…"
+                : preflight?.ok
+                  ? "Ready to send"
+                  : "Issues found"}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-xs hover:text-white"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            ✕ Close
+          </button>
+        </header>
+
+        <div className="overflow-y-auto p-5 flex-1 space-y-2">
+          {loading || !preflight ? (
+            <p className="text-sm" style={{ color: "var(--rex-text-dim)" }}>
+              Inspecting domain, list hygiene, audience…
+            </p>
+          ) : (
+            preflight.checks.map((c) => {
+              const color =
+                c.severity === "ok"
+                  ? "var(--rex-success)"
+                  : c.severity === "warn"
+                    ? "var(--rex-warning)"
+                    : "var(--rex-danger)";
+              const icon =
+                c.severity === "ok" ? "✓" : c.severity === "warn" ? "!" : "✕";
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-start gap-3 p-3 rounded-md border"
+                  style={{
+                    borderColor: "var(--rex-border-subtle)",
+                    background:
+                      c.severity === "block"
+                        ? "rgba(248,113,113,0.05)"
+                        : c.severity === "warn"
+                          ? "rgba(251,191,36,0.04)"
+                          : "transparent",
+                  }}
+                >
+                  <span
+                    className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                    style={{
+                      background: color,
+                      color: "var(--rex-bg)",
+                    }}
+                  >
+                    {icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-sm font-medium"
+                      style={{ color: "var(--rex-text)" }}
+                    >
+                      {c.label}
+                    </div>
+                    <div
+                      className="text-xs mt-0.5"
+                      style={{ color: "var(--rex-text-muted)" }}
+                    >
+                      {c.message}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <footer
+          className="p-4 border-t flex items-center justify-between gap-3"
+          style={{ borderColor: "var(--rex-border-subtle)" }}
+        >
+          <div
+            className="text-xs font-mono"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            {preflight
+              ? `${blockers.length} block${blockers.length === 1 ? "" : "s"} · ${warnings.length} warning${warnings.length === 1 ? "" : "s"}`
+              : ""}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rex-btn-ghost text-sm">
+              Cancel
+            </button>
+            <button
+              onClick={onSend}
+              disabled={busy || !preflight || !preflight.ok}
+              className="rex-btn"
+              title={
+                !preflight?.ok
+                  ? "Resolve the blocking issues before sending"
+                  : undefined
+              }
+            >
+              {busy
+                ? "Sending…"
+                : preflight
+                  ? `Send to ${preflight.recipientCount.toLocaleString()}`
+                  : "Send"}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function TemplatePickerModal({
+  currentId,
+  onPick,
+  onClose,
+}: {
+  currentId: string | null;
+  onPick: (t: NewsletterTemplate) => void;
+  onClose: () => void;
+}) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const previewTemplate =
+    TEMPLATES.find((t) => t.id === hoveredId) ??
+    TEMPLATES.find((t) => t.id === currentId) ??
+    TEMPLATES[0];
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ background: "rgba(0,0,0,0.78)" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="rex-card flex flex-col"
+        style={{
+          width: "min(1100px, 100%)",
+          maxHeight: "90vh",
+          background: "var(--rex-bg)",
+        }}
+      >
+        <header
+          className="flex items-center justify-between p-5 border-b"
+          style={{ borderColor: "var(--rex-border-subtle)" }}
+        >
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-widest mb-0.5"
+              style={{ color: "var(--rex-text-dim)" }}
+            >
+              Template library
+            </p>
+            <h2 className="font-display text-xl text-white">
+              Pick a starting point
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-xs hover:text-white"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            ✕ Close
+          </button>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-0 overflow-hidden flex-1">
+          <ul
+            className="overflow-y-auto p-3 border-r"
+            style={{ borderColor: "var(--rex-border-subtle)" }}
+          >
+            {TEMPLATES.map((t) => {
+              const isCurrent = currentId === t.id;
+              return (
+                <li key={t.id}>
+                  <button
+                    onMouseEnter={() => setHoveredId(t.id)}
+                    onFocus={() => setHoveredId(t.id)}
+                    onClick={() => onPick(t)}
+                    className="w-full text-left p-3 rounded-md border mb-2 hover:border-[var(--rex-accent)] transition-colors"
+                    style={{
+                      borderColor: isCurrent
+                        ? "var(--rex-accent)"
+                        : "var(--rex-border)",
+                      background: isCurrent
+                        ? "rgba(95,185,31,0.06)"
+                        : "transparent",
+                    }}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-medium text-sm text-white">
+                        {t.name}
+                      </span>
+                      <span
+                        className="text-[10px] uppercase tracking-wider font-mono"
+                        style={{ color: "var(--rex-text-dim)" }}
+                      >
+                        {t.category}
+                      </span>
+                    </div>
+                    <p
+                      className="text-xs mt-1 leading-snug"
+                      style={{ color: "var(--rex-text-muted)" }}
+                    >
+                      {t.description}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="overflow-y-auto flex flex-col">
+            <div
+              className="px-5 py-3 border-b text-xs font-mono"
+              style={{
+                borderColor: "var(--rex-border-subtle)",
+                color: "var(--rex-text-muted)",
+              }}
+            >
+              <span style={{ color: "var(--rex-text-dim)" }}>Subject:</span>{" "}
+              <span className="text-white">
+                {previewTemplate.subject || "(blank)"}
+              </span>
+            </div>
+            <div
+              className="flex-1 overflow-y-auto"
+              style={{ background: "white" }}
+            >
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: previewTemplate.htmlBody.replace(
+                    /\{\{\s*firstName\s*\}\}/g,
+                    "Alex",
+                  ),
+                }}
+              />
+            </div>
+            <div
+              className="p-4 border-t flex justify-end gap-2"
+              style={{ borderColor: "var(--rex-border-subtle)" }}
+            >
+              <button
+                onClick={() => onPick(previewTemplate)}
+                className="rex-btn"
+              >
+                Use “{previewTemplate.name}”
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -802,16 +1521,7 @@ function Field({
   );
 }
 
-const DEFAULT_TEMPLATE = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;line-height:1.6;">
-  <h1 style="font-size:28px;margin:0 0 16px;font-weight:600;">Hey {{firstName}},</h1>
-
-  <p>Here's your monthly intelligence briefing from Rex Intel Services.</p>
-
-  <h2 style="font-size:20px;margin:32px 0 8px;">Key Signals This Month</h2>
-  <ul style="padding-left:20px;">
-    <li><a href="https://example.com/signal1">Signal one</a> — brief analysis</li>
-    <li><a href="https://example.com/signal2">Signal two</a> — brief analysis</li>
-  </ul>
-
-  <p style="margin-top:32px;">— The Rex Intel Services Team</p>
-</div>`;
+// Start every new draft on the blank scaffold. The picker lets the operator swap
+// in any of the RexIntel-branded templates (intel briefing, incident alert, etc.).
+const DEFAULT_BODY =
+  TEMPLATES.find((t) => t.id === "blank")?.htmlBody ?? TEMPLATES[0].htmlBody;

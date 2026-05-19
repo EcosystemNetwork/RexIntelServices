@@ -279,6 +279,66 @@ const inputs: SeedInput[] = [
     priceTier: "paid",
     eventType: "conference",
   },
+
+  // ===========================================================
+  // === DECENTRALIZED / CITY-WIDE FLAGSHIPS                 ===
+  // ===========================================================
+
+  // a16z-presented decentralized conferences. Hundreds of independently-hosted
+  // side events across the city for the week — hackathons, panels, founder
+  // dinners, happy hours. Free to attend; submissions reviewed by the a16z team.
+  {
+    name: "Boston Tech Week 2026",
+    startDate: "2026-05-26",
+    endDate: "2026-05-31",
+    city: "Boston",
+    country: "United States",
+    url: "https://www.tech-week.com/boston",
+    description:
+      "Inaugural Boston edition of a16z-presented Tech Week — a decentralized, citywide conference with hundreds of independently-hosted side events: hackathons, panels, founder dinners, happy hours. Free to attend; events open to anyone via the public calendar. Tracks: AI + Infra, Hackathons, Fintech, Students, Engineers, Founders, GTM, Investors.",
+    tags: ["a16z", "techweek", "boston", "ai", "founders", "decentralized"],
+    priceTier: "free",
+    eventType: "other",
+  },
+  {
+    name: "NYC Tech Week 2026",
+    startDate: "2026-06-01",
+    endDate: "2026-06-07",
+    city: "New York",
+    country: "United States",
+    url: "https://www.tech-week.com/nyc",
+    description:
+      "Fourth annual NYC edition of a16z-presented Tech Week — a decentralized, citywide conference. Prior year saw 1,000+ side events from NYC startups, VCs, and communities. Tracks: AI + Infra, Hackathons, Fintech, Students, Engineers, Founders, GTM, Investors. Side-event calendar at tech-week.com/calendar; hosts can submit at tech-week.com/host. Platinum sponsors: a16z, Fenwick, HSBC, IBM.",
+    tags: ["a16z", "techweek", "nyc", "ai", "fintech", "founders", "decentralized"],
+    priceTier: "free",
+    eventType: "other",
+  },
+  {
+    name: "SF Tech Week 2026",
+    startDate: "2026-10-05",
+    endDate: "2026-10-11",
+    city: "San Francisco",
+    country: "United States",
+    url: "https://www.tech-week.com/sf",
+    description:
+      "San Francisco edition of a16z-presented Tech Week — decentralized citywide conference with hundreds of independently-hosted side events across AI, founders, investors, fintech, engineers tracks.",
+    tags: ["a16z", "techweek", "sf", "ai", "founders", "decentralized"],
+    priceTier: "free",
+    eventType: "other",
+  },
+  {
+    name: "LA Tech Week 2026",
+    startDate: "2026-10-12",
+    endDate: "2026-10-18",
+    city: "Los Angeles",
+    country: "United States",
+    url: "https://www.tech-week.com/la",
+    description:
+      "Los Angeles edition of a16z-presented Tech Week — decentralized citywide conference. Side events span AI, consumer, gaming, founders, investors, fintech.",
+    tags: ["a16z", "techweek", "la", "ai", "consumer", "decentralized"],
+    priceTier: "free",
+    eventType: "other",
+  },
 ];
 
 function toPayload(input: SeedInput): EventPayload {

@@ -952,6 +952,78 @@ const perks: PerksPayload[] = [
     rolling: true,
     tags: ["basenames", "base", "ens", "identity", "free"],
   },
+
+  // === Added 2026-05-19 — crypto-native vendor + bug-bounty programs ===
+  {
+    name: "thirdweb Startup Program",
+    organization: "thirdweb",
+    organizationUrl: "https://thirdweb.com/grants",
+    description:
+      "4-week intensive cohort program from thirdweb. Participants get $100 in usage credits, 3 months free on the Growth Plan, and 3 months free on the Standard Engine Plan — plus access to audited contract templates, account-abstraction wallet infra, and engine across 2,000+ EVM chains. Cohort 4 focused on Web3 × AI (agents-on-chain). Application gates the cohort.",
+    value: "$100 usage credits + 3 months free Growth + 3 months free Engine",
+    category: "Infra · Wallets · Smart Contracts",
+    ecosystem: "Multi-chain (EVM)",
+    eligibility: "Early-stage Web3 teams; AI-x-crypto a plus for current cohorts.",
+    applyUrl: "https://thirdweb.com/grants",
+    rolling: false,
+    tags: ["thirdweb", "evm", "wallets", "account-abstraction", "ai-agents"],
+  },
+  {
+    name: "Crossmint Startup Program",
+    organization: "Crossmint",
+    organizationUrl: "https://www.crossmint.com/startup-program",
+    description:
+      "$100K+ in combined rewards across infra credits, fundraising support, and marketing for teams building consumer crypto products on Crossmint — NFT minting/distribution, embedded wallets, payments, and cross-chain primitives. Open application; selected startups also get intros to Crossmint's partner network (Biconomy, account-abstraction stack, etc.).",
+    value: "$100K+ in combined credits + GTM + fundraising support",
+    category: "Infra · Wallets · NFTs · Payments",
+    ecosystem: "Multi-chain",
+    eligibility: "Early- to mid-stage Web3 consumer teams.",
+    applyUrl: "https://www.crossmint.com/startup-program",
+    rolling: true,
+    tags: ["crossmint", "wallets", "nft", "payments", "consumer"],
+  },
+  {
+    name: "Hats Finance — Launch a Bounty",
+    organization: "Hats Finance",
+    organizationUrl: "https://hats.finance/",
+    description:
+      "Permissionless on-chain bug-bounty + audit-competition platform. Protocols escrow funds in a HAT-controlled vault; whitehat researchers claim payouts directly on-chain when valid bugs are accepted. Audit Competitions run as time-boxed, prize-pooled crowd audits before launch. Lower setup overhead than centralized platforms — no negotiated retainer.",
+    value: "Permissionless bounty hosting + audit competitions",
+    category: "Security · Bug Bounty",
+    ecosystem: "Multi-chain",
+    eligibility: "Protocols pre-launch or live; permissionless onboarding.",
+    applyUrl: "https://hats.finance/",
+    rolling: true,
+    tags: ["hats-finance", "bug-bounty", "audit", "security", "on-chain"],
+  },
+  {
+    name: "Code4rena — Audit Contests",
+    organization: "Code4rena",
+    organizationUrl: "https://code4rena.com/",
+    description:
+      "Time-boxed competitive audit platform. Protocols post a contest with a prize pool; a global pool of wardens compete to find vulnerabilities. Findings ranked by severity + uniqueness; payouts split by judges. Industry baseline for pre-launch competitive review — used by Optimism, ENS, Aave, Polygon, Spark, and dozens more.",
+    value: "Pre-launch competitive audit (typical pool: $50K–$500K+)",
+    category: "Security · Audit Contests",
+    ecosystem: "Multi-chain",
+    eligibility: "Protocols with deployable codebase + audit budget.",
+    applyUrl: "https://code4rena.com/host",
+    rolling: true,
+    tags: ["code4rena", "audit", "contest", "security", "wardens"],
+  },
+  {
+    name: "Sherlock — Audit + Coverage",
+    organization: "Sherlock",
+    organizationUrl: "https://www.sherlock.xyz/",
+    description:
+      "Audit-as-bounty platform pairing competitive audit with on-chain coverage. Protocols pay a fixed audit fee; if a critical vuln slips through, Sherlock's underwriter pool pays out. Combines pre-launch review (contest format with judging) and post-launch claim coverage in a single program.",
+    value: "Competitive audit + smart-contract coverage payout",
+    category: "Security · Audit + Coverage",
+    ecosystem: "Multi-chain",
+    eligibility: "DeFi protocols with deployable code; underwriter approval.",
+    applyUrl: "https://www.sherlock.xyz/audits",
+    rolling: true,
+    tags: ["sherlock", "audit", "coverage", "security", "defi"],
+  },
 ];
 
 async function upsert(payload: PerksPayload) {

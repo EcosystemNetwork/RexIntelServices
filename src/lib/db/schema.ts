@@ -11,6 +11,7 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import type { PersonaSlug } from "../personas";
@@ -305,10 +306,27 @@ export const campaigns = pgTable("campaigns", {
   replyTo: text("reply_to"),
   previewText: text("preview_text"),
   htmlBody: text("html_body").notNull(),
+  // Tiptap document JSON. When present, the composer round-trips through the
+  // block editor; htmlBody is always the source of truth at send time
+  // (serialized from bodyDoc when the WYSIWYG composer saves).
+  bodyDoc: jsonb("body_doc").$type<Record<string, unknown> | null>(),
   textBody: text("text_body"), // plain text fallback - improves deliverability
   status: campaignStatusEnum("status").notNull().default("draft"),
-  // If targetTagIds is empty, campaign goes to all active subscribers
+  // If targetTagIds is empty AND segmentId is null, campaign goes to all
+  // active subscribers. If segmentId is set, the segment's filter wins.
+  // Otherwise (legacy path) tag-set intersection.
   targetTagIds: jsonb("target_tag_ids").$type<string[]>().default([]),
+  segmentId: uuid("segment_id").references((): AnyPgColumn => segments.id, {
+    onDelete: "set null",
+  }),
+  // A/B subject test. When subjectB is set, the first abSampleSize recipients
+  // are split 50/50 between subject and subjectB; the rest receive whichever
+  // wins on abWinnerMetric ('open_rate' | 'click_rate') after a wait window.
+  subjectB: text("subject_b"),
+  abSampleSize: integer("ab_sample_size"),
+  abWinnerMetric: text("ab_winner_metric"),
+  abWinnerPickedAt: timestamp("ab_winner_picked_at"),
+  abWinnerSubject: text("ab_winner_subject"),
   // Tally counters - updated as sends happen
   recipientCount: integer("recipient_count").default(0),
   sentCount: integer("sent_count").default(0),
@@ -319,11 +337,47 @@ export const campaigns = pgTable("campaigns", {
   complainedCount: integer("complained_count").default(0),
   unsubscribedCount: integer("unsubscribed_count").default(0),
   scheduledFor: timestamp("scheduled_for"),
+  // First moment the worker started this send. Dedicated field so the
+  // stuck-send sweeper isn't fooled by other updates bumping updatedAt.
+  progressStartedAt: timestamp("progress_started_at"),
   sentAt: timestamp("sent_at"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// =====================================================================
+// SEGMENTS — named saved targeting filters. Filter shape:
+//   { tagIds?: string[], statuses?: string[], personas?: string[],
+//     sources?: string[], includeUnconfirmed?: boolean }
+// Resolved at send time so segment membership is always live.
+// =====================================================================
+
+export interface SegmentFilter {
+  tagIds?: string[];
+  statuses?: ("pending" | "active" | "unsubscribed" | "bounced" | "complained")[];
+  personas?: string[];
+  sources?: string[];
+  includeUnconfirmed?: boolean;
+}
+
+export const segments = pgTable(
+  "segments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    filterJson: jsonb("filter_json").$type<SegmentFilter>().notNull().default({}),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    nameIdx: uniqueIndex("segments_name_idx").on(t.name),
+  }),
+);
 
 // =====================================================================
 // SENDS - one row per (campaign, subscriber). The audit log.
@@ -351,6 +405,8 @@ export const sends = pgTable(
     clickCount: integer("click_count").default(0),
     bouncedAt: timestamp("bounced_at"),
     complainedAt: timestamp("complained_at"),
+    // 'a' | 'b' for A/B split tests; null for normal sends.
+    abVariant: text("ab_variant"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
@@ -361,6 +417,7 @@ export const sends = pgTable(
     ),
     providerIdIdx: index("sends_provider_id_idx").on(t.providerMessageId),
     statusIdx: index("sends_status_idx").on(t.campaignId, t.status),
+    abVariantIdx: index("sends_ab_variant_idx").on(t.campaignId, t.abVariant),
   }),
 );
 

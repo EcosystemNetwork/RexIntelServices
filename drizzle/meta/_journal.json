@@ -260,6 +260,13 @@
       "when": 1781600000000,
       "tag": "0036_drop_circle_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781700000000,
+      "tag": "0037_newsletter_production_layer",
+      "breakpoints": true
     }
   ]
 }

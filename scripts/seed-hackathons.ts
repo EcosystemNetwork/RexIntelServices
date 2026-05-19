@@ -354,6 +354,29 @@ const inputs: SeedInput[] = [
     description:
       "Flagship 4-week virtual ZK hackathon. Weekly workshops with leading ZK protocols, advanced puzzle-solving competition (find bugs and win prizes), and an online ZK Job Fair on Gather Town to meet sponsors and explore open roles. Multi-track prize pool funded by the ZK ecosystem.",
   },
+
+  // === Added 2026-05-19 ===
+  {
+    name: "Solana Summer Camp Hackathon 2026",
+    startDate: "2026-07-11",
+    endDate: "2026-08-16",
+    city: "Online",
+    url: "https://dorahacks.io/hackathon/31/detail",
+    description:
+      "Solana Foundation's flagship summer global hackathon on DoraHacks. Up to $5M in prizes and seed funding across multiple tracks — Consumer, DeFi, Infra, Mobile (Solana Mobile), AI/Agents, DePIN. Top teams pipeline into Colosseum-led accelerator follow-on with Multicoin, Anagram, and Solana Ventures.",
+    prizeUsd: 5000000,
+  },
+  {
+    name: "Build-A-Berathon NYC 2026",
+    startDate: "2026-08-18",
+    endDate: "2026-08-22",
+    city: "New York",
+    country: "United States",
+    url: "https://lu.ma/cwfcnj05",
+    description:
+      "Berachain's flagship in-person hackathon in NYC. Five days of building on Berachain's Proof-of-Liquidity stack — BGT/HONEY/iBGT-aware DeFi, consumer dApps, gaming. $500K+ in prizes; selected teams demo live to judges, Berachain Foundation, and ecosystem investors.",
+    prizeUsd: 500000,
+  },
 ];
 
 function toPayload(input: SeedInput): EventPayload {
@@ -415,7 +438,10 @@ async function purgeRemoved(): Promise<number> {
     .where(
       and(
         eq(submissions.type, "event"),
-        sql`${submissions.payload}->>'name' = ANY(${removedNames})`,
+        sql`${submissions.payload}->>'name' IN (${sql.join(
+          removedNames.map((n) => sql`${n}`),
+          sql`, `,
+        )})`,
       ),
     )
     .returning({ publicId: submissions.publicId });

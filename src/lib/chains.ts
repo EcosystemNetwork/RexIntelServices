@@ -23,6 +23,19 @@ export const SUPPORTED_CHAINS = [
   { slug: "litecoin", label: "Litecoin" },
   { slug: "monero", label: "Monero" },
   { slug: "casper", label: "Casper" },
+  // Top-25-by-marketcap chain coverage added 2026-05-19 to bring the
+  // address allow-list parity with the headline asset list. Each maps to
+  // an explorerUrl below — adding a slug without the explorer entry
+  // means /graph won't link out to the canonical block-explorer page.
+  { slug: "cardano", label: "Cardano" },
+  { slug: "dogecoin", label: "Dogecoin" },
+  { slug: "polkadot", label: "Polkadot" },
+  { slug: "internet-computer", label: "Internet Computer" },
+  { slug: "bitcoin-cash", label: "Bitcoin Cash" },
+  { slug: "stellar", label: "Stellar" },
+  { slug: "ethereum-classic", label: "Ethereum Classic" },
+  { slug: "hedera", label: "Hedera" },
+  { slug: "algorand", label: "Algorand" },
   { slug: "other", label: "Other" },
 ] as const;
 
@@ -81,6 +94,24 @@ export function explorerUrl(chain: string, address: string): string | null {
       return `https://litecoinspace.org/address/${address}`;
     case "casper":
       return `https://cspr.live/account/${address}`;
+    case "cardano":
+      return `https://cardanoscan.io/address/${address}`;
+    case "dogecoin":
+      return `https://dogechain.info/address/${address}`;
+    case "polkadot":
+      return `https://polkadot.subscan.io/account/${address}`;
+    case "internet-computer":
+      return `https://dashboard.internetcomputer.org/account/${address}`;
+    case "bitcoin-cash":
+      return `https://blockchair.com/bitcoin-cash/address/${address}`;
+    case "stellar":
+      return `https://stellar.expert/explorer/public/account/${address}`;
+    case "ethereum-classic":
+      return `https://etc.blockscout.com/address/${address}`;
+    case "hedera":
+      return `https://hashscan.io/mainnet/account/${address}`;
+    case "algorand":
+      return `https://allo.info/account/${address}`;
     default:
       return null;
   }
@@ -127,6 +158,24 @@ export function txExplorerUrl(chain: string, txHash: string): string | null {
       return `https://litecoinspace.org/tx/${txHash}`;
     case "casper":
       return `https://cspr.live/deploy/${txHash}`;
+    case "cardano":
+      return `https://cardanoscan.io/transaction/${txHash}`;
+    case "dogecoin":
+      return `https://dogechain.info/tx/${txHash}`;
+    case "polkadot":
+      return `https://polkadot.subscan.io/extrinsic/${txHash}`;
+    case "internet-computer":
+      return `https://dashboard.internetcomputer.org/transaction/${txHash}`;
+    case "bitcoin-cash":
+      return `https://blockchair.com/bitcoin-cash/transaction/${txHash}`;
+    case "stellar":
+      return `https://stellar.expert/explorer/public/tx/${txHash}`;
+    case "ethereum-classic":
+      return `https://etc.blockscout.com/tx/${txHash}`;
+    case "hedera":
+      return `https://hashscan.io/mainnet/transaction/${txHash}`;
+    case "algorand":
+      return `https://allo.info/tx/${txHash}`;
     default:
       return null;
   }

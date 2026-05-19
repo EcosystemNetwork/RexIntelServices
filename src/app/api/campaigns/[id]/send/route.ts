@@ -5,10 +5,13 @@ import { sendCampaign } from "@/lib/email/sender";
 import { isSameOrigin } from "@/lib/origin-check";
 import { getSession } from "@/lib/auth";
 
-// IMPORTANT: For larger lists, this can take longer than serverless timeouts allow.
-// Vercel: 60s on Hobby, 300s on Pro. Enough for ~5-15k recipients with batched send.
-// For 50k+, run a worker instead (see README -> "Scaling sending").
-export const maxDuration = 300;
+// Fast-path: we send the first few batches inline so the operator sees
+// immediate movement (3 batches × 100 recipients × 1.1s gap ≈ 3.5s round-trip).
+// The rest of the list streams in via the continue-sending cron, one tick
+// per minute, so a 30k campaign drains in ~10 minutes without ever risking a
+// serverless timeout.
+export const maxDuration = 60;
+const FAST_PATH_BATCHES = 3;
 
 export async function POST(
   req: NextRequest,
@@ -25,8 +28,6 @@ export async function POST(
   // Atomic state transition: only flip draft|scheduled → sending if it's
   // still in that state. A concurrent send (double-click, CSRF, duplicate
   // delivery) gets 0 rows back and 409s without ever calling sendCampaign.
-  // Without this, two clicks two seconds apart blast the entire list twice
-  // — an irrecoverable list-reputation burn.
   const claimed = await db
     .update(campaigns)
     .set({ status: "sending", updatedAt: new Date() })
@@ -46,12 +47,18 @@ export async function POST(
   }
 
   try {
-    const result = await sendCampaign(params.id);
-    return NextResponse.json({ ok: true, ...result });
+    const result = await sendCampaign(params.id, {
+      maxBatches: FAST_PATH_BATCHES,
+    });
+    return NextResponse.json({
+      ok: true,
+      ...result,
+      message: result.complete
+        ? "All recipients sent."
+        : `Sent ${result.totalSent}, ${result.remaining} queued — continuing in the background.`,
+    });
   } catch (err: unknown) {
-    // Rollback the state-machine on send failure so an operator can retry.
-    // Worst case the send was partially delivered before crashing — surface
-    // the error, leave the row in 'sending' for the admin to inspect.
+    // Leave the row in 'sending' so the continue-sending cron can retry.
     const msg = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

@@ -720,6 +720,56 @@ const funds: CapitalPayload[] = [
     decisionWindow: "Fast — days, not weeks",
     tags: ["robot", "crypto", "pre-seed", "fast"],
   },
+
+  // === Crypto VCs with confirmed published cold-inbound (added 2026-05-19) ===
+  {
+    name: "Hack VC",
+    organization: "Hack VC",
+    organizationUrl: "https://hack.vc/",
+    description:
+      "One of the earliest institutional crypto + AI VC firms (founded 2014). Co-leads with Polychain on multiple Bitcoin L2 rounds (Babylon, Mezo). Runs hack.labs() as internal R&D. Cold inbound goes to contact@hack.vc — they explicitly welcome founder cold pitches per their OpenVC listing. Stage-agnostic from idea through global scale.",
+    stage: "Pre-seed → Growth",
+    location: "Palo Alto, CA",
+    focus: "Crypto + AI — infra, DeFi, BTC L2",
+    pitchUrl: "mailto:contact@hack.vc",
+    tags: ["hack-vc", "crypto", "ai", "bitcoin-l2", "founder-friendly"],
+  },
+  {
+    name: "Bain Capital Crypto",
+    organization: "Bain Capital Crypto",
+    organizationUrl: "https://baincapitalcrypto.com/",
+    description:
+      "Bain Capital's dedicated crypto fund — backs renegades and pioneers building open-internet infrastructure. Fund II actively deploying as of 2026. Public investor inbound at investors@baincapitalcrypto.com — explicitly listed on their contact page as the founder pitch channel.",
+    stage: "Seed → Series B",
+    location: "Boston · New York · SF",
+    focus: "Crypto infra, open-internet protocols",
+    pitchUrl: "mailto:investors@baincapitalcrypto.com",
+    tags: ["bain", "crypto", "infra", "institutional"],
+  },
+  {
+    name: "Ten31",
+    organization: "Ten31",
+    organizationUrl: "https://www.ten31.vc/",
+    description:
+      "Bitcoin-only venture firm. $100M+ deployed to date across Bitcoin infrastructure and Freedom Tech — Lightning Network apps, BTC custody, mining hardware, and Bitcoin-native financial primitives. Fund III closed at $37.5M in 2025. Offices in New York, Austin, Nashville. Cold inbound via the contact form on ten31.vc.",
+    stage: "Seed → Series A",
+    location: "New York · Austin · Nashville",
+    focus: "Bitcoin infrastructure + Freedom Tech",
+    pitchUrl: "https://www.ten31.vc/",
+    tags: ["ten31", "bitcoin", "lightning", "freedom-tech"],
+  },
+  {
+    name: "Castle Island Ventures",
+    organization: "Castle Island Ventures",
+    organizationUrl: "https://castleisland.vc/",
+    description:
+      "Early-stage public-blockchain VC founded by Nic Carter and Matt Walsh. ~$250M AUM as of Jan 2026; 76+ portfolio companies with 9 new investments in the trailing 12 months. Heavy Bitcoin + stablecoin/payments-infra concentration. Cold inbound via castleisland.vc contact.",
+    stage: "Seed → Series A",
+    location: "Boston, MA",
+    focus: "Bitcoin · stablecoins · public-blockchain infra",
+    pitchUrl: "https://castleisland.vc/",
+    tags: ["castle-island", "bitcoin", "stablecoins", "infra"],
+  },
 ];
 
 async function upsert(payload: CapitalPayload) {

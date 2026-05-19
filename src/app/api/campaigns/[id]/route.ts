@@ -58,6 +58,9 @@ export async function PATCH(
     "previewText",
     "htmlBody",
     "textBody",
+    "subjectB",
+    "abSampleSize",
+    "abWinnerMetric",
   ] as const;
   for (const f of fields) {
     if (body[f] !== undefined) {
@@ -66,6 +69,13 @@ export async function PATCH(
   }
   if (Array.isArray(body.targetTagIds)) {
     update.targetTagIds = body.targetTagIds;
+  }
+  if (body.bodyDoc !== undefined) {
+    // null clears the round-trip JSON; an object stores it.
+    update.bodyDoc = body.bodyDoc;
+  }
+  if (body.segmentId !== undefined) {
+    update.segmentId = body.segmentId || null;
   }
 
   const [row] = await db

@@ -61,6 +61,15 @@ export default async function AdminLayout({
           <NavLink href="/campaigns" icon="◆">
             Campaigns
           </NavLink>
+          <NavLink href="/deliverability" icon="◊">
+            Deliverability
+          </NavLink>
+          <NavLink href="/segments" icon="⊕">
+            Segments
+          </NavLink>
+          <NavLink href="/embed" icon="⤳">
+            Signup embed
+          </NavLink>
           <NavLink href="/submissions" icon="▣">
             Submissions
           </NavLink>

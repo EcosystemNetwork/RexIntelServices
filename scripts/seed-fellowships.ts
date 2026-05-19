@@ -854,6 +854,24 @@ const fellowships: FellowshipPayload[] = [
     cadence: "Cohort-based (first cohort starts 2026-06-01)",
     tags: ["flow-research", "open-source", "ai", "agents", "web3", "depin", "protocols", "remote", "unpaid"],
   },
+
+  // === Added 2026-05-19 ===
+  {
+    name: "Y Combinator Startup School",
+    organization: "Y Combinator",
+    organizationUrl: "https://www.ycombinator.com/",
+    description:
+      "Free 7-week online course on how to start a startup, taught by Y Combinator partners and drawing on YC's 15+ years building thousands of companies. Curriculum covers ideation → product → fundraising → hiring → growth, with guest lectures from operators like Mark Zuckerberg, Anne Wojcicki, and Drew Houston. Includes YC's co-founder matching platform (100,000+ matches made), weekly progress tracking, and admission consideration for the in-person Startup School 2026 event in San Francisco. No stipend, no equity — pure free access to the YC curriculum and founder network.",
+    duration: "~7 weeks (1–2 hours/week, self-paced)",
+    eligibility:
+      "Open globally to anyone at any stage of starting up — students, side-project builders, first-time or curious founders. No prior experience required.",
+    location: "Online (Global) — optional San Francisco in-person component (Startup School 2026)",
+    focus: "Generalist — startup fundamentals from Y Combinator",
+    applyUrl: "https://www.startupschool.org/",
+    rolling: true,
+    cadence: "Rolling enrollment (annual SF in-person event)",
+    tags: ["yc", "y-combinator", "startup-school", "generalist", "online", "global", "free", "co-founder-matching"],
+  },
 ];
 
 async function upsert(payload: FellowshipPayload) {
