@@ -5,8 +5,12 @@ import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
 import { sendOpsAlert } from "@/lib/email/admin-alert-email";
-import { autoExtractAndLinkIntelAddresses } from "@/lib/intel-address-extraction";
+import {
+  autoExtractAndLinkIntelAddresses,
+  linkAddressesToSubmission,
+} from "@/lib/intel-address-extraction";
 import { enrichIntelArticle } from "@/lib/intel-article-enrichment";
+import { scrapeAddressesFromSources } from "@/lib/intel-source-address-scrape";
 
 /**
  * GET /api/cron/import-defillama-hacks
@@ -309,6 +313,7 @@ export async function GET(req: Request) {
       // intel-address-extraction.ts.
       try {
         await autoExtractAndLinkIntelAddresses(existing[0].id, payload);
+        await scrapeAndLinkFromSources(existing[0].id, payload, rowErrors, h.name);
       } catch (err) {
         rowErrors.push({
           name: h.name ?? "unknown",
@@ -331,6 +336,7 @@ export async function GET(req: Request) {
       if (created) {
         try {
           await autoExtractAndLinkIntelAddresses(created.id, payload);
+          await scrapeAndLinkFromSources(created.id, payload, rowErrors, h.name);
         } catch (err) {
           rowErrors.push({
             name: h.name ?? "unknown",
@@ -360,4 +366,40 @@ export async function GET(req: Request) {
     skippedHandled,
     rowErrors: rowErrors.slice(0, 20),
   });
+}
+
+/**
+ * Fetch every trusted source URL on the payload, regex-extract addresses
+ * out of the response, and link them to the submission as `observed`.
+ * Lets imported postmortems pick up the attacker wallets the upstream
+ * DefiLlama feed doesn't expose so the row actually connects in /graph.
+ *
+ * Errors are pushed into the shared rowErrors list rather than thrown —
+ * a flaky REKT writeup shouldn't abort the whole cron tick. Best-effort.
+ */
+async function scrapeAndLinkFromSources(
+  submissionId: string,
+  payload: IntelPayload,
+  rowErrors: Array<{ name: string; error: string }>,
+  rowName?: string,
+): Promise<void> {
+  try {
+    const result = await scrapeAddressesFromSources(payload);
+    if (result.inputs.length > 0) {
+      await linkAddressesToSubmission(submissionId, result.inputs);
+    }
+    for (const e of result.errors) {
+      rowErrors.push({
+        name: rowName ?? "unknown",
+        error: `source-scrape ${e.url}: ${e.error}`,
+      });
+    }
+  } catch (err) {
+    rowErrors.push({
+      name: rowName ?? "unknown",
+      error:
+        "source-scrape: " +
+        (err instanceof Error ? err.message : String(err)),
+    });
+  }
 }

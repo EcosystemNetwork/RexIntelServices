@@ -6,6 +6,11 @@ import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
 import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 import { enrichIntelArticle } from "@/lib/intel-article-enrichment";
+import {
+  autoExtractAndLinkIntelAddresses,
+  linkAddressesToSubmission,
+} from "@/lib/intel-address-extraction";
+import { scrapeAddressesFromSources } from "@/lib/intel-source-address-scrape";
 
 /**
  * GET /api/cron/import-rekt-leaderboard
@@ -318,6 +323,7 @@ export async function GET(req: Request) {
       )
       .limit(1);
 
+    let submissionId: string | undefined;
     if (existing.length > 0) {
       // Curator-overwrite guard: skip if this row wasn't last touched by
       // the rekt harvester. Hand-edited postmortems whose headline matches
@@ -336,15 +342,45 @@ export async function GET(req: Request) {
           updatedAt: new Date(),
         })
         .where(eq(submissions.id, existing[0].id));
+      submissionId = existing[0].id;
       updated++;
     } else {
-      await db.insert(submissions).values({
-        type: "intel",
-        status: "approved",
-        payload,
-        publishedAt,
-      });
+      const [created] = await db
+        .insert(submissions)
+        .values({
+          type: "intel",
+          status: "approved",
+          payload,
+          publishedAt,
+        })
+        .returning({ id: submissions.id });
+      submissionId = created?.id;
       inserted++;
+    }
+
+    if (submissionId) {
+      try {
+        await autoExtractAndLinkIntelAddresses(submissionId, payload);
+        const scraped = await scrapeAddressesFromSources(payload);
+        if (scraped.inputs.length > 0) {
+          await linkAddressesToSubmission(submissionId, scraped.inputs);
+        }
+        for (const errEntry of scraped.errors) {
+          rowErrors.push({
+            name: e.title ?? "unknown",
+            error: `source-scrape ${errEntry.url}: ${errEntry.error}`,
+          });
+        }
+      } catch (extractErr) {
+        rowErrors.push({
+          name: e.title ?? "unknown",
+          error:
+            "address-link: " +
+            (extractErr instanceof Error
+              ? extractErr.message
+              : String(extractErr)),
+        });
+      }
     }
     } catch (err) {
       // Per-row safety net for malformed entries (missing names, NaN dates).

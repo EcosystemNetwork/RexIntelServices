@@ -1,0 +1,67 @@
+{
+  "$schema": "scripts/seed-curated-operator-clusters.ts",
+  "$comment": "Hand-curated operator address clusters. Each cluster links an attribution-anchored wallet (Lazarus subgroup, Pink Drainer, etc.) to the incidents it touched. Loaded by scripts/seed-curated-operator-clusters.ts which (1) upserts the address with the curated label + role=subject, and (2) links it to every matching intel row by publicId or headlineContains. Headlines mutate over time — prefer publicIds where you have them. Run with --dry-run to preview before writing.",
+  "clusters": [
+    {
+      "operator": "Lazarus Group — Bybit / WazirX / DMM / Radiant operator",
+      "label": "Lazarus Group (TraderTraitor) — 2024-25 placed-operator cluster",
+      "attribution": "FBI 2025-02-26 + Mandiant UNC4736",
+      "addresses": [],
+      "incidents": {
+        "publicIds": [],
+        "headlineContains": ["Bybit", "WazirX", "DMM Bitcoin", "Radiant"]
+      },
+      "$todo": "Fill `addresses` with the FBI-published operator wallets across ETH/Solana/Tron — see https://www.ic3.gov/Media/Y2025/PSA250226"
+    },
+    {
+      "operator": "Pink Drainer — NiftyDegen vanity-contract cluster",
+      "label": "Pink Drainer — Scam Sniffer Fake_Phishing187019",
+      "attribution": "Scam Sniffer + Etherscan label",
+      "addresses": [
+        {
+          "chain": "ethereum",
+          "address": "0x0000db5c8b030ae20308ac975898e09741e70000",
+          "role": "subject",
+          "$note": "Headlined in the 81-wallet investigation — confirm exact deployer address before seeding."
+        }
+      ],
+      "incidents": {
+        "publicIds": [],
+        "headlineContains": ["Pink Drainer", "NiftyDegen", "81 wallet"]
+      }
+    },
+    {
+      "operator": "GitHub-leak sweeper sink",
+      "label": "Vanity sink — 0x6382…aAaAaAaA (leaked-key sweeper)",
+      "attribution": "RexIntel investigation 2026-05-18",
+      "addresses": [
+        {
+          "chain": "ethereum",
+          "address": "0x63825239aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "subject",
+          "$note": "Replace with the exact 42-char address — the 'aAaAaAaA' suffix is the vanity tail, the front needs the precise hex."
+        }
+      ],
+      "incidents": {
+        "publicIds": [],
+        "headlineContains": ["GitHub", "key sweeper", "vanity"]
+      }
+    },
+    {
+      "operator": "Ronin Bridge validator-capture",
+      "label": "Ronin Bridge attacker — Lazarus Mar 2022",
+      "attribution": "US Treasury OFAC SDN 2022-04-14",
+      "addresses": [
+        {
+          "chain": "ethereum",
+          "address": "0x098B716B8Aaf21512996dC57EB0615e2383E2f96",
+          "role": "subject"
+        }
+      ],
+      "incidents": {
+        "publicIds": [],
+        "headlineContains": ["Ronin"]
+      }
+    }
+  ]
+}
