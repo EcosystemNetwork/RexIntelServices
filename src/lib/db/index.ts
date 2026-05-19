@@ -11,7 +11,6 @@ if (!connectionString) {
 // native WebSocket, so we polyfill with `ws`. In Edge runtime / browsers the
 // native global is used and this branch is skipped.
 if (typeof globalThis.WebSocket === "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   neonConfig.webSocketConstructor = require("ws");
 }
 

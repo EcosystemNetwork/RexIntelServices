@@ -293,6 +293,8 @@ async function main() {
       body,
       sources,
       personas: IMPORT_DEFAULT_PERSONAS,
+      lossUsd: usd,
+      sourceHarvester: "defillama",
     };
 
     const action = await upsert(payload);

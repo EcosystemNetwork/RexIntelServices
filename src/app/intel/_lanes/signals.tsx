@@ -10,7 +10,6 @@ import {
   getMonthlyTopIntel,
   monthBounds,
 } from "@/lib/prize-pool";
-import { fetchValueStats } from "@/lib/graph-data";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   submissionTitle,
@@ -98,35 +97,57 @@ const getSignalsRows = unstable_cache(
 );
 
 // Cached aggregator for the intel-wire "hacked crypto" headline counter.
-// `fetchValueStats` runs a full scan over `addresses` — fine on /graph where
-// the user opted into a data-heavy view, but /intel is the highest-traffic
-// public route, so we wrap it in unstable_cache with a TTL backstop. No tag
-// invalidation: the address table is fed by background harvesters (OFAC/
-// L2Beat/curated seeds) that don't sit in the submission write path, and the
-// counter is approximate-by-nature — 5-minute staleness on a $X billion
-// figure is well within the precision the headline implies.
+// Sums payload.lossUsd across every approved kind=incident intel row — the
+// realised stolen-value total RexIntel has on file. This replaces an older
+// approach that summed last-snapshot balance at hack-source/destination
+// addresses, which understated wildly because attackers drain the wallets
+// before we can snapshot them. The realised-loss figure is what every
+// reader intuitively expects when they see "$X hacked crypto tracked".
+//
+// Cached with a TTL backstop because the SQL aggregate is cheap-but-not-free
+// on the public /intel route. The submissions write path invalidates via
+// SUBMISSIONS_TAG, so a curator approving a new incident is reflected the
+// next time the page revalidates.
 const getHackedCryptoStats = unstable_cache(
   async () => {
-    const stats = await fetchValueStats({ includeUserReported: false });
-    const hack = stats.byCategory.filter(
-      (b) => b.category === "hack-source" || b.category === "hack-destination",
-    );
+    // REKT-imported rows are excluded: they use peak-price valuations
+    // (e.g. Mt. Gox at $14.85B at peak vs. the curated $450M time-of-loss
+    // entry) and broadly duplicate DefiLlama coverage. The remaining rows
+    // — DefiLlama, Gemini-editor postmortems, and hand-curated incident
+    // seeds — give the realised-loss number every reader expects.
+    const rows = await db
+      .select({
+        totalUsd: sql<string>`coalesce(sum((${submissions.payload}->>'lossUsd')::numeric), 0)`,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(submissions)
+      .where(
+        and(
+          eq(submissions.type, "intel"),
+          eq(submissions.status, "approved"),
+          sql`${submissions.payload}->>'kind' = 'incident'`,
+          sql`(${submissions.payload}->>'lossUsd') IS NOT NULL`,
+          sql`(${submissions.payload}->>'lossUsd')::numeric > 0`,
+          sql`coalesce(${submissions.payload}->>'sourceHarvester', '') <> 'rekt'`,
+        ),
+      );
+    const row = rows[0];
     return {
-      totalUsd: hack.reduce((a, b) => a + b.totalUsd, 0),
-      walletCount: hack.reduce((a, b) => a + b.walletCount, 0),
+      totalUsd: Number(row?.totalUsd ?? 0),
+      incidentCount: Number(row?.n ?? 0),
     };
   },
-  ["intel-hacked-crypto-counter-v1"],
-  { revalidate: LISTING_REVALIDATE_SEC },
+  ["intel-hacked-crypto-counter-v3"],
+  { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
 export async function HackedCryptoCounter() {
-  const { totalUsd, walletCount } = await getHackedCryptoStats();
-  if (totalUsd <= 0 || walletCount === 0) return null;
+  const { totalUsd, incidentCount } = await getHackedCryptoStats();
+  if (totalUsd <= 0 || incidentCount === 0) return null;
 
   return (
     <Link
-      href="/graph?view=incidents&category=hack-source"
+      href="/graph?view=incidents"
       className="rex-card-flat block px-5 py-4 mb-5 hover:bg-[var(--rex-surface-2)] transition-colors border-[var(--rex-danger)]/30"
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -143,14 +164,16 @@ export async function HackedCryptoCounter() {
               className="text-xs font-mono"
               style={{ color: "var(--rex-text-dim)" }}
             >
-              across {walletCount} address{walletCount === 1 ? "" : "es"}
+              across {incidentCount.toLocaleString()} incident
+              {incidentCount === 1 ? "" : "s"}
             </span>
           </div>
         </div>
         <div className="flex-1 min-w-0 text-xs text-[var(--rex-text-muted)]">
-          Sum of last-snapshot USD at addresses tagged hack-source or
-          hack-destination — the on-chain footprint of stolen funds RexIntel is
-          watching.
+          Sum of realised loss across every incident postmortem in the
+          corpus — the stolen-value footprint RexIntel is tracking, sourced
+          from DefiLlama, in-house investigations, and curator-graded
+          incident reports.
         </div>
         <div
           className="text-[11px] font-mono uppercase tracking-widest"

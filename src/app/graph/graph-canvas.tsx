@@ -378,7 +378,6 @@ export function GraphCanvas({ data }: { data: GraphData }) {
             // The 3rd-party lib's ref type is `MutableRefObject<ForceGraphMethods>`.
             // Our local FGRef subsets the methods we touch; cast through `any`
             // to bridge the two without dragging in the full upstream generics.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ref={fgRef as any}
             graphData={graph}
             width={size.w}

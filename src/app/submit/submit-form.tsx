@@ -199,7 +199,7 @@ export default function SubmitForm() {
             Drop the intel.
           </h1>
           <p className="text-sm md:text-base text-[var(--rex-text-muted)] max-w-md mx-auto leading-relaxed">
-            Tip-offs, leaks, sightings, events worth our analysts' attention.
+            Tip-offs, leaks, sightings, events worth our analysts&apos; attention.
             Anonymous submissions accepted. Verified intel may be featured in
             the briefing.
           </p>

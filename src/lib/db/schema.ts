@@ -553,6 +553,13 @@ export type IntelPayload = {
   // eligibility) and `kind=incident` (postmortem flavor) — spicy is purely
   // a heat signal.
   spicy?: boolean;
+  // Structured loss amount in USD for incident-kind intel. The "Hacked
+  // crypto tracked" counter on /intel sums this across approved incidents
+  // — the realised stolen value, distinct from the current on-chain balance
+  // at the related addresses (which trends toward zero as attackers drain).
+  // Populated by the DefiLlama importer + backfilled via regex on legacy
+  // headlines. Curators may override on hand-edited postmortems.
+  lossUsd?: number;
 };
 
 export type EventPayload = {

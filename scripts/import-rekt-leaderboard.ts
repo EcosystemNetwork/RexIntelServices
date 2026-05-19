@@ -312,6 +312,11 @@ async function main() {
       body,
       sources,
       personas: IMPORT_DEFAULT_PERSONAS,
+      // REKT amounts are peak-price valuations — kept for the article body
+      // but explicitly tagged so the /intel "Hacked crypto tracked" counter
+      // excludes them (they'd double-count DefiLlama's realised-loss figures).
+      lossUsd: usd,
+      sourceHarvester: "rekt",
     };
 
     // Preserve REKT's incident date as publishedAt where parsable; falls

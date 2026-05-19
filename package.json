@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "create-admin": "tsx scripts/create-admin.ts"
+    "create-admin": "tsx scripts/create-admin.ts",
+    "test-send": "tsx scripts/test-send-campaign.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

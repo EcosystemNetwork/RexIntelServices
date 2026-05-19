@@ -354,7 +354,7 @@ function QueryDemo() {
         </h2>
         <p className="text-sm text-[var(--rex-text-muted)] max-w-2xl leading-relaxed">
           Plain-English questions over the approved intel corpus. Gemini cites
-          every claim by publicId. If a question isn't covered by the indexed
+          every claim by publicId. If a question isn&apos;t covered by the indexed
           corpus, it says so — no hallucinated answers.
         </p>
       </div>
