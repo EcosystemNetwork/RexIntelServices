@@ -10,6 +10,7 @@ import {
   getMonthlyTopIntel,
   monthBounds,
 } from "@/lib/prize-pool";
+import { fetchHackedCryptoStats } from "@/lib/graph-data";
 import { SUBMISSIONS_TAG, LISTING_REVALIDATE_SEC } from "@/lib/cache";
 import {
   submissionTitle,
@@ -96,51 +97,12 @@ const getSignalsRows = unstable_cache(
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
-// Cached aggregator for the intel-wire "hacked crypto" headline counter.
-// Sums payload.lossUsd across every approved kind=incident intel row — the
-// realised stolen-value total RexIntel has on file. This replaces an older
-// approach that summed last-snapshot balance at hack-source/destination
-// addresses, which understated wildly because attackers drain the wallets
-// before we can snapshot them. The realised-loss figure is what every
-// reader intuitively expects when they see "$X hacked crypto tracked".
-//
-// Cached with a TTL backstop because the SQL aggregate is cheap-but-not-free
-// on the public /intel route. The submissions write path invalidates via
-// SUBMISSIONS_TAG, so a curator approving a new incident is reflected the
-// next time the page revalidates.
+// Cached wrapper around fetchHackedCryptoStats (shared aggregator in
+// graph-data.ts). The same numbers must appear on /intel and /graph; the
+// SQL filter (exclusion list, kind=incident, etc.) lives in graph-data so
+// the two pages can't drift apart.
 const getHackedCryptoStats = unstable_cache(
-  async () => {
-    // Counter sums realised loss across approved incident rows but excludes
-    // two harvesters that duplicate the authoritative corpus:
-    //   * 'rekt' — peak-price valuations (e.g. Mt. Gox at $14.85B at peak
-    //     vs. the curated $450M time-of-loss entry).
-    //   * 'gemini-editor' — the daily cron drafts editorial articles for
-    //     the same DefiLlama hacks already counted under the null-source
-    //     corpus, double-counting Coincheck/Cetus/Euler/BitMart/etc.
-    // What remains: DefiLlama imports + hand-curated incident seeds — the
-    // realised-loss number every reader expects.
-    const rows = await db
-      .select({
-        totalUsd: sql<string>`coalesce(sum((${submissions.payload}->>'lossUsd')::numeric), 0)`,
-        n: sql<number>`count(*)::int`,
-      })
-      .from(submissions)
-      .where(
-        and(
-          eq(submissions.type, "intel"),
-          eq(submissions.status, "approved"),
-          sql`${submissions.payload}->>'kind' = 'incident'`,
-          sql`(${submissions.payload}->>'lossUsd') IS NOT NULL`,
-          sql`(${submissions.payload}->>'lossUsd')::numeric > 0`,
-          sql`coalesce(${submissions.payload}->>'sourceHarvester', '') NOT IN ('rekt', 'gemini-editor')`,
-        ),
-      );
-    const row = rows[0];
-    return {
-      totalUsd: Number(row?.totalUsd ?? 0),
-      incidentCount: Number(row?.n ?? 0),
-    };
-  },
+  () => fetchHackedCryptoStats(),
   ["intel-hacked-crypto-counter-v4"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );

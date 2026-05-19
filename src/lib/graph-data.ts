@@ -301,6 +301,47 @@ export async function fetchValueStats(
   };
 }
 
+export type HackedCryptoStats = {
+  totalUsd: number;
+  incidentCount: number;
+};
+
+/**
+ * Realised stolen-value aggregate across every approved kind=incident intel
+ * row. Sums `payload.lossUsd` (time-of-loss USD per editorial postmortem).
+ * Excludes two harvesters that structurally duplicate the DefiLlama+curated
+ * null-source corpus:
+ *   * 'rekt' — peak-price valuations (Mt. Gox at $14.85B vs. curated $450M).
+ *   * 'gemini-editor' — daily cron drafts editorial articles for the same
+ *     DefiLlama hacks already counted under the null-source corpus.
+ *
+ * Shared aggregator: same numbers must appear on /intel (headline) and
+ * /graph (cross-page tile). Keep the SQL filter in one place.
+ */
+export async function fetchHackedCryptoStats(): Promise<HackedCryptoStats> {
+  const rows = await db
+    .select({
+      totalUsd: sql<string>`coalesce(sum((${submissions.payload}->>'lossUsd')::numeric), 0)`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.type, "intel"),
+        eq(submissions.status, "approved"),
+        sql`${submissions.payload}->>'kind' = 'incident'`,
+        sql`(${submissions.payload}->>'lossUsd') IS NOT NULL`,
+        sql`(${submissions.payload}->>'lossUsd')::numeric > 0`,
+        sql`coalesce(${submissions.payload}->>'sourceHarvester', '') NOT IN ('rekt', 'gemini-editor')`,
+      ),
+    );
+  const row = rows[0];
+  return {
+    totalUsd: Number(row?.totalUsd ?? 0),
+    incidentCount: Number(row?.n ?? 0),
+  };
+}
+
 /**
  * Aggregate for the "Reported lost crypto" stat block on /graph. Sums
  * balance_estimate_usd across every address tagged category='lost'. Famous

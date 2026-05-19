@@ -3,10 +3,12 @@ import { PublicShell } from "@/components/public-shell";
 import { SUPPORTED_CHAINS } from "@/lib/chains";
 import {
   fetchGraphData,
+  fetchHackedCryptoStats,
   fetchHackingCrews,
   fetchLostCryptoStats,
   fetchValueStats,
   type GraphFilters,
+  type HackedCryptoStats,
   type HackingCrew,
   type LostCryptoStats,
   type ValueStats,
@@ -137,10 +139,11 @@ export default async function GraphPage({
     crew: searchParams.crew ?? null,
   };
   const includeUserReported = filters.includeUserReported === true;
-  const [data, lostStats, valueStats, crews] = await Promise.all([
+  const [data, lostStats, valueStats, hackedStats, crews] = await Promise.all([
     fetchGraphData(filters),
     fetchLostCryptoStats(5, { includeUserReported }),
     fetchValueStats({ includeUserReported }),
+    fetchHackedCryptoStats(),
     fetchHackingCrews(),
   ]);
 
@@ -175,6 +178,8 @@ export default async function GraphPage({
           includeUserReported={includeUserReported}
           searchParams={searchParams}
         />
+
+        <HackedCryptoBlock stats={hackedStats} />
 
         <ValueCounterBlock stats={valueStats} />
 
@@ -638,6 +643,55 @@ const CATEGORY_LABEL: Record<string, string> = {
   other: "Other",
 };
 
+function HackedCryptoBlock({ stats }: { stats: HackedCryptoStats }) {
+  // Realised stolen-value across approved incident postmortems. Same source
+  // and filter as the /intel headline counter — the two numbers must match.
+  // Renders even at zero so the cross-page contract stays explicit; the
+  // /intel surface hides at zero, but on /graph this is the orthogonal
+  // counterpart to "current on-chain balance" below, so the framing is
+  // worth keeping visible.
+  if (stats.totalUsd <= 0 || stats.incidentCount === 0) return null;
+  return (
+    <section
+      className="rex-card-flat px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-2"
+      style={{ borderColor: "rgba(248,113,113,0.30)" }}
+    >
+      <div>
+        <div
+          className="text-[10px] font-mono uppercase tracking-widest"
+          style={{ color: "var(--rex-danger)" }}
+        >
+          ▸ Hacked crypto tracked (realised loss)
+        </div>
+        <div className="font-display text-2xl sm:text-3xl text-[var(--rex-text)] tabular-nums">
+          {formatUsdShort(stats.totalUsd)}{" "}
+          <span
+            className="text-xs font-mono"
+            style={{ color: "var(--rex-text-dim)" }}
+          >
+            across {stats.incidentCount.toLocaleString()} incident
+            {stats.incidentCount === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+      <div className="flex-1 min-w-0 text-xs text-[var(--rex-text-muted)]">
+        Sum of editorial <code className="font-mono">lossUsd</code> across
+        every approved incident postmortem — the time-of-loss stolen-value
+        footprint. Orthogonal to the on-chain balance counter below: a
+        drained hack contributes here but $0 there; a seized custody wallet
+        contributes there but $0 here.
+      </div>
+      <a
+        href="/intel?kind=incident"
+        className="text-[11px] font-mono uppercase tracking-widest"
+        style={{ color: "var(--rex-danger)" }}
+      >
+        Open incidents ▸
+      </a>
+    </section>
+  );
+}
+
 function ValueCounterBlock({ stats }: { stats: ValueStats }) {
   // Highlight the top 4 categories with non-zero USD; collapse the rest into
   // "Other" so the header stays readable as the seed expands.
@@ -654,15 +708,15 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
-            ● Total value tracked on-chain
+            ● Current on-chain balance at tracked addresses
           </div>
           <div className="font-display text-3xl sm:text-4xl font-semibold text-[var(--rex-text)] mt-1 tracking-tight">
             {formatUsdShort(stats.totalUsd)}
           </div>
           <div className="text-xs text-[var(--rex-text-muted)] mt-1 max-w-xl">
-            Aggregate USD value at {stats.walletCount} priced address
-            {stats.walletCount === 1 ? "" : "es"} (of {stats.addressCount}{" "}
-            tracked total) across{" "}
+            Last-snapshot USD value sitting at {stats.walletCount} priced
+            address{stats.walletCount === 1 ? "" : "es"} (of{" "}
+            {stats.addressCount} tracked total) across{" "}
             <a
               href="/intel"
               className="text-[var(--rex-accent)] underline decoration-dotted underline-offset-2 hover:text-[var(--rex-text)] transition-colors"
@@ -681,9 +735,10 @@ function ValueCounterBlock({ stats }: { stats: ValueStats }) {
                 {stats.stories.tip === 1 ? "" : "s"})
               </>
             ) : null}
-            . Sums lost, government-seized, and other priced categories at
-            last-snapshot prices — see the per-category and per-token
-            breakdowns below.
+. Sums what is still on-chain at lost, government-seized,
+            sanctioned, and other priced addresses — distinct from the
+            realised-loss counter above, which sums what got stolen
+            historically.
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-2 shrink-0">
