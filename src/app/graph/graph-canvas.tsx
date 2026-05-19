@@ -246,16 +246,25 @@ export function GraphCanvas({ data }: { data: GraphData }) {
   // Normalized search query. Empty string → no filter.
   const searchTerm = search.trim().toLowerCase();
 
+  // Pre-computed search haystack per node — built once per data refresh
+  // instead of re-concatenating on every keystroke. With 2k+ nodes the
+  // per-character cost of running nodeSearchHaystack on the fly was the
+  // dominant hot path; this drops it to a single Map.get per node per
+  // keystroke.
+  const searchIndex = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of data.nodes) m.set(n.id, nodeSearchHaystack(n as FGNode));
+    return m;
+  }, [data.nodes]);
+
   // Set of node ids that pass the active search/focus filters. `null` means
   // "no active filter" — every node renders at full opacity.
   const visibleIds = useMemo<Set<string> | null>(() => {
     if (focusId) return expand(focusId, focusHops);
     if (!searchTerm) return null;
     const matches = new Set<string>();
-    for (const n of data.nodes) {
-      if (nodeSearchHaystack(n as FGNode).includes(searchTerm)) {
-        matches.add(n.id);
-      }
+    for (const [id, haystack] of searchIndex) {
+      if (haystack.includes(searchTerm)) matches.add(id);
     }
     // Pull in neighbors of matches so the user sees the context, not a
     // sea of disconnected hits.
@@ -265,7 +274,7 @@ export function GraphCanvas({ data }: { data: GraphData }) {
       if (nbrs) for (const nb of nbrs) expanded.add(nb);
     }
     return expanded;
-  }, [data.nodes, adjacency, searchTerm, focusId, focusHops, expand]);
+  }, [searchIndex, adjacency, searchTerm, focusId, focusHops, expand]);
 
   // Hover-driven highlight ring — superset of the visible filter.
   const hoverNeighbors = useMemo<Set<string> | null>(() => {
@@ -280,11 +289,11 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     if (focusId) return visibleIds?.size ?? 0;
     if (!searchTerm) return 0;
     let n = 0;
-    for (const node of data.nodes) {
-      if (nodeSearchHaystack(node as FGNode).includes(searchTerm)) n++;
+    for (const haystack of searchIndex.values()) {
+      if (haystack.includes(searchTerm)) n++;
     }
     return n;
-  }, [data.nodes, searchTerm, focusId, visibleIds]);
+  }, [searchIndex, searchTerm, focusId, visibleIds]);
 
   const graph = useMemo<{ nodes: FGNode[]; links: FGLink[] }>(
     () => ({

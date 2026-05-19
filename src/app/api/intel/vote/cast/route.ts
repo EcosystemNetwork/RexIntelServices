@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
+import { randomUUID } from "node:crypto";
 import { and, eq, ne, sql } from "drizzle-orm";
 import {
   db,
@@ -9,7 +10,12 @@ import {
   submitters,
   suppressions,
 } from "@/lib/db";
-import { verifyVoterCookie, VOTER_COOKIE_NAME } from "@/lib/voter-cookie";
+import {
+  buildVoterCookie,
+  verifyVoterCookie,
+  VOTER_COOKIE_MAX_AGE_SEC,
+  VOTER_COOKIE_NAME,
+} from "@/lib/voter-cookie";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
 import { siteUrl } from "@/lib/site-url";
@@ -19,12 +25,16 @@ import { MONTHLY_VOTE_CAP, countMonthlyVotes } from "@/lib/voting";
  * POST /api/intel/vote/cast
  * Body: { publicId }
  *
- * Same-browser fast path. If the caller has a valid voter cookie (from a
- * previous magic-link confirm in the last 30d), record their vote without
- * another email round-trip. No cookie = caller must use /vote/start.
+ * Anonymous one-click vote. If the caller already has a valid voter cookie
+ * we reuse the subscriber it points at; otherwise we mint a placeholder
+ * anonymous subscriber row, set the cookie, and proceed. No email round-
+ * trip. The 30-day cookie carries the anon identity across visits.
  *
- * One vote per (intel, subscriber) is enforced by the intel_votes PK; a
- * repeat call returns ok:true with alreadyVoted:true.
+ * Caps still apply against the (anon or real) subscriberId:
+ *   - 1 vote per (submission, subscriber) — intel_votes PK
+ *   - MONTHLY_VOTE_CAP votes per subscriber per UTC month
+ * Anyone who clears cookies gets a fresh quota. The per-IP rate limit
+ * below is the only remaining sybil dampener.
  */
 export async function POST(req: NextRequest) {
   // CSRF defense: reject any request whose Origin (or Referer, for clients
@@ -50,68 +60,6 @@ export async function POST(req: NextRequest) {
       { error: "Too many votes. Slow down." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
     );
-  }
-
-  const cookie = req.cookies.get(VOTER_COOKIE_NAME)?.value;
-  const subscriberId = verifyVoterCookie(cookie);
-  if (!subscriberId) {
-    return NextResponse.json(
-      { error: "Confirm your email first via /vote/start." },
-      { status: 401 },
-    );
-  }
-
-  // Defense in depth — the cookie is signed, but if a subscriber row was
-  // deleted (e.g. GDPR erasure) the FK would 500. Verify they still exist
-  // and are not bounced/unsubscribed in a way that should block voting.
-  // Collapse all rejection reasons to a single 401 so an attacker with a
-  // leaked cookie can't infer the deliverability/ban status of the bound
-  // subscriber. The ban join is intentional: bounty-bad-faith bans
-  // identity-wide; serial bad-actor submitters can't vote either.
-  const [sub] = await db
-    .select({
-      id: subscribers.id,
-      email: subscribers.email,
-      status: subscribers.status,
-      submitterBannedAt: submitters.bountyBannedAt,
-    })
-    .from(subscribers)
-    .leftJoin(
-      submitters,
-      sql`lower(${submitters.email}) = lower(${subscribers.email})`,
-    )
-    .where(eq(subscribers.id, subscriberId))
-    .limit(1);
-  if (
-    !sub ||
-    sub.status === "bounced" ||
-    sub.status === "complained" ||
-    sub.status === "unsubscribed" ||
-    sub.submitterBannedAt
-  ) {
-    return NextResponse.json(
-      { error: "Voter not eligible." },
-      { status: 401 },
-    );
-  }
-
-  // Suppression list — last-line check. A subscriber may pass the row-
-  // status gate above but still be in `suppressions` (Resend webhook bounces
-  // a single message → adds to suppressions but leaves the subscriber row
-  // alone, etc.). Voting must not use an identity that we've already
-  // committed to never email again. Collapses to the same generic 401.
-  if (sub.email) {
-    const [hit] = await db
-      .select({ email: suppressions.email })
-      .from(suppressions)
-      .where(sql`lower(${suppressions.email}) = lower(${sub.email})`)
-      .limit(1);
-    if (hit) {
-      return NextResponse.json(
-        { error: "Voter not eligible." },
-        { status: 401 },
-      );
-    }
   }
 
   let body: { publicId?: string };
@@ -151,15 +99,93 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Resolve voter identity AFTER validating the request. Cookie present →
+  // run eligibility gates against the existing subscriber. Cookie missing →
+  // mint a fresh anonymous subscriber for the (submission, subscriber) PK
+  // and monthly cap. We defer the mint until here so malformed bodies and
+  // dead intel refs don't leave stranded subscriber rows behind.
+  const rawCookie = req.cookies.get(VOTER_COOKIE_NAME)?.value;
+  let subscriberId = verifyVoterCookie(rawCookie);
+  let voterEmail: string | null = null;
+  let mintedNewCookie = false;
+
+  if (subscriberId) {
+    // Existing voter — same eligibility gates as before. Collapse all
+    // rejection reasons to a single 401 so an attacker with a leaked
+    // cookie can't infer the deliverability/ban status of the bound
+    // subscriber. The submitter ban join is intentional: bounty-bad-faith
+    // bans identity-wide; serial bad-actor submitters can't vote either.
+    const [sub] = await db
+      .select({
+        id: subscribers.id,
+        email: subscribers.email,
+        status: subscribers.status,
+        submitterBannedAt: submitters.bountyBannedAt,
+      })
+      .from(subscribers)
+      .leftJoin(
+        submitters,
+        sql`lower(${submitters.email}) = lower(${subscribers.email})`,
+      )
+      .where(eq(subscribers.id, subscriberId))
+      .limit(1);
+    if (
+      !sub ||
+      sub.status === "bounced" ||
+      sub.status === "complained" ||
+      sub.status === "unsubscribed" ||
+      sub.submitterBannedAt
+    ) {
+      return NextResponse.json(
+        { error: "Voter not eligible." },
+        { status: 401 },
+      );
+    }
+    voterEmail = sub.email;
+
+    // Suppression list — a subscriber may pass the row-status gate above
+    // but still be in `suppressions` (Resend webhook bounces a single
+    // message → adds to suppressions but leaves the subscriber row alone).
+    // Voting must not use an identity we've committed to never email.
+    if (sub.email) {
+      const [hit] = await db
+        .select({ email: suppressions.email })
+        .from(suppressions)
+        .where(sql`lower(${suppressions.email}) = lower(${sub.email})`)
+        .limit(1);
+      if (hit) {
+        return NextResponse.json(
+          { error: "Voter not eligible." },
+          { status: 401 },
+        );
+      }
+    }
+  } else {
+    // Placeholder email is unique-by-UUID and lives on a non-routable
+    // domain so no mail ever gets sent. source="anon_vote" so these rows
+    // can be filtered out of every mailing surface.
+    const anonEmail = `anon-${randomUUID()}@anon.vote.rexintel.local`;
+    const [created] = await db
+      .insert(subscribers)
+      .values({
+        email: anonEmail,
+        source: "anon_vote",
+        status: "active",
+        ipAddress: ip === "unknown" ? null : ip,
+      })
+      .returning({ id: subscribers.id });
+    subscriberId = created.id;
+    voterEmail = anonEmail;
+    mintedNewCookie = true;
+  }
+
   // Self-voting block — submitters cannot vote on their own intel. Match
-  // on lower-cased email since submissions stores user-typed casing and
-  // subscribers stores lower-cased. Returning a generic 403 (not "you
-  // can't self-vote") so the failure mode doesn't help an attacker map
-  // submitter ↔ subscriber identities across a leaderboard.
+  // on lower-cased email; anon voters use placeholder emails so this
+  // gate never fires for them, which is fine (no identity to collide on).
   if (
     intel.submitterEmail &&
-    sub.email &&
-    intel.submitterEmail.toLowerCase() === sub.email.toLowerCase()
+    voterEmail &&
+    intel.submitterEmail.toLowerCase() === voterEmail.toLowerCase()
   ) {
     return NextResponse.json(
       { error: "Vote not eligible." },
@@ -181,7 +207,10 @@ export async function POST(req: NextRequest) {
     .limit(1);
 
   if (existingVote) {
-    return NextResponse.json({ ok: true, alreadyVoted: true });
+    return withVoterCookie(
+      NextResponse.json({ ok: true, alreadyVoted: true }),
+      mintedNewCookie ? subscriberId : null,
+    );
   }
 
   // Monthly cap — counted AFTER the already-voted check so re-clicking an
@@ -189,13 +218,16 @@ export async function POST(req: NextRequest) {
   // see lib/voting.ts.
   const monthlyVotes = await countMonthlyVotes(subscriberId);
   if (monthlyVotes >= MONTHLY_VOTE_CAP) {
-    return NextResponse.json(
-      {
-        error: `Monthly vote limit reached (${MONTHLY_VOTE_CAP}/month). Resets at the start of next month UTC.`,
-        capReached: true,
-        cap: MONTHLY_VOTE_CAP,
-      },
-      { status: 429 },
+    return withVoterCookie(
+      NextResponse.json(
+        {
+          error: `Monthly vote limit reached (${MONTHLY_VOTE_CAP}/month). Resets at the start of next month UTC.`,
+          capReached: true,
+          cap: MONTHLY_VOTE_CAP,
+        },
+        { status: 429 },
+      ),
+      mintedNewCookie ? subscriberId : null,
     );
   }
 
@@ -213,7 +245,27 @@ export async function POST(req: NextRequest) {
     /* see /vote/confirm */
   }
 
-  return NextResponse.json({ ok: true, alreadyVoted: false });
+  return withVoterCookie(
+    NextResponse.json({ ok: true, alreadyVoted: false }),
+    mintedNewCookie ? subscriberId : null,
+  );
+}
+
+function withVoterCookie(
+  res: NextResponse,
+  subscriberIdToBind: string | null,
+): NextResponse {
+  if (!subscriberIdToBind) return res;
+  const cookie = buildVoterCookie(subscriberIdToBind);
+  if (!cookie) return res;
+  res.cookies.set(VOTER_COOKIE_NAME, cookie, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: VOTER_COOKIE_MAX_AGE_SEC,
+  });
+  return res;
 }
 
 function isSameOriginPost(req: NextRequest): boolean {

@@ -21,14 +21,15 @@ He had told the researcher, on camera, what was in that wallet.
 **At a glance:**
 
 - **Consensys-Mesh-funded user-research platform.** Despark.io, the firm that booked the paid interview, is a Boston-based research recruiter whose publicly disclosed investors include Consensys Mesh — the venture arm of the company that makes MetaMask.
-- **Researcher introduced as a Consensys/MetaMask employee.** Despark's co-founder later confirmed via email that the researcher was a verified Consensys employee with Slack and corporate-email accounts on file.
+- **Researcher confirmed as a Consensys/MetaMask employee by multiple independent sources.** Despark's co-founder confirmed via email that the researcher was a verified Consensys employee with Slack and corporate-email accounts on file. Separately, multiple Consensys employees encountered by the participant at crypto industry conferences in the months following the drain independently confirmed, in unprompted conversation, that the researcher was a known MetaMask employee.
 - **Wallet contents disclosed on camera.** Over a recorded ~46-minute Zoom call, the participant voluntarily catalogued his multi-chain wallet providers, his approved DeFi positions, and the rough scale of his holdings to the researcher.
-- **Fully automated drain, 47 minutes after the call ended.** Eight transactions in 80 seconds emptied his Solana wallet to a one-time burner address — every transaction signed by his own Phantom keypair as fee payer.
+- **Fully automated, multi-chain drain — beginning 47 minutes after the call ended.** On Solana, eight transactions in 80 seconds emptied the participant's Phantom wallet to a one-time burner sink, every transaction signed by his own keypair as fee payer. On Polygon, the same wallet had been pre-liquidated the night before (DeFi Treasury Bill batch redemption + Paraswap multiSwap) and cashed out 1,380 POL to a one-time burner sink **six minutes before** the Solana drain began. The Polygon burner exhibits the identical operational fingerprint as the Solana burner: one drain, one forward to a consolidator, then permanently dormant.
 - **Drain enabled by prior key theft, not a session compromise.** Solana has no ERC-20-style approvals; the operator already held the participant's private key when the call began. The call's role was either confirmation or trigger.
-- **Same MetaMask wallet re-hijacked four months later.** In September 2025, the Polygon wallet the participant had disclosed in Despark's screener was authorized via EIP-7702 to two delegate contracts whose creators are labeled "Fake_Phishing" by Etherscan's community attribution system. One of those delegations is still live as of publication.
+- **Two of the participant's wallets, on two chains, tagged by the same EIP-7702 phishing contract.** The primary screener-disclosed wallet was authorized on Ethereum, in September 2025, to two delegate contracts whose creators are labeled "Fake_Phishing" by Etherscan. A second wallet of the participant's is **currently** authorized on Polygon to the same `0x63245b9f…` delegate as the primary. The most recent delegation on Ethereum and the active delegation on Polygon are both live as of publication.
 - **Despark released only one side of the recording.** After a California two-party-consent request, the company provided only the participant's own audio and a transcript of his own speech, withholding the researcher's video, audio, and questions, and attributing the partial release to lawyer review.
-- **The operator's infrastructure is still active.** Two wallets in the same Solana Address Lookup Table batch as the participant's drain destination have received more than $27,000 in SOL inflows within the last 96 hours.
+- **The operator's infrastructure is running at SaaS-drainer throughput right now.** The custom drainer router and persistent fee wallet that processed the participant's May-2025 drain each emit more than 1,000 signed transactions per hour as of publication — ~20 per minute, sustained, on both addresses. Two other wallets in the same May-2025 Solana Address Lookup Table batch as the participant's burner have received more than $27,000 in SOL inflows in the last 96 hours.
 - **Four other addresses in the same batch share the participant's drainer-sink fingerprint.** Single-day activity envelopes, low signature counts, zero ending balances — a cohort of likely co-victims who may not yet know they were hit.
+- **Pre-drain dusting recon hit twenty wallets, including the participant's.** Eighteen hours before the drain, a single Solana transaction from `5Hr7wZg7oBpV…Jak7fr` distributed 1 lamport to twenty distinct destination wallets — a textbook on-chain operational tell for verifying that a list of target accounts is live and rent-exempt before the operator commits the next batch. The participant's address appears at index 19. The other nineteen are listed in the body of this article.
 
 ---
 
@@ -36,13 +37,59 @@ He had told the researcher, on camera, what was in that wallet.
 
 Despark.io is a paid user-research firm that recruits crypto-active participants for product interviews. Its participants are vetted by demographics *and* on-chain wallet activity — a differentiator the company markets explicitly versus generic research-recruiter platforms like User Interviews or Respondent.io. Despark currently lists ~7,000 verified web3 users, and claims clients including CoW Protocol, Runtime Verification, and API3, with internal-network exposure to Consensys-funded products including MetaMask.
 
-The founder — referred to here as the participant, for source-protection reasons — had completed two prior Despark missions before May 12, 2025. His third one was titled "Looking to speak to MetaMask users!" and was conducted over Zoom on the morning of May 12, recorded per Despark's standard process.
+The founder — referred to here as the participant, for source-protection reasons — had completed two prior Despark missions before May 12, 2025, including one on 2025-02-11 titled "Looking to speak to MetaMask users!" — the same MetaMask-research recruitment pattern. The May 12 "Web3 Identity" mission was his third Despark session, and it was conducted over Zoom on the morning of May 12, recorded per Despark's standard process.
 
 Over the course of a ~46-minute interview, the participant — comfortable, professional, treating it as a real research conversation — voluntarily catalogued the categories of his crypto operational footprint to the researcher: the wallet providers he used across multiple chains, the categories of DeFi venues where he held approved trading positions, the rough scale of his holdings, and the personal-opsec practices he relied on. Specific project names and exact wallet identifiers are withheld here for source protection; the disclosure pattern, not its contents, is what matters for what followed.
 
 According to Despark's later metadata review, no chat messages were exchanged during the call and no screen was shared.
 
 The call ended somewhere between 10:55 and 11:00 AM Pacific Time. Despark's automated "Mission Complete" email — which fires after the participant is credited — landed in the participant's inbox at **11:15 AM PT**.
+
+---
+
+## What happened in the wallet before the call
+
+The wallet activity in the 48 hours leading up to the call follows a pattern that is, in retrospect, legible.
+
+**2025-05-10, 16:30 PT — T-43 hours from drain.** The participant's Phantom wallet receives **15.78 SOL** (≈$2,805 at the May 2025 spot price) from a Robinhood-attributed wallet (`AeBwztwXScyNNuQCEdhS54wttRQrw3Nj1UtqddzB4C7b`). This is the funding event that established most of the wallet's eventual drained value. From the operator's perspective — assuming the wallet's keys had been previously exfiltrated and were being watched — this is the inflow signal that says *now there is something here to take*.
+
+**2025-05-11, 17:14 PT — T-18 hours from drain.** A Solana wallet at `5Hr7wZg7oBpVhH5nngRqzr5W7ZFUfCsfEhbziZJak7fr` emits a single signed transaction (22 instructions, total fee 5,825 lamports — about $0.001) transferring **one lamport** (0.000000001 SOL) to each of **twenty distinct recipient wallets** in one batch. The participant's Phantom address appears as the nineteenth recipient. The other nineteen, in batch order:
+
+```
+281DH5J1fmoGusSyryBgMBovF77E4aFgSCYzSbRzuiG4
+3k4244UDyqs6L2zoTNrPquRrWK6VkebHYBFqHvpB5oYL
+4CRkYKSG6jWG2swKRMbQ5KziVWDcpnnmRxFT8EzDXH2g
+55GVfiNkTg9bHZ1BZg2VHedtM1vQ1G4EmcMX7E8QNZxf
+65a6EiHpArePug31EPDjcxLVa5KgQcz9cj6UXzgES7hv
+672XessRAdvCcGTJCzBKtxd93UemQ2rnLtGAu7kpANiG
+6DN8gJHUkXT6yUpuLjViPbDRQScM8MRzmTqRYrv9Dsou
+8j3D5HzUXbAxXKGDzF4iDNuv7hBHpUvtDV9eKnaxLAFy
+9h8D1cvgtc2YHdUsjr5uModAwAcdNbEYZC55D2jhmCMt
+9YQVt8mPmHvwnn4J1fmvA9tyhGKvibPR8HKGSCGV6FxN
+AJj2RHsz6sLKAbtsvKZU6Xcz6gcHE8QSQVnHPxAa3TWA
+B1JSkgsNjDhp141nP7JjeZva1LtvRt1kFMGfN4kN4NKz
+BayewF3p8aXjxSUcMhoV4GwYUnBrudrx9PY92AtnpBQn
+Dsa5FBjVZ1ejqKoPgBw7qvv9xQtfc9CbfdJnyxMQAZY2
+DSDpQAq26PsL1Ldijp5YSAKUKbggvX58AF7dZgapvT6X
+EWFSQcfANfUwgbhqCMXhjfM7CCtZtsxcvRNprCaYyBCj
+F1bNfRK7r3xwWJYr8MP4vzvHf5sEamTppjDgyM15v49m
+HAr3D8hc19UfLy4pZydrf5vR8eWri1jqrsyykLzWhUWQ
+HvhAwaNxdDjK6b1uPJdGQvnAJoZyxzkrFN8kvQabXsFL
+```
+
+A 1-lamport dust to twenty wallets in a single batched signature, paid for by a single source wallet, costing under a penny in fees, has one common operational function: **verifying that each recipient address is a previously-funded, rent-exempt account that the next batch transaction can address cheaply.** On Solana, transferring to an uninitialized account is more expensive (the sender pays rent-exempt minimum). Dusting confirms target liveness and pays the rent for the receiving wallet's account structure. It is reconnaissance.
+
+The other nineteen wallets in that batch are a snapshot of the operator's target list as of T-18 hours before the participant's drain. If you recognize any of those nineteen addresses as yours — or as belonging to anyone you know — and that wallet had unexplained transactions between May 11, 2025 and the present, you may be looking at the same operator that hit the participant. We want to hear from you.
+
+**2025-05-12, 01:09 to 01:11 PT — T-10 hours from drain.** The participant's Polygon wallet executes the bond batchRedeem + Paraswap multiSwap sequence (described in detail in the Polygon section below). DeFi vesting positions liquidate to liquid POL. Whether by the participant himself or by an actor already holding his keys, the wallet ends up liquid by 01:11 PT.
+
+**2025-05-12, ~10:00 AM PT — T-2 hours from drain.** The participant joins the Despark "Web3 Identity" Zoom call and spends ~46 minutes verbally describing his multi-chain DeFi footprint to the researcher.
+
+**2025-05-12, 11:15 AM PT — T-30 min from drain.** Despark's automated "Mission Complete" email arrives.
+
+**2025-05-12, 11:39 AM PT — T-6 min from drain.** The participant's Polygon wallet emits 1,380 POL to a one-time burner sink.
+
+**2025-05-12, 11:45 AM PT — T-0.** The Solana drain begins.
 
 ---
 
@@ -87,6 +134,50 @@ The participant's was one of them.
 
 ---
 
+## The Polygon side: the drain was multi-chain
+
+The participant's Solana wallet was not the only one being emptied on May 12, 2025.
+
+Between **01:09 AM and 01:11 AM Pacific Time** — approximately ten hours *before* the Despark call — the Polygon wallet the participant had disclosed via Despark's screener (`0x118EDd03335D07B498A511213cDb9FDfB448EcA3`) executed three signed transactions, each verifiable on Polygonscan:
+
+| Time (PT) | Action | Contract | Tx hash |
+|----------|--------|----------|---------|
+| 01:09:54 | `batchRedeem(uint256[] _billIds)` | `0x3E53F156fBe6a17ca74F4E0EeC638cD8AeD3a4Bb` (DeFi Treasury Bill vesting contract) | `0x8da01d14…` |
+| 01:09:58 | `batchRedeem(uint256[] _billIds)` | `0xc36a21D46c901bC6d9CF3eD0b1f31eDaB7d36e90` (Treasury Bill v2 contract) | `0xb4fa4e4a…` |
+| 01:11:38 | `multiSwap(tuple data)` | `0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57` (Paraswap Augustus v5 router) | `0x6689024a…` |
+
+The two `batchRedeem` operations liquidated DeFi vesting positions — the on-chain mechanism by which a previously *locked* position becomes liquid POL. The bond settlement contract at `0xc19e284c8f5ccef721a761d0ca18dc8e9a612afd` returned 107.74 POL to the wallet at 01:10:38, between the two redemptions; the Paraswap multiSwap at 01:11:38 returned a further 24.08 POL to the wallet from token-side conversions. Whether those overnight operations were performed by the participant himself or by an attacker already holding his key is not knowable from on-chain evidence alone; what is knowable is that they left the wallet in a fully-liquid state ten hours before the cash-out that followed.
+
+The cash-out happened at **11:39:39 AM PT** — six minutes before the Solana drain began at 11:45:43 PT. A single outbound transfer:
+
+> **1,380 POL** → `0xd78d9d8e566ecd4d1696eda3f08605bbd5c85554`
+
+That recipient address has exactly **two transactions in its entire history**. Both are on May 12, 2025.
+
+- 11:39:39 PT: received 1,380 POL from the participant's wallet.
+- 11:41:43 PT (2 minutes 4 seconds later): forwarded 1,379.97 POL onward to `0x3a0d24d59af3a3444dc6ef12cdb0c6e38c985288` — a high-volume consolidator wallet with thousands of unique inbound counterparties across multiple years of activity.
+
+Its current balance is 0.022 POL. After May 12, 2025, it has emitted no further transactions.
+
+This is the same operational fingerprint as the participant's Solana drain destination `GmgHSpuX…jTrN9f`: one-time creation, one drain, one forward to a consolidator, then permanently dormant. Same architecture, different chain.
+
+The choreography across chains was:
+
+```
+01:09 PT — Polygon: bond batchRedeem ×2  ┐
+01:11 PT — Polygon: multiSwap Augustus   ┘ wallet liquidated to POL
+…
+11:39 PT — Polygon: 1,380 POL → one-time burner sink
+11:41 PT — Polygon: burner → consolidator (1,379.97 POL forwarded)
+11:45 PT — Solana: drain sequence begins (8 tx in 80 sec)
+11:47 PT — Solana: 15.110 SOL → one-time burner sink
+11:49 PT — Solana: burner → consolidator (Address Lookup Table batch)
+```
+
+The two chains were not separate incidents. They were two surfaces of the same operation, run by an actor who held the participant's keys on both. Polygon was unwound first, overnight, slowly. Solana was unwound last, in eighty seconds, after the participant had spent forty-six minutes on a recorded call describing what was in it.
+
+---
+
 ## Despark.io is a Consensys-funded research network
 
 To understand what kind of vendor relationship that interview represented, you have to look at who funds Despark.
@@ -104,6 +195,8 @@ What it does mean is that the controls around participant-facing data, researche
 After the drain, the participant emailed Despark's published support address. The thread was answered by **Greg Eusden**, co-founder of Despark, who confirmed via reply that the researcher was a verified Consensys employee with Slack and email accounts on file.
 
 Asked how a drain could have followed from the call when no screen had been shared and no links had been clicked, Eusden wrote: "I glanced at the metadata, and I don't think you shared screen or interacted with anything on her behalf, so it's hard to know it's related to the interview." He noted that the researcher had interviewed "folks who I know for a fact have large value-holdings and we haven't had any issues so far."
+
+Eusden's confirmation of the researcher's employment was not the only source. In the months following the drain, the participant attended multiple crypto industry conferences and, in separate unprompted conversations with Consensys employees encountered there, received independent confirmation that the researcher was a known MetaMask employee. None of those conversations were initiated by the participant raising the researcher's identity; in each case, a Consensys staffer placed her at the company without being asked to. The participant has accordingly treated the researcher's employment with Consensys as established by multiple independent sources for the purposes of this investigation.
 
 The participant asked for a copy of the call video, citing California's two-party recording statute and his right as a recorded party to obtain a copy. Despark initially declined. After three months of follow-up, on 2025-08-18, the company released only the portion of the video in which the participant himself spoke, along with a transcript of only his own speech. The researcher's video portion, audio, and questions were withheld. Eusden attributed the partial release to lawyer review.
 
@@ -160,7 +253,9 @@ Two observations of public consequence:
 
 A long-running infrastructure address (`7Q5hoiFy3FJu…K4Dhn`) shows continuous activity from April 2025 through February 2026, with multiple shared-batch touchpoints between the May-2025 sink cohort and the currently-active addresses above. The on-chain signature is consistent with a single coordinating actor across that period, though attribution of pseudonymous addresses to a single real-world entity is necessarily inferential.
 
-The participant was not the only address in his batch. He was one row on a spreadsheet, processed in sequence with everyone else who got cycled through that day.
+**The operator infrastructure is not historical. It is running right now.** Two of the addresses from the May-2025 drain — the custom drainer router `6m2CDdh…kBma` and the persistent fee wallet `9yj3zvLS…t7djXf` — each emit more than 1,000 signed transactions per hour as of publication, queried directly against public Solana RPC at 2026-05-19. That is roughly 20 signed transactions per minute, on each of two cooperating addresses, sustained. This is not the throughput envelope of a one-off crew working through a stolen-key inventory at human pace. This is the throughput envelope of a productized, multi-tenant, SaaS-drainer infrastructure deployment earning per-swap commission across an actively-flowing victim pipeline. The router and fee wallet that processed the participant's drain on May 12, 2025 are the same router and fee wallet processing other people's drains right now.
+
+The participant was not the only address in his batch. He was not the only victim that week. And he is not the only victim today. He was one row on a spreadsheet, processed in sequence with everyone else who got cycled through that day, and the spreadsheet is still being processed.
 
 ---
 
@@ -176,7 +271,17 @@ Eleven days later, on 2025-09-22, the same wallet executed a sixth EIP-7702 auth
 
 The Sept 22 delegation is still live as of 2026-05-18. An `eth_getCode` call against the wallet on Ethereum mainnet returns the EIP-7702 prefix `0xef0100` followed by the malicious delegate address — meaning the wallet is, at this moment, code-pointed at a contract whose creator is labeled "Fake_Phishing1685665" by Etherscan. (Each new EIP-7702 authorization overwrites the previous one, so the Sept 10-11 delegations to `0x5A77f0DF...` were superseded by the Sept 22 delegation; only the most recent — to `0x63245b9f...` — is currently active.) Anyone using that wallet to sign any transaction today is doing so through that attacker-controlled contract.
 
-What the September re-hijack proves, beyond the May drain, is that whoever has the participant's keys never let them go. When a new attack tool (EIP-7702) became viable in mid-2025, they weaponized it against the same victim four months after the original drain. This is persistence. This is the signature of an actor who has automated long-tail monetization of compromised key inventory.
+The September tag was not limited to the single screener-disclosed wallet. A **second** wallet of the participant's — `0x0f45C1d3275ABbd94DFD79dDE8e29990AB539c81` — is also currently authorized, on Polygon, to the **same** `0x63245b9fADc65C3a6d61b1A1a812808ffC91BD29` phishing delegate that the screener-disclosed wallet was authorized to on Ethereum. `eth_getCode` against the second wallet on the Polygon network returns `0xef010063245b9fadc65c3a6d61b1a1a812808ffc91bd29` — verifiable by any reader against any public Polygon RPC endpoint. The operator who holds the participant's primary key also holds at least one secondary key, and has used the same phishing contract to tag both wallets across two chains. This is not a single-wallet compromise. It is a multi-wallet, multi-chain key-inventory event.
+
+What the September re-hijack proves, beyond the May drain, is that whoever has the participant's keys never let them go. When a new attack tool (EIP-7702) became viable in mid-2025, they weaponized it against multiple of the same victim's wallets, on two chains, four months after the original drain. This is persistence. This is the signature of an actor who has automated long-tail monetization of compromised key inventory.
+
+## If your wallet is EIP-7702 delegated to a phishing contract, "revoke approvals" tools will not save you
+
+Every standard wallet-hygiene reflex — running revoke.cash, clearing approvals on Etherscan's Token Approvals tab, rotating connected dapps — addresses the **token-approval** attack class that dominated 2020-2024. EIP-7702 is a different mechanism. It does not approve a contract to spend a specific token; it delegates the wallet's executable code itself.
+
+To verify whether any of your EOAs are EIP-7702 delegated on any EVM chain, query `eth_getCode` against the address on that chain and check whether the returned bytecode begins with the prefix `0xef0100`. If it does, the remaining 20 bytes are the malicious delegate address. To **revoke** an EIP-7702 delegation, you must explicitly sign a new EIP-7702 authorization that delegates the wallet back to `0x0000000000000000000000000000000000000000` (or to a delegate you trust). The tooling that handles this safely as of publication is at https://eip7702.io and https://revoke.cash — both shipped 7702-aware revocation flows in 2025-2026.
+
+If you believe your private key was previously compromised, however, **revocation alone is not sufficient.** The same actor who delegated your wallet can re-delegate it the moment you revoke. Move your assets to a fresh, never-before-used key (ideally hardware-backed). Treat the original key as permanently burned.
 
 ---
 
@@ -190,12 +295,13 @@ We are not asserting that the addresses we identify as exhibiting drainer-patter
 
 We are saying:
 
-- A multi-chain crypto founder, recruited via a paid user-research mission on a Consensys-Mesh-funded platform, lost the contents of a Solana wallet to a fully automated transaction sequence approximately 47 minutes after the recorded call ended.
-- The Solana transactions are public-record on-chain facts, verifiable by anyone with a Solana block-explorer URL.
-- The wallet later disclosed in the same participant's Despark screener was subsequently authorized, via Ethereum's EIP-7702 mechanism, to two delegate contracts whose creators are explicitly labeled "Fake_Phishing" by Etherscan's community attribution system.
+- A multi-chain crypto founder, recruited via a paid user-research mission on a Consensys-Mesh-funded platform, lost the contents of a Solana wallet to a fully automated transaction sequence approximately 47 minutes after the recorded call ended, and lost 1,380 POL on the same Polygon wallet he had disclosed via the platform's screener — to a one-time burner sink cashed out six minutes before the Solana sequence began.
+- The Solana transactions and the Polygon transactions are public-record on-chain facts, verifiable by anyone with a Solana block explorer or a Polygon block explorer.
+- The wallet disclosed in the same participant's Despark screener was subsequently authorized, via Ethereum's EIP-7702 mechanism, to two delegate contracts whose creators are explicitly labeled "Fake_Phishing" by Etherscan's community attribution system; a second wallet of the participant's is currently authorized to the same delegate contract on Polygon.
 - Despark, when asked, released only the portion of the recorded call in which the participant himself speaks, attributing the partial release to lawyer review.
 - Four other addresses share a single Solana Address Lookup Table prepared in the same minute as the participant's drain-destination address, and exhibit the same operational fingerprint.
 - Two other addresses in the same Lookup Table show heavy current inflows totaling more than $27,000 in SOL in the last four days.
+- The custom drainer router and persistent fee wallet that processed the participant's May 2025 drain emit, in aggregate, more than 2,000 signed transactions per hour as of publication — actively flowing victim pipeline, not historical infrastructure.
 
 Each of those statements is independently verifiable on-chain, in the email correspondence the participant has provided to RexIntel, or in publicly available corporate disclosures.
 
@@ -203,7 +309,7 @@ Each of those statements is independently verifiable on-chain, in the email corr
 
 ## Methodology and limits of this investigation
 
-This article is based on (a) timestamped email correspondence between the participant and Despark, voluntarily provided to RexIntel for the purpose of this investigation; (b) a recording-clip and transcript released by Despark to the participant on 2025-08-18; (c) public on-chain transaction records on the Solana and Ethereum networks, verified via independent public RPC endpoints; and (d) public corporate filings, announcements, and LinkedIn profiles of the parties named.
+This article is based on (a) timestamped email correspondence between the participant and Despark, voluntarily provided to RexIntel for the purpose of this investigation; (b) a recording-clip and transcript released by Despark to the participant on 2025-08-18; (c) public on-chain transaction records on the Solana, Ethereum, and Polygon networks, verified via independent public RPC endpoints (Solana mainnet-beta, Etherscan V2 unified API for the EVM chains); and (d) public corporate filings, announcements, and LinkedIn profiles of the parties named. Solana RPC counts of the operator's currently-active addresses were taken via direct `getSignaturesForAddress` calls at publication; EIP-7702 delegation status on both Ethereum and Polygon was verified via direct `eth_getCode` calls returning the `0xef0100` prefix and the trailing 20-byte delegate address.
 
 We did not access Despark's internal systems. We have not independently verified Despark's metadata claims (no chat messages exchanged, no screen shared) other than to note their consistency with the on-chain mechanism evidence. We did not contact the researcher. We did not contact Despark, Consensys, or Consensys Mesh for comment in advance of publication; any response received post-publication will be appended to this article.
 
@@ -225,15 +331,18 @@ GmgHSpuXYejyfZ9E63YPR9XFdfHj4pyuu7cVu8jTrN9f   (Solana — May 12, 2025 drainer 
 9GS4pvLLqVV7Sm2zkjFLN5pFD9dJ8eMRG7W6boMhRUgG   (Solana — May 11-12, 2025 drainer sink)
 7MoK8H31L7YBsf5xG8g2bQaasW4HmuWP7XH8yhw8hQy1   (Solana — CURRENTLY ACTIVE operator wallet)
 CYt5zhUNZfyXy7j95Sn9rcPUc5FByNj6A4SD8aAmeh71   (Solana — CURRENTLY ACTIVE operator wallet)
-6m2CDdhRgxpH4WjvdzxAYbGxwdGUz5MziiL5jek2kBma   (Solana — operator's drain router)
-9yj3zvLS3fDMqi1F8zhkaWfq8TZpZWHe6cz1Sgt7djXf   (Solana — operator's persistent fee wallet)
-0x5A77f0DFc729700300c22e7b0111a5cfbC32431B       (Ethereum — EIP-7702 phishing delegate)
-0x63245b9fADc65C3a6d61b1A1a812808ffC91BD29       (Ethereum — EIP-7702 phishing delegate)
+6m2CDdhRgxpH4WjvdzxAYbGxwdGUz5MziiL5jek2kBma   (Solana — operator's drain router, currently active SaaS drainer infra)
+9yj3zvLS3fDMqi1F8zhkaWfq8TZpZWHe6cz1Sgt7djXf   (Solana — operator's persistent fee wallet, currently active SaaS drainer infra)
+5Hr7wZg7oBpVhH5nngRqzr5W7ZFUfCsfEhbziZJak7fr   (Solana — May 11, 2025 dusting-recon source, 20-wallet target snapshot 18h before drain)
+0xd78d9d8e566ecd4d1696eda3f08605bbd5c85554     (Polygon — May 12, 2025 one-time burner sink for the 1,380 POL cash-out)
+0x3a0d24d59af3a3444dc6ef12cdb0c6e38c985288     (Polygon — consolidator wallet that received the burner's forwarded balance)
+0x5A77f0DFc729700300c22e7b0111a5cfbC32431B     (Ethereum — EIP-7702 phishing delegate, Sept 10-11 2025 authorizations)
+0x63245b9fADc65C3a6d61b1A1a812808ffC91BD29     (Ethereum + Polygon — EIP-7702 phishing delegate; Sept 22 2025 on ETH live; same delegate active on Polygon for participant's secondary wallet)
 ```
 
 — email **rexintelservices@proton.me**. We will protect your identity and your reporting.
 
-**If you are an exchange or analytics provider** — these addresses have received inflows totaling over $27,000 in SOL within the last four days, are operating in a Solana Lookup Table batch shared with a year-old confirmed drain destination, and warrant attention. Reach us at **rexintelservices@proton.me**.
+**If you are an exchange or analytics provider** — the Solana side of these addresses receives more than 1,000 signed transactions per hour on each of the router and fee-wallet endpoints as of publication; two of the ALT-batch wallets have received more than $27,000 in SOL inflows in the last four days; and the Polygon side ran a one-time-burner-and-consolidator architecture identical to the Solana side on May 12, 2025. The infrastructure is alive. Reach us at **rexintelservices@proton.me**.
 
 **If you are Despark, Consensys, or Consensys Mesh** — this article will be updated to reflect any response you choose to make. Statements may be sent to **rexintelservices@proton.me**.
 

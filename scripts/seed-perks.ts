@@ -785,6 +785,20 @@ const perks: PerksPayload[] = [
     tags: ["speedrun", "ethereum", "scaffold-eth", "education"],
   },
   {
+    name: "CryptoZombies",
+    organization: "Loom Network",
+    organizationUrl: "https://cryptozombies.io/",
+    description:
+      "Free, gamified Solidity course — build a zombie-themed CryptoKitties-style game contract lesson by lesson. Covers Solidity fundamentals, ERC-721, Web3.js, and advanced patterns across 6+ courses. The canonical interactive entry point for Solidity beginners; ~400k+ developers have run through it.",
+    value: "Free interactive lessons",
+    category: "Free · Education",
+    ecosystem: "Ethereum",
+    eligibility: "Free; account optional for progress tracking.",
+    applyUrl: "https://cryptozombies.io/",
+    rolling: true,
+    tags: ["cryptozombies", "solidity", "ethereum", "education", "interactive"],
+  },
+  {
     name: "Anthropic Cookbook",
     organization: "Anthropic",
     organizationUrl: "https://github.com/anthropics/anthropic-cookbook",

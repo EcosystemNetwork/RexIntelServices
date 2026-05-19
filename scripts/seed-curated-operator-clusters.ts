@@ -31,7 +31,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { and, eq, ilike, sql } from "drizzle-orm";
 import { db, submissions, addresses } from "../src/lib/db";
-import type { AddressRole } from "../src/lib/db/schema";
+import type {
+  AddressRole,
+  AddressCategory,
+  AddressOwnerKind,
+  AddressAttributionSource,
+} from "../src/lib/db/schema";
 import { CHAIN_SLUG_SET } from "../src/lib/chains";
 import { linkAddressesToSubmission } from "../src/lib/intel-address-extraction";
 
@@ -45,6 +50,16 @@ type Cluster = {
   operator: string;
   label?: string;
   attribution?: string;
+  // Cluster-level attribution metadata shared by every address in the
+  // cluster. When set, the loader stamps these onto the addresses table
+  // so /graph filter chips (Sanctioned, Government-seized, DPRK/Lazarus
+  // via crew) pick up the seeded wallets automatically. Defaults err
+  // toward sanctioned/criminal-group/curated since those are the
+  // dominant cluster classes in the JSON.
+  category?: AddressCategory;
+  ownerKind?: AddressOwnerKind;
+  source?: AddressAttributionSource;
+  confidence?: number;
   addresses: ClusterAddress[];
   incidents?: {
     publicIds?: string[];
@@ -98,12 +113,27 @@ async function main() {
       continue;
     }
 
-    // Upsert each address with the cluster's curated label so the
-    // public address page renders the attribution chip.
+    // Upsert each address with the cluster's full attribution metadata
+    // so the /graph filter chips (Sanctioned, Lazarus crew, Government-
+    // seized) pick up the seeded wallets automatically. category /
+    // ownerKind / primarySource get stamped on upsert; existing rows
+    // with stronger attribution (e.g. an OFAC-harvester row already
+    // present) are NOT downgraded — fields are only set when NULL.
+    const clusterCategory = cluster.category ?? "sanctioned";
+    const clusterOwnerKind = cluster.ownerKind ?? "criminal-group";
+    const clusterSource = cluster.source ?? "rexintel-curated";
+    const clusterConfidence = cluster.confidence ?? 95;
     if (!dryRun) {
       for (const a of validAddresses) {
         const [existing] = await db
-          .select({ id: addresses.id, label: addresses.label })
+          .select({
+            id: addresses.id,
+            label: addresses.label,
+            category: addresses.category,
+            ownerKind: addresses.ownerKind,
+            primarySource: addresses.primarySource,
+            ownerName: addresses.ownerName,
+          })
           .from(addresses)
           .where(
             and(
@@ -113,12 +143,23 @@ async function main() {
           )
           .limit(1);
         if (existing) {
-          // Only stamp the label if the row didn't already carry one — a
-          // prior curator pass with a more specific label wins.
-          if (!existing.label && cluster.label) {
+          // Fill in NULL columns from cluster defaults; don't downgrade
+          // existing curator-asserted attribution. label/owner_name only
+          // get set when the row has none yet.
+          const updates: Record<string, unknown> = {};
+          if (!existing.label && cluster.label) updates.label = cluster.label;
+          if (!existing.category) updates.category = clusterCategory;
+          if (!existing.ownerKind) updates.ownerKind = clusterOwnerKind;
+          if (!existing.primarySource)
+            updates.primarySource = clusterSource;
+          if (!existing.ownerName && cluster.operator)
+            updates.ownerName = cluster.operator;
+          if (Object.keys(updates).length > 0) {
+            updates.confidence = clusterConfidence;
+            updates.updatedAt = new Date();
             await db
               .update(addresses)
-              .set({ label: cluster.label })
+              .set(updates)
               .where(eq(addresses.id, existing.id));
           }
         } else {
@@ -126,6 +167,11 @@ async function main() {
             chain: a.chain,
             address: a.address,
             label: cluster.label ?? null,
+            category: clusterCategory,
+            ownerKind: clusterOwnerKind,
+            primarySource: clusterSource,
+            ownerName: cluster.operator,
+            confidence: clusterConfidence,
           });
           upsertedAddresses++;
         }

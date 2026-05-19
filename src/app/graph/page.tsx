@@ -182,6 +182,8 @@ export default async function GraphPage({
           <LostCryptoStatBlock stats={lostStats} />
         ) : null}
 
+        <QuickFilterChips searchParams={searchParams} />
+
         <FilterBar
           window={filters.window ?? "all"}
           kind={filters.kind ?? "all"}
@@ -486,6 +488,132 @@ function FilterBar({
         </a>
       </div>
     </form>
+  );
+}
+
+/**
+ * One-click slice presets. Each chip rewrites the relevant filter
+ * search-params and preserves the rest (window, source-mode toggle, etc.)
+ * — so a user who has +community on or is in 90d window stays where they
+ * were after picking a slice. Active-state highlights the chip whose
+ * filter set fully matches the current URL.
+ */
+const QUICK_FILTERS: Array<{
+  label: string;
+  hint: string;
+  // Partial-match against the current searchParams; missing keys are
+  // treated as "default" (i.e. an unsetcategory matches "Any").
+  params: Record<string, string>;
+}> = [
+  {
+    label: "₿ Big BTC heists",
+    hint: "Bitcoin-chain incidents + addresses",
+    params: { chain: "bitcoin", view: "combined" },
+  },
+  {
+    label: "🏛 Government-seized",
+    hint: "DOJ / IRS / Bundeskriminalamt custody wallets",
+    params: { category: "government-seized", view: "combined" },
+  },
+  {
+    label: "⛔ OFAC sanctioned",
+    hint: "US Treasury SDN-listed addresses",
+    params: { source: "ofac", view: "combined" },
+  },
+  {
+    label: "🇰🇵 DPRK / Lazarus",
+    hint: "Every address attributed to Lazarus Group across crews",
+    params: { crew: "Lazarus Group", view: "combined" },
+  },
+  {
+    label: "🌀 Mixers",
+    hint: "Tornado, Sinbad, Wasabi coordinators, Bitcoin Fog",
+    params: { category: "mixer", view: "combined" },
+  },
+  {
+    label: "💀 Lost coins",
+    hint: "Mt. Gox, Howells HDD, IronKey, dormant Satoshi-era",
+    params: { category: "lost", view: "combined" },
+  },
+  {
+    label: "🏦 Exchange hacks",
+    hint: "Bitfinex, KuCoin, Bybit, FTX-era hot-wallet drains",
+    params: { category: "hack-source", view: "combined" },
+  },
+  {
+    label: "🔥 Critical-severity",
+    hint: "Only the highest-severity incidents",
+    params: { severity: "critical", kind: "incident", view: "combined" },
+  },
+];
+
+function QuickFilterChips({
+  searchParams,
+}: {
+  searchParams: Record<string, string | undefined>;
+}) {
+  // A chip is active when every one of its params matches the current URL.
+  // Build the per-chip target URL by merging the chip's params onto the
+  // current ones (chip params override; everything else carries through).
+  function buildHref(chipParams: Record<string, string>): string {
+    const next = new URLSearchParams();
+    for (const [k, v] of Object.entries(searchParams)) {
+      if (!v) continue;
+      // Don't carry over the same keys the chip is rewriting — chip wins.
+      if (k in chipParams) continue;
+      next.set(k, v);
+    }
+    for (const [k, v] of Object.entries(chipParams)) next.set(k, v);
+    return `/graph${next.toString() ? `?${next}` : ""}`;
+  }
+
+  function isActive(chipParams: Record<string, string>): boolean {
+    for (const [k, v] of Object.entries(chipParams)) {
+      if (searchParams[k] !== v) return false;
+    }
+    return true;
+  }
+
+  return (
+    <nav
+      aria-label="Graph preset filters"
+      className="flex flex-wrap items-center gap-1.5"
+    >
+      <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] mr-1">
+        Slice:
+      </span>
+      {QUICK_FILTERS.map((chip) => {
+        const active = isActive(chip.params);
+        return (
+          <a
+            key={chip.label}
+            href={buildHref(chip.params)}
+            title={chip.hint}
+            className="text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded-sm border transition-colors"
+            style={{
+              borderColor: active
+                ? "var(--rex-accent)"
+                : "var(--rex-border-subtle)",
+              background: active
+                ? "rgba(95,185,31,0.10)"
+                : "transparent",
+              color: active
+                ? "var(--rex-accent)"
+                : "var(--rex-text-muted)",
+            }}
+          >
+            {chip.label}
+          </a>
+        );
+      })}
+      <a
+        href="/graph"
+        className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)] hover:text-[var(--rex-text)] transition-colors ml-1"
+        title="Reset to default view"
+      >
+        Reset ↺
+      </a>
+    </nav>
   );
 }
 
