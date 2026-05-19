@@ -217,6 +217,22 @@ const inputs: SeedInput[] = [
     eventType: "conference",
   },
 
+  // YC's selective 2-day founder bootcamp — invite-only by application,
+  // flight stipend, $25K OpenAI credits for selected attendees.
+  {
+    name: "YC Startup School 2026",
+    startDate: "2026-07-25",
+    endDate: "2026-07-26",
+    city: "San Francisco",
+    country: "United States",
+    url: "https://events.ycombinator.com/startup-school-2026",
+    description:
+      "Y Combinator's hand-selected 2-day in-person founder bootcamp at YC HQ. Speakers confirmed: Jensen Huang (NVIDIA), Sam Altman (OpenAI), Jeff Dean (Google DeepMind), YC partners — plus live hardware + robotics demos. Selected attendees get $25,000 in OpenAI credits, up to $500 flight reimbursement, small-group sessions with speakers. Application-gated (applications opened earlier in 2026 via events.ycombinator.com/startup-school-2026). Free if accepted.",
+    tags: ["yc", "y-combinator", "startup-school", "founders", "ai", "robotics", "sf", "invite-only"],
+    priceTier: "invite",
+    eventType: "conference",
+  },
+
   // East-coast edition of AI Engineer (the builder, not academic, track).
   {
     name: "AI Engineer NYC 2026",

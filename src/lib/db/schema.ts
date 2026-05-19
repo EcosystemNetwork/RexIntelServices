@@ -1572,6 +1572,102 @@ export const hackTraceHopsRelations = relations(hackTraceHops, ({ one }) => ({
 }));
 
 // =====================================================================
+// FORENSIC CASES — RexIntel ForensicAgent. An autonomous AI incident-
+// response agent (Gemini 2.5 Pro + function calling) that uses RexIntel's
+// address-attribution graph + intel corpus + victim-trace runner as its
+// recall/evidence layer. Each case persists the structured final report
+// AND the full agent transcript (every tool call + result), so the public
+// /forensic/[caseId] page can render an auditable chain of reasoning —
+// the judging criteria for SANS FIND EVIL! explicitly weights audit-trail
+// quality and hallucination management, which is what the transcript
+// surfaces.
+// =====================================================================
+
+export type ForensicReport = {
+  summary: string;
+  verdict: "malicious" | "suspicious" | "clean" | "inconclusive";
+  confidence: number; // 0..1
+  attributedTo: string | null;
+  fundsFlow: Array<{
+    from: string;
+    to: string;
+    amountUsd?: number;
+    via?: string;
+    note?: string;
+  }>;
+  citations: Array<{
+    kind:
+      | "rexintel_intel"
+      | "rexintel_attribution"
+      | "rexintel_trace"
+      | "external_url";
+    ref: string; // intel publicId, attribution source name, trace publicId, or URL
+    claim: string;
+  }>;
+  timeline: Array<{ at: string | null; event: string }>;
+  recommendedActions: string[];
+};
+
+export type ForensicTranscriptStep =
+  | { kind: "user_prompt"; text: string; at: string }
+  | { kind: "thought"; text: string; at: string }
+  | {
+      kind: "tool_call";
+      name: string;
+      args: Record<string, unknown>;
+      result?: unknown;
+      ms?: number;
+      error?: string;
+      at: string;
+    }
+  | { kind: "final"; at: string };
+
+export const forensicCases = pgTable(
+  "forensic_cases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicId: text("public_id")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(8), 'hex')`),
+    // Free-form: a 0x address, an incident URL, an intel publicId, or a
+    // free-text question. Agent decides how to dispatch from the kind.
+    targetKind: text("target_kind").notNull(), // address | url | intel | question
+    target: text("target").notNull(),
+    chain: text("chain"), // populated when targetKind=address (default ethereum)
+    submitterEmail: text("submitter_email"),
+    submitterIp: text("submitter_ip"),
+    // pending → running → complete | failed
+    status: text("status").notNull().default("pending"),
+    failureReason: text("failure_reason"),
+    // Tool-call budget — agent loop terminates after N iterations even if
+    // the model keeps wanting more calls. Protects Vercel maxDuration and
+    // Gemini cost. 12 is enough for a 3-hop trace + 4 attribution lookups
+    // + 2 intel searches + a final synthesis pass.
+    maxIterations: integer("max_iterations").notNull().default(12),
+    iterationsUsed: integer("iterations_used").notNull().default(0),
+    toolCallCount: integer("tool_call_count").notNull().default(0),
+    modelId: text("model_id"), // 'gemini-2.5-pro' typically
+    // Final report + full transcript stored as JSONB so the case page can
+    // render everything without a join. The transcript is append-only;
+    // the report is null until status=complete.
+    report: jsonb("report").$type<ForensicReport | null>(),
+    transcript: jsonb("transcript").$type<ForensicTranscriptStep[]>().notNull().default(sql`'[]'::jsonb`),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    publicIdIdx: uniqueIndex("forensic_cases_public_id_idx").on(t.publicId),
+    statusIdx: index("forensic_cases_status_idx").on(t.status),
+    targetIdx: index("forensic_cases_target_idx").on(t.targetKind, t.target),
+    createdIdx: index("forensic_cases_created_idx").on(t.createdAt),
+  }),
+);
+
+export type ForensicCase = typeof forensicCases.$inferSelect;
+
+// =====================================================================
 // RECOVERY BOUNTIES — victim-posted USDC bounties for white-hat info that
 // leads to fund recovery (or, with a filed police report, arrest). Custody
 // rail is currently paused (Circle DCW was ripped 2026-05-18, replacement

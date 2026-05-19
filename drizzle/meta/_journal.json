@@ -267,6 +267,13 @@
       "when": 1781700000000,
       "tag": "0037_newsletter_production_layer",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781800000000,
+      "tag": "0038_forensic_cases",
+      "breakpoints": true
     }
   ]
 }

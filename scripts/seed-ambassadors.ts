@@ -370,6 +370,50 @@ const ambassadors: AcceleratorPayload[] = [
     rolling: false,
     tags: ["ambassador", "github", "students", "campus", "education"],
   },
+
+  // === Added 2026-05-19 ===
+  {
+    name: "NanoCorp Ambassadors — Cohort 01",
+    organization: "NanoCorp",
+    organizationUrl: "https://nanocorp.so/",
+    description:
+      "Selective 3-month ambassador cohort for NanoCorp's autonomous-AI-company platform (launch + run + grow companies powered by AI agents). 10 hand-picked builders per cohort — founders, indie hackers, creators with audiences, and community builders passionate about agentic infrastructure. Perks: 300 NanoCorp credits/month, exclusive merch drops, personal-brand coaching, beta access, private Discord with founders + the other 9 ambassadors, and co-marketing across nanocorp.so + newsletter + social. Rolling applications; extendable for high performers.",
+    duration: "3 months (extendable for high performers)",
+    investment:
+      "Non-dilutive — 300 credits/month, swag, brand coaching, beta access, private founder Discord, co-marketing across NanoCorp channels",
+    location: "Remote (private Discord; global)",
+    focus: "Autonomous AI agents, agentic SaaS, indie founders + community builders with audiences",
+    applyUrl: "https://ambassadors.nanocorp.so/apply",
+    rolling: true,
+    tags: ["ambassador", "nanocorp", "ai-agents", "autonomous-companies", "indie", "remote", "cohort-10"],
+  },
+  {
+    name: "42 Ambassadors",
+    organization: "42 (42.space)",
+    organizationUrl: "https://42.space/",
+    description:
+      "Ambassador program for 42 — a futures asset-issuance protocol where event outcomes trade as liquid tokens and settle like prediction markets (i.e. token-issuance UX on top of prediction-market settlement). Open application form (EN + ZH) gathers background and reach. Ambassador role is the standard web3 community lever: regional meetups, content, education, feedback to the team. Specific perks (token allocations, USDC, swag) not publicly disclosed on the apply page — confirm with the team.",
+    location: "Global (remote; English + Chinese application supported)",
+    focus: "Futures asset issuance, prediction markets, DeFi, web3 community builders",
+    applyUrl: "https://amb.42.space/",
+    rolling: true,
+    tags: ["ambassador", "42", "prediction-markets", "defi", "web3", "global"],
+  },
+  {
+    name: "RareTalent — Web3 Engineer Network",
+    organization: "RareTalent (by RareSkills)",
+    organizationUrl: "https://raretalent.xyz/",
+    description:
+      "RareTalent is the recruitment arm of RareSkills — the senior-Web3 developer education platform (Solidity, ZK, security/audit bootcamps). Engineers apply once and get matched to multiple top Web3 companies; the bar is 5+ years of production engineering experience and 3+ years working specifically on blockchain. Free for applicants, no commitment. Hiring side: $10K flat per placement (6–12 mo) or 8% of first-year salary (>12 mo). No retainers, no exclusivity. Sits adjacent to ambassador programs as a curated talent network rather than a community program — included here because the apply-once-get-matched UX is the closest analog in the directory.",
+    duration: "Rolling — talent pool stays warm; matches happen when companies post roles",
+    investment:
+      "Free for engineers — multi-company interview funnel; companies pay $10K/placement or 8% first-year salary",
+    location: "Global (remote-friendly; senior blockchain engineers worldwide)",
+    focus: "Senior Web3 / blockchain engineers — Solidity, ZK, security, infra",
+    applyUrl: "https://raretalent.xyz/apply",
+    rolling: true,
+    tags: ["talent-network", "rareskills", "raretalent", "web3", "blockchain", "senior", "recruiting", "global"],
+  },
 ];
 
 async function upsert(payload: AcceleratorPayload) {

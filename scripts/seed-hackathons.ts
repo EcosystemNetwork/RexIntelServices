@@ -377,6 +377,119 @@ const inputs: SeedInput[] = [
       "Berachain's flagship in-person hackathon in NYC. Five days of building on Berachain's Proof-of-Liquidity stack — BGT/HONEY/iBGT-aware DeFi, consumer dApps, gaming. $500K+ in prizes; selected teams demo live to judges, Berachain Foundation, and ecosystem investors.",
     prizeUsd: 500000,
   },
+
+  // === Added 2026-05-19 — YC + HUD AI/agent hackathon ===
+  {
+    name: "HUD Frontier — RSI RL Environments Hackathon @ YC",
+    startDate: "2026-06-26",
+    endDate: "2026-06-26",
+    city: "San Francisco",
+    country: "United States",
+    url: "https://events.ycombinator.com/hud-frontier-june-26",
+    description:
+      "Y Combinator + HUD (YC W25, hud.ai) host an RL environments hackathon at YC's San Francisco HQ. HUD's platform lets builders ship reinforcement-learning environments and evals that frontier AI labs (Anthropic, OpenAI, DeepMind) train Computer Use Agents against — a wedge into the agent-training data layer. Non-cash hook is the room: YC partners + HUD team + frontier-lab evaluators. Confirm exact agenda and any prize pool on the event page.",
+  },
+
+  // === Added 2026-05-19 — multi-week AI + crypto cohort ===
+  {
+    name: "Mantle Turing Test Hackathon 2026 — Phase 2: AI Awakening",
+    startDate: "2026-05-01",
+    endDate: "2026-06-15",
+    city: "Online",
+    url: "https://dorahacks.io/hackathon/mantleturingtesthackathon2026",
+    description:
+      "Mantle's flagship AI-agent campaign — Phase 2 of a $120K total. Six tracks introduce a Human-vs-AI mechanism on autonomous on-chain agents (trading, lending, perps). Prize structure: Grand Champion $9K, six Track First Prizes ($8.5K each = $51K), Community Voting (2×$8.5K = $17K), Best UI/UX $3K, Finalist & Deployment (20×$1K = $20K). Co-hosts: Bybit, Byreal, Blockchain for Good Alliance, Tencent Cloud, DoraHacks, HackQuest. First on-chain environment to benchmark agent performance at scale — every key decision permanently recorded on Mantle.",
+    prizeUsd: 100000,
+  },
+  {
+    name: "FIND EVIL! — Autonomous AI Incident Response",
+    startDate: "2026-04-15",
+    endDate: "2026-06-15",
+    city: "Online",
+    url: "https://findevil.devpost.com/",
+    description:
+      "SANS Institute's first hackathon for autonomous AI incident response. Take Protocol SIFT — the framework connecting AI agents to the SIFT Workstation's 200+ forensic tools via MCP — and make it production-ready. Build an AI agent that thinks like a senior analyst: sequences its approach, recognizes when something doesn't add up, self-corrects. Prizes $10K / $7.5K / $3K (top three) + sponsor extras totalling $22K+. Teams up to 5; solo permitted; no IR background required. Submission Jun 15, winners ~Jul 8. Direct fit for blue-team / threat-intel founders.",
+    prizeUsd: 22000,
+  },
+  {
+    name: "NandaHack — Agentic AI Hackathon (Phase 2)",
+    startDate: "2026-05-07",
+    endDate: "2026-06-13",
+    city: "Cambridge",
+    country: "United States",
+    url: "https://nandahack.media.mit.edu/",
+    description:
+      "MIT Media Lab + HCLTech academic hackathon — Phase 2 of NandaHack (Phase 1 ran Apr 10 – May 7). Six arenas: deploy, coordinate, trade, adapt, defend, integrate — i.e. the real production failure modes of enterprise agent infrastructure (coordination protocols, red-team defense, observability, replay tooling, migration/continuity). Judges are MIT faculty + HCLTech engineering leads; bar is research-grade work with a working prototype. No public cash prize — the hook is MIT Media Lab demo day and academic visibility.",
+  },
+  {
+    name: "Anthropic AI Hackathon — Claude-Native B2B",
+    startDate: "2026-05-26",
+    endDate: "2026-06-02",
+    city: "Online",
+    url: "https://lablab.ai/event/anthropic-ai-hackathon",
+    description:
+      "Lablab.ai-hosted Anthropic hackathon, capped at 3,000 participants. Anthropic explicitly called the six verticals that matter: customer service, legal, coaching, search, back-office, sales — i.e. mainstream B2B where Claude's long-context + safety-aligned reasoning beats alternatives. Top prize is accelerated Claude API access + Anthropic team visibility. Bar is domain-specific structured workflow products, not chat-toy demos.",
+  },
+  {
+    name: "Google Cloud Rapid Agent Hackathon",
+    startDate: "2026-05-01",
+    endDate: "2026-06-11",
+    city: "Online",
+    url: "https://rapid-agent.devpost.com/",
+    description:
+      "Google Cloud + Gemini + MCP hackathon hosted on Devpost. The strategic surface is MCP integrations on top of Google Workspace (Gmail, Calendar, Drive, Docs) and multi-step Gemini reasoning. Prize: Google Cloud credits and swag (specific cash undisclosed). Best return: an agent that puts Gemini behind a daily workflow with MCP as the connective tissue — the proof point Google needs for the Gemini+MCP era.",
+  },
+  {
+    name: "AWS Prompt the Planet Challenge",
+    startDate: "2026-03-10",
+    endDate: "2026-06-11",
+    city: "Online",
+    url: "https://promptplanet.devpost.com/",
+    description:
+      "AWS hackathon with an unusual format — submit prompts, not apps. 10 winners share $50K in AWS credits. Multiple submissions explicitly allowed. AWS engineers + DevRel staff judge based on real customer-support pain (IAM, billing, IaC translation, blast-radius analysis, DR rehearsal). Tactical move: ship five focused prompts in five different pain categories.",
+    prizeUsd: 50000,
+  },
+  {
+    name: "DevNetwork AI + ML Hackathon 2026",
+    startDate: "2026-05-11",
+    endDate: "2026-05-28",
+    city: "South San Francisco",
+    country: "United States",
+    url: "https://devnetwork-ai-ml-hack-2026.devpost.com/",
+    description:
+      "DevNetwork's flagship AI/ML hackathon — online build (May 11–28) plus in-person finale at AI DevSummit, South SF (May 27–28). Sponsors: Apple, Google, plus rotating challenge tracks (DevOps, Enterprise, ML/AI). Each sponsor track judged by their own engineering team; grand prize ~$12.5K plus a 60K-subscriber newsletter announcement. Real value is the sponsor-track judging (Apple privacy-on-device, Google Gemini/MCP/Workspace).",
+    prizeUsd: 12500,
+  },
+  {
+    name: "FlagOS Open Computing Global Challenge — Season 1",
+    startDate: "2026-03-01",
+    endDate: "2026-06-15",
+    city: "Online",
+    url: "https://dorahacks.io/hackathon/flagos",
+    description:
+      "FlagOS Community + Beijing Academy of AI (BAAI) + CCF ODTC systems-level hackathon. 2,000,000 RMB (~$280K USD) across three tracks — Track 1 is per-task operator bounties (FlagGems library); Tracks 2 & 3 fund cross-chip portability and efficiency work proving the same model runs across diverse hardware (not just NVIDIA). Judges are systems engineers and chip-software specialists; bar is technical contributions with measurable benchmarks, not polished apps. Results announced early June.",
+    prizeUsd: 280000,
+  },
+  {
+    name: "Reddit Mod Tools Migration Hackathon",
+    startDate: "2026-04-15",
+    endDate: "2026-05-27",
+    city: "Online",
+    url: "https://mod-tools-migration.devpost.com/",
+    description:
+      "Reddit's hackathon to port community moderation tools onto the new Mod Tools Migration platform. $45K total prize pool. Niche but high-fit for community-ops, anti-spam, AI moderation, and trust & safety builders — an area RexIntel is adjacent to via attribution + bad-actor surfaces.",
+    prizeUsd: 45000,
+  },
+  {
+    name: "Build with MeDo Hackathon",
+    startDate: "2026-04-22",
+    endDate: "2026-05-20",
+    city: "Online",
+    url: "https://medo.devpost.com/",
+    description:
+      "MeDo (build-with-AI agent stack) hackathon on Devpost. $50K prize pool. Build agents and AI-powered apps on the MeDo platform — broad track structure, generalist AI. Tight window: closes 2026-05-20.",
+    prizeUsd: 50000,
+  },
 ];
 
 function toPayload(input: SeedInput): EventPayload {
