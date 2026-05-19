@@ -719,6 +719,20 @@ const accelerators: AcceleratorPayload[] = [
     rolling: false,
     tags: ["bitcoin-frontier-fund", "bff", "bitcoin", "stacks", "lightning", "bitvm"],
   },
+  {
+    name: "The Bridge by Dev3pack",
+    organization: "Dev3pack",
+    organizationUrl: "https://dev3pack.xyz/",
+    description:
+      "8-week remote-first program: 4-week Founder School + 4-week Product Sprint. Open to all underrepresented talents; teams valued over solo applicants. Winners of Dev3pack Global Hackathons are fast-tracked. Workshop-led with mentors who've built and scaled in Web3 and AI; IRL gatherings and pop-up events worldwide throughout the year. Powered by Solana; programming spans Web3 and AI. Technical background helpful but not required.",
+    duration: "8 weeks (4-week Founder School + 4-week Product Sprint)",
+    investment: "Free — 0% equity",
+    location: "Remote (+ IRL pop-ups worldwide)",
+    focus: "Web3 + AI founders, underrepresented talent",
+    applyUrl: "https://bridge.dev3pack.xyz/bridge/apply",
+    rolling: true,
+    tags: ["dev3pack", "solana", "underrepresented", "web3", "ai", "founder-school"],
+  },
 ];
 // Ambassador / champion / fellow programs live in scripts/seed-ambassadors.ts.
 

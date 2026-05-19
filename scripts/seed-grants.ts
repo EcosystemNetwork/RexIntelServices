@@ -1150,6 +1150,18 @@ const grants: GrantPayload[] = [
     rolling: true,
     tags: ["base", "coinbase", "eth", "retroactive", "onchain-summer"],
   },
+  {
+    name: "Circle Developer Grants Program",
+    organization: "Circle",
+    organizationUrl: "https://www.circle.com/",
+    description:
+      "Relaunched 2026-05-14. Milestone-based USDC funding for teams shipping production-grade systems on Arc and the Circle Developer Platform. Requires meaningful integration with USDC, Wallets, CCTP or Gateway and a clear path to users/usage/revenue. Focus areas: agentic economic activity, stablecoin FX, P2P payments, treasury management, prediction markets, lending and borrowing. Includes co-marketing, mentorship and ecosystem access alongside USDC checks; payments tied to defined technical milestones and production deployment progress.",
+    amount: "Milestone-based USDC (amounts not publicly disclosed)",
+    focus: "Arc / Circle Developer Platform — payments, stablecoins, agentic flows",
+    applyUrl: "https://www.circle.com/grant",
+    rolling: true,
+    tags: ["circle", "usdc", "arc", "payments", "stablecoins", "agentic", "cctp"],
+  },
 ];
 
 async function upsertGrant(payload: GrantPayload) {

@@ -339,6 +339,128 @@ const inputs: SeedInput[] = [
     priceTier: "free",
     eventType: "other",
   },
+
+  // ===========================================================
+  // === REGIONAL SOLANA SUMMITS — 2026 TOUR                 ===
+  // ===========================================================
+
+  // Superteam Kazakhstan — RWA-themed Solana flagship in Central Asia.
+  {
+    name: "Solana Summit Kazakhstan 2026",
+    startDate: "2026-05-22",
+    endDate: "2026-05-22",
+    city: "Almaty",
+    country: "Kazakhstan",
+    venue: "Swissotel Wellness Resort Alatau",
+    url: "https://luma.com/solana-summit-kazakhstan",
+    description:
+      "Flagship Web3 conference in Central Asia and the EAEU, organised by Superteam Kazakhstan (regional Solana ecosystem rep). Theme: tokenization of real-world assets. Founder talks, fireside chats, live pitches, coding stations, and ecosystem-leader keynotes. Approval-required Luma registration with token-ownership verification.",
+    tags: ["solana", "kazakhstan", "central-asia", "rwa", "superteam", "almaty"],
+    priceTier: "invite",
+    eventType: "conference",
+  },
+
+  // Solana Summit DACH flagship — Berlin.
+  {
+    name: "Solana Summit Germany 2026",
+    startDate: "2026-06-13",
+    endDate: "2026-06-13",
+    city: "Berlin",
+    country: "Germany",
+    url: "https://luma.com/solanasummitgermany",
+    description:
+      "Single-day Berlin edition of the Solana Summit series. Regional gathering of Solana builders, validators, and ecosystem partners across the DACH region. Programming spans DeFi, payments, consumer onchain, and Berlin's growing onchain founder community.",
+    tags: ["solana", "germany", "berlin", "europe", "dach"],
+    priceTier: "paid",
+    eventType: "conference",
+  },
+
+  // Superteam Serbia — Balkans Solana flagship.
+  {
+    name: "Solana Summit Serbia 2026",
+    startDate: "2026-08-26",
+    endDate: "2026-08-27",
+    city: "Belgrade",
+    country: "Serbia",
+    url: "https://luma.com/solana-summit-serbia",
+    description:
+      "Two-day Solana Summit edition in Belgrade — Balkan-region Solana developer + founder gathering programmed by Superteam Serbia. Tracks span DeFi, consumer onchain, SVM tooling, and emerging-market payments.",
+    tags: ["solana", "serbia", "belgrade", "balkans", "europe", "superteam"],
+    priceTier: "paid",
+    eventType: "conference",
+  },
+
+  // Solana Hacker House — pre-Breakpoint shipping camp, returns after a multi-year hiatus.
+  {
+    name: "Solana Hacker House London 2026",
+    startDate: "2026-10-31",
+    endDate: "2026-11-12",
+    city: "London",
+    country: "United Kingdom",
+    url: "https://luma.com/london-hacker-house",
+    description:
+      "13-day in-person hacker house in London immediately preceding Breakpoint 2026 (Nov 15–17). Workshops, mentorship, side rooms for serious shipping, and a demo day. The Solana Hacker House format returns after a multi-year hiatus, slotting into the pre-flagship window.",
+    tags: ["solana", "london", "hacker-house", "uk", "breakpoint"],
+    priceTier: "invite",
+    eventType: "hackathon",
+  },
+
+  // ===========================================================
+  // === ARBITRUM OPEN HOUSE 2026 — LONDON LEG               ===
+  // ===========================================================
+
+  // Arbitrum Foundation's 4-city builder program — NYC done, London live, Singapore TBA,
+  // Dubai postponed. London leg has its own $415K prize pool out of the $1.8M global total.
+  {
+    name: "Arbitrum Open House London 2026",
+    startDate: "2026-05-25",
+    endDate: "2026-06-28",
+    city: "London",
+    country: "United Kingdom",
+    url: "https://openhouse.arbitrum.io/",
+    description:
+      "Arbitrum's flagship 2026 builder program — 3-week online Buildathon (May 25 – Jun 14) followed by a 3-day IRL Founder House in London (Jun 25–28). $415K in prizes and grants for the London leg of the global 4-city program ($1.8M total across NYC, London, Singapore, Dubai). Technical workshops, product sessions, dedicated mentorship hours, live pitches, and continued post-program support from the Arbitrum Foundation + Offchain Labs.",
+    tags: ["arbitrum", "london", "buildathon", "founder-house", "l2", "open-house"],
+    priceTier: "paid",
+    eventType: "hackathon",
+  },
+
+  // ===========================================================
+  // === HARD-TECH / DEEP-TECH SHOWCASES                     ===
+  // ===========================================================
+
+  // South Park Commons India + ARTPARK — hard-tech founder showcase.
+  // URGENT: applications close 2026-05-20, event 2026-05-30 to 2026-05-31.
+  {
+    name: "SPC Curiosity 2026 — Building in Hard Mode",
+    startDate: "2026-05-30",
+    endDate: "2026-05-31",
+    city: "Bengaluru",
+    country: "India",
+    url: "https://www.southparkcommons.com/curiosity",
+    description:
+      "Applications close Wed May 20, 2026. South Park Commons India (powered by ARTPARK) hard-tech showcase. Tracks: Aerospace & Space, Defense & Counter-Systems, Robotics & Autonomous Systems, Photonics/Optics/Semiconductors, Climate & Energy, Biotech & Medical, Physical AI. Day 1 closed prep; Day 2 public science-fair-style demo with 15–20 selected teams. ₹1.25Cr+ in winner grants plus $75K in credits. No company registration or SPC membership required — recent grads, early-stage cos, research labs and tinkerers all welcome.",
+    tags: ["spc", "hard-tech", "physical-ai", "robotics", "deep-tech", "india", "bengaluru", "artpark"],
+    priceTier: "free",
+    eventType: "other",
+  },
+
+  // Switzerland's national startup-competition award night — EPFL venue,
+  // CHF 150K + CHF 50K Apertus AI spotlight + CHF 10K audience prize.
+  {
+    name: ">>venture>> Award Ceremony 2026 — Lausanne",
+    startDate: "2026-06-15",
+    endDate: "2026-06-15",
+    city: "Ecublens",
+    country: "Switzerland",
+    venue: "SwissTech Convention Center",
+    url: "https://www.eventbrite.com/e/2026-venture-award-ceremony-tickets-1982421621435",
+    description:
+      "Switzerland's leading startup competition awards ceremony at EPFL's SwissTech Convention Center (Mon Jun 15, 18:30–20:00 CEST). Six category winners (Business & Finance, Consumer Solutions, Industrials & Engineering, Medtech & Healthcare, Pharma & Biotech, Social & Environmental Impact) compete on stage with a live audience vote. CHF 150K Grand Prize (non-dilutive) + CHF 50K Spotlight Award for best innovative use of Apertus (Switzerland's open-source LLM) + CHF 10K Audience Award. Apéro reception follows.",
+    tags: ["switzerland", "epfl", "startup-competition", "apertus", "deep-tech", "europe"],
+    priceTier: "free",
+    eventType: "other",
+  },
 ];
 
 function toPayload(input: SeedInput): EventPayload {

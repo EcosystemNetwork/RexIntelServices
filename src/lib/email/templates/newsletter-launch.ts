@@ -156,8 +156,7 @@ export const newsletterLaunch: NewsletterTemplate = {
             <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#333;">
               Rex Intel will be there working the floor: pulling threads on
               live investigations, taking tips in person, and meeting
-              subscribers face-to-face. <strong style="color:#0a0a0f;">If you're
-              coming, hit reply — drinks are on us.</strong>
+              subscribers face-to-face.
             </p>
           </td>
         </tr>
@@ -168,20 +167,20 @@ export const newsletterLaunch: NewsletterTemplate = {
               <tr>
                 <td width="33%" valign="top" style="padding:0 6px 0 0;">
                   <div style="background:#f4f4f7;border-radius:6px;padding:14px 12px;text-align:center;">
-                    <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#5fb91f;letter-spacing:0.04em;">3,000+</div>
-                    <div style="font-size:11px;color:#555;line-height:1.4;margin-top:4px;">builders, funds, security teams</div>
+                    <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#5fb91f;letter-spacing:0.04em;">5,000+</div>
+                    <div style="font-size:11px;color:#555;line-height:1.4;margin-top:4px;">attendees</div>
                   </div>
                 </td>
                 <td width="33%" valign="top" style="padding:0 3px;">
                   <div style="background:#f4f4f7;border-radius:6px;padding:14px 12px;text-align:center;">
-                    <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#5fb91f;letter-spacing:0.04em;">120+</div>
-                    <div style="font-size:11px;color:#555;line-height:1.4;margin-top:4px;">talks, panels, workshops</div>
+                    <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#5fb91f;letter-spacing:0.04em;">150+</div>
+                    <div style="font-size:11px;color:#555;line-height:1.4;margin-top:4px;">speakers</div>
                   </div>
                 </td>
                 <td width="33%" valign="top" style="padding:0 0 0 6px;">
                   <div style="background:#f4f4f7;border-radius:6px;padding:14px 12px;text-align:center;">
-                    <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#5fb91f;letter-spacing:0.04em;">40+</div>
-                    <div style="font-size:11px;color:#555;line-height:1.4;margin-top:4px;">official side events</div>
+                    <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#5fb91f;letter-spacing:0.04em;">100+</div>
+                    <div style="font-size:11px;color:#555;line-height:1.4;margin-top:4px;">companies</div>
                   </div>
                 </td>
               </tr>
@@ -193,10 +192,10 @@ export const newsletterLaunch: NewsletterTemplate = {
           <td style="padding:0 36px 18px;">
             <div style="background:#fffbe6;border:1px solid #fde047;border-radius:6px;padding:14px 16px;">
               <div style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.18em;color:#92400e;text-transform:uppercase;font-weight:700;margin-bottom:6px;">
-                Why this one
+                Confirmed on stage
               </div>
               <div style="font-size:13px;line-height:1.6;color:#333;">
-                Protocol cores, the funds underwriting them, security teams chasing live incidents, and operators tipping off the next one — all reachable in the same building for three days. If you can only make one Ethereum event in 2026, make this one.
+                Stani Kulechov (Aave) · Hayden Adams (Uniswap) · Sergey Nazarov (Chainlink) · Joe Lubin (Consensys) · Sandeep Nailwal (Polygon) · Tim Beiko (Ethereum Foundation) · Rune Christensen (Sky) · Robbie Mitchnick (BlackRock) · Chris Giancarlo (ex-CFTC chair) · plus the SEC Crypto Task Force, DTCC, and Coinbase tables. Three days, same building.
               </div>
             </div>
           </td>
@@ -214,7 +213,7 @@ export const newsletterLaunch: NewsletterTemplate = {
                     NYC26
                   </div>
                   <div style="font-family:-apple-system,sans-serif;font-size:12px;color:#fde047;margin-bottom:14px;letter-spacing:0.04em;">
-                    Stacks with any tier · expires June 1
+                    Apply at checkout · early-bird pricing ends May 31, 11:59 PM ET
                   </div>
                   <a href="https://ethconf.com/?ref=rexintel&utm_source=newsletter&utm_medium=email&utm_campaign=launch&promo=NYC26" style="display:inline-block;padding:14px 28px;background:#fde047;border-radius:6px;font-family:'Courier New',monospace;font-size:13px;letter-spacing:0.14em;color:#0a0a0f;font-weight:700;text-decoration:none;text-transform:uppercase;">
                     Grab your ETHConf ticket →
@@ -341,19 +340,6 @@ export const newsletterLaunch: NewsletterTemplate = {
                 </td>
                 <td valign="top" width="80" style="text-align:right;padding-top:18px;">
                   <span style="font-family:'Courier New',monospace;font-size:14px;color:#5fb91f;font-weight:700;">$500k</span>
-                </td>
-              </tr></table>
-            </a>
-
-            <a href="https://rexintelservices.com/accelerators/b65dd8e503f9588d?utm_source=newsletter&utm_medium=email&utm_campaign=launch" style="display:block;text-decoration:none;color:inherit;padding:10px 0;border-bottom:1px solid #f0f0f0;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-                <td valign="top">
-                  <div style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.18em;color:#5fb91f;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Accelerator · Rolling · AI</div>
-                  <div style="font-size:15px;line-height:1.35;color:#0a0a0f;font-weight:600;margin-bottom:3px;">AI Grant (Batch 4) — $250k SAFE + ~$600k credits</div>
-                  <div style="font-size:13px;line-height:1.55;color:#555;">Nat Friedman / Daniel Gross's no-equity-loss program for AI startups. Cloud + API credits are the actual prize.</div>
-                </td>
-                <td valign="top" width="80" style="text-align:right;padding-top:18px;">
-                  <span style="font-family:'Courier New',monospace;font-size:14px;color:#5fb91f;font-weight:700;">$850k</span>
                 </td>
               </tr></table>
             </a>
