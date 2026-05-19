@@ -3,9 +3,11 @@ import { PublicShell } from "@/components/public-shell";
 import { SUPPORTED_CHAINS } from "@/lib/chains";
 import {
   fetchGraphData,
+  fetchHackingCrews,
   fetchLostCryptoStats,
   fetchValueStats,
   type GraphFilters,
+  type HackingCrew,
   type LostCryptoStats,
   type ValueStats,
 } from "@/lib/graph-data";
@@ -116,6 +118,7 @@ export default async function GraphPage({
     source?: string;
     owner_kind?: string;
     min_confidence?: string;
+    crew?: string;
   };
 }) {
   const filters: GraphFilters = {
@@ -131,12 +134,14 @@ export default async function GraphPage({
     minConfidence: searchParams.min_confidence
       ? Number(searchParams.min_confidence)
       : null,
+    crew: searchParams.crew ?? null,
   };
   const includeUserReported = filters.includeUserReported === true;
-  const [data, lostStats, valueStats] = await Promise.all([
+  const [data, lostStats, valueStats, crews] = await Promise.all([
     fetchGraphData(filters),
     fetchLostCryptoStats(5, { includeUserReported }),
     fetchValueStats({ includeUserReported }),
+    fetchHackingCrews(),
   ]);
 
   return (
@@ -188,6 +193,8 @@ export default async function GraphPage({
           ownerKind={filters.ownerKind ?? ""}
           minConfidence={String(filters.minConfidence ?? 0)}
           includeUserReported={filters.includeUserReported === true}
+          crew={filters.crew ?? ""}
+          crewChoices={crews}
         />
 
         <GraphCanvas data={data} />
@@ -281,6 +288,8 @@ function FilterBar({
   ownerKind,
   minConfidence,
   includeUserReported,
+  crew,
+  crewChoices,
 }: {
   window: string;
   kind: string;
@@ -292,6 +301,8 @@ function FilterBar({
   ownerKind: string;
   minConfidence: string;
   includeUserReported: boolean;
+  crew: string;
+  crewChoices: HackingCrew[];
 }) {
   return (
     <form
@@ -408,6 +419,22 @@ function FilterBar({
           {OWNER_KIND_CHOICES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
+            </option>
+          ))}
+        </select>
+      </FilterGroup>
+
+      <FilterGroup label="Hacking crew">
+        <select
+          name="crew"
+          defaultValue={crew}
+          className="rex-input text-xs min-w-[180px]"
+          title="Narrow the graph to addresses attributed to a specific hacking crew (Lazarus, Conti, etc.)."
+        >
+          <option value="">Any crew</option>
+          {crewChoices.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name} ({c.addressCount})
             </option>
           ))}
         </select>

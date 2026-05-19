@@ -86,6 +86,7 @@ export type GraphMeta = {
   source: AddressAttributionSource | null;
   ownerKind: AddressOwnerKind | null;
   minConfidence: number;
+  crew: string | null;
   nodeCount: number;
   edgeCount: number;
   incidentCount: number;
@@ -366,6 +367,37 @@ export async function fetchLostCryptoStats(
   };
 }
 
+export type HackingCrew = {
+  name: string;
+  addressCount: number;
+};
+
+/**
+ * Distinct hacking-crew owner names, sorted by address count desc. Populates
+ * the /graph crew filter. Returns the top 50 — long tail isn't worth a
+ * dropdown row.
+ */
+export async function fetchHackingCrews(): Promise<HackingCrew[]> {
+  const rows = await db
+    .select({
+      name: addresses.ownerName,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(addresses)
+    .where(
+      and(
+        eq(addresses.ownerKind, "criminal-group"),
+        isNotNull(addresses.ownerName),
+      ),
+    )
+    .groupBy(addresses.ownerName)
+    .orderBy(sql`count(*) desc`)
+    .limit(50);
+  return rows
+    .filter((r) => r.name && r.name.trim().length > 0)
+    .map((r) => ({ name: r.name as string, addressCount: Number(r.n ?? 0) }));
+}
+
 export type GraphView = "incidents" | "institutional" | "combined";
 
 export type GraphFilters = {
@@ -390,6 +422,11 @@ export type GraphFilters = {
   // Minimum confidence (0-100). Drops address nodes whose confidence is
   // null or below the threshold. Default 0 → no filter.
   minConfidence?: number | null;
+  // Hacking-crew filter. Free-text owner name (Lazarus Group, Conti, etc.)
+  // matched exactly against addresses.owner_name with owner_kind constrained
+  // to criminal-group on the institutional side. Incident-linked addresses
+  // are subject to the same gate.
+  crew?: string | null;
 };
 
 const VIEW_VALUES = new Set<GraphView>([
@@ -461,6 +498,7 @@ export function normalizeFilters(input: GraphFilters): {
   source: AddressAttributionSource | null;
   ownerKind: AddressOwnerKind | null;
   minConfidence: number;
+  crew: string | null;
 } {
   const windowParam = input.window ?? "90";
   const kindParam = input.kind ?? "all";
@@ -512,6 +550,11 @@ export function normalizeFilters(input: GraphFilters): {
     if (!Number.isFinite(n)) return 0;
     return Math.max(0, Math.min(100, Math.round(n)));
   })();
+  const crewRaw = input.crew ?? null;
+  const crew =
+    typeof crewRaw === "string" && crewRaw.trim().length > 0
+      ? crewRaw.trim().slice(0, 120)
+      : null;
 
   return {
     windowDays,
@@ -525,6 +568,7 @@ export function normalizeFilters(input: GraphFilters): {
     source,
     ownerKind,
     minConfidence,
+    crew,
   };
 }
 
@@ -542,6 +586,7 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
     source,
     ownerKind,
     minConfidence,
+    crew,
   } = norm;
 
   const sinceDate =
@@ -625,10 +670,15 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
   // that fail the source/ownerKind/min-confidence gate are dropped before we
   // decide which incidents survive — an incident with zero surviving links
   // ends up with no anchor, so we exclude it from the canvas too.
+  const crewLower = crew ? crew.toLowerCase() : null;
   const passesAttrFilter = (l: (typeof linkRows)[number]) => {
     if (source && l.primarySource !== source) return false;
     if (ownerKind && l.ownerKind !== ownerKind) return false;
     if (minConfidence > 0 && (l.confidence ?? 0) < minConfidence) return false;
+    if (crewLower) {
+      if (l.ownerKind !== "criminal-group") return false;
+      if ((l.ownerName ?? "").toLowerCase() !== crewLower) return false;
+    }
     return true;
   };
   const filteredLinkRows = linkRows.filter(passesAttrFilter);
@@ -693,6 +743,12 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
             ...(ownerKind ? [eq(addresses.ownerKind, ownerKind)] : []),
             ...(minConfidence > 0
               ? [gte(addresses.confidence, minConfidence)]
+              : []),
+            ...(crew
+              ? [
+                  eq(addresses.ownerKind, "criminal-group"),
+                  sql`lower(${addresses.ownerName}) = ${crew.toLowerCase()}`,
+                ]
               : []),
             // When the toggle is off, exclude addresses whose ONLY attribution
             // is community-class (community-loss-report = self-reported story,
@@ -830,6 +886,7 @@ export async function fetchGraphData(input: GraphFilters): Promise<GraphData> {
       source,
       ownerKind,
       minConfidence,
+      crew,
       nodeCount: nodes.length,
       edgeCount: edges.length,
       incidentCount: incidentNodes.length,

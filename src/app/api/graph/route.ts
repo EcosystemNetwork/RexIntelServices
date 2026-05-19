@@ -39,6 +39,7 @@ export async function GET(req: Request) {
     source: url.searchParams.get("source"),
     ownerKind: url.searchParams.get("owner_kind"),
     minConfidence: minConfRaw == null ? null : Number(minConfRaw),
+    crew: url.searchParams.get("crew"),
   });
   return NextResponse.json(data);
 }
