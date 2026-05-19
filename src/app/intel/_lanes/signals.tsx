@@ -465,7 +465,7 @@ function IntelCard({
         </div>
       )}
       <div className="p-5">
-      <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mb-2 text-[10px] font-mono uppercase tracking-widest">
         {featured && (
           <span
             className="px-1.5 py-0.5 rounded-sm"
@@ -542,13 +542,11 @@ function IntelCard({
           </span>
         )}
         {payload.category && (
-          <span style={{ color: "var(--rex-text-dim)" }}>
+          <span
+            style={{ color: "var(--rex-text-dim)" }}
+            className="truncate max-w-full"
+          >
             · {payload.category}
-          </span>
-        )}
-        {dateLabel && (
-          <span style={{ color: "var(--rex-text-dim)" }} className="ml-auto">
-            {dateLabel}
           </span>
         )}
       </div>
@@ -562,7 +560,7 @@ function IntelCard({
       </p>
 
       <div
-        className="mt-3 flex items-center justify-between text-[10px] font-mono"
+        className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] font-mono"
         style={{ color: "var(--rex-text-dim)" }}
       >
         <span>
@@ -571,16 +569,19 @@ function IntelCard({
             {submitterHandle ? `@${submitterHandle}` : "Anonymous"}
           </span>
         </span>
-        <span
-          className="inline-flex items-center gap-1 uppercase tracking-widest"
-          style={{
-            color:
-              voteCount > 0
-                ? "var(--rex-accent)"
-                : "var(--rex-text-dim)",
-          }}
-        >
-          ▲ {voteCount.toLocaleString()} {voteCount === 1 ? "vote" : "votes"}
+        <span className="inline-flex items-center gap-2">
+          {dateLabel && <span>{dateLabel}</span>}
+          <span
+            className="inline-flex items-center gap-1 uppercase tracking-widest"
+            style={{
+              color:
+                voteCount > 0
+                  ? "var(--rex-accent)"
+                  : "var(--rex-text-dim)",
+            }}
+          >
+            ▲ {voteCount.toLocaleString()} {voteCount === 1 ? "vote" : "votes"}
+          </span>
         </span>
       </div>
       </div>
