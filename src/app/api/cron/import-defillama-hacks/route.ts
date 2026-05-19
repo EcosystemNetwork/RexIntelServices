@@ -6,6 +6,7 @@ import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
 import { sendOpsAlert } from "@/lib/email/admin-alert-email";
 import { autoExtractAndLinkIntelAddresses } from "@/lib/intel-address-extraction";
+import { enrichIntelArticle } from "@/lib/intel-article-enrichment";
 
 /**
  * GET /api/cron/import-defillama-hacks
@@ -254,7 +255,7 @@ export async function GET(req: Request) {
     }
     sources.push("https://defillama.com/hacks");
 
-    const payload: IntelPayload = {
+    const stubPayload: IntelPayload = {
       headline,
       kind: "incident",
       category: categoryForTarget(h.targetType, h.classification),
@@ -265,6 +266,13 @@ export async function GET(req: Request) {
       personas: IMPORT_DEFAULT_PERSONAS,
       sourceHarvester: "defillama",
     };
+
+    // Rex Deus 2026-05-19: every story is a full article, not a stub. Route
+    // the harvester's structured-fact paragraph through Gemini Pro for a
+    // ~200-word editorial body before insert/update. Soft-fail to the stub
+    // if Gemini is unavailable so the cron still makes forward progress.
+    const enrichment = await enrichIntelArticle(stubPayload);
+    const payload = enrichment.payload;
 
     const existing = await db
       .select({ id: submissions.id, payload: submissions.payload })

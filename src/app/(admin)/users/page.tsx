@@ -173,6 +173,13 @@ export default function UsersPage() {
             </option>
           ))}
         </select>
+        <a
+          href={`/api/admin/contributors/export?${queryString}`}
+          className="rex-btn"
+          title="Download all matching contributors as CSV (opens in Excel)"
+        >
+          Export CSV
+        </a>
       </div>
 
       <div className="rex-card">

@@ -271,29 +271,18 @@ export default async function IntelDetailPage({
   // draw).
   const miniGraph = await fetchIntelSubgraph(row.id);
 
-  // Incident-class intel is gated behind the `contributor` clearance tier.
-  // Public lanes still get the headline, kind/severity tags, source byline,
-  // and a teaser; the full body sits behind a connect-wallet wall. Original
-  // and tip kinds stay fully public — those drive the audience funnel.
-  // Featured incidents bypass the wall: if we hand-picked it for the front
-  // page, the full article is the proof story — paywalling it defeats the
-  // purpose.
-  const requiresClearance = payload.kind === "incident" && !row.featured;
+  // Clearance wall is currently disconnected — Rex Deus directed 2026-05-19
+  // that the contributor-tier gate isn't ready for rollout. Keeping the
+  // surrounding plumbing (clearance tiers, points, ClearanceWall component)
+  // intact so flipping CLEARANCE_GATE_ENABLED back to true re-enables the
+  // gate without re-wiring.
+  const CLEARANCE_GATE_ENABLED = false;
+  const requiresClearance =
+    CLEARANCE_GATE_ENABLED && payload.kind === "incident" && !row.featured;
   const session = requiresClearance ? await getMagicSession() : null;
   const currentTier = session?.clearanceTier ?? "open";
   const isGated = requiresClearance && !meetsTier(currentTier, "contributor");
-  // ~280 chars is enough to set the hook (one solid paragraph of context)
-  // without giving away the timeline + addresses + payoff. Trim at the
-  // nearest word boundary so the ellipsis doesn't split a word.
-  const bodyForRender = isGated
-    ? (() => {
-        const cut = payload.body.slice(0, 280);
-        const lastSpace = cut.lastIndexOf(" ");
-        return (
-          (lastSpace > 200 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…"
-        );
-      })()
-    : payload.body;
+  const bodyForRender = payload.body;
 
   const dateLabel = row.publishedAt
     ? new Date(row.publishedAt).toLocaleDateString(undefined, {
@@ -487,7 +476,7 @@ export default async function IntelDetailPage({
             </p>
           )}
 
-          <IntelHero payload={payload} />
+          <IntelHero payload={payload} publicId={realId} />
 
           {/* `bodyForRender` is the truncated teaser when an incident is
               clearance-gated, otherwise the full markdown / plaintext body.

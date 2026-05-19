@@ -5,6 +5,7 @@ import { db, submissions } from "@/lib/db";
 import type { IntelPayload } from "@/lib/db/schema";
 import type { PersonaSlug } from "@/lib/personas";
 import { sendOpsAlert } from "@/lib/email/admin-alert-email";
+import { enrichIntelArticle } from "@/lib/intel-article-enrichment";
 
 /**
  * GET /api/cron/import-rekt-leaderboard
@@ -285,7 +286,7 @@ export async function GET(req: Request) {
     if (e.slug) sources.push(`https://rekt.news/${e.slug}/`);
     sources.push("https://rekt.news/leaderboard");
 
-    const payload: IntelPayload = {
+    const stubPayload: IntelPayload = {
       headline,
       kind: "incident",
       category: categoryForTags(e.tags),
@@ -296,6 +297,12 @@ export async function GET(req: Request) {
       personas: IMPORT_DEFAULT_PERSONAS,
       sourceHarvester: "rekt",
     };
+
+    // Rex Deus 2026-05-19: every story is a full article, not a stub. Route
+    // the harvester's excerpt-paragraph through Gemini Pro for a ~200-word
+    // editorial body. Soft-fail to the stub when Gemini is unavailable.
+    const enrichment = await enrichIntelArticle(stubPayload);
+    const payload = enrichment.payload;
 
     const publishedAt =
       parseDate(e.rekt.date) ?? parseDate(e.date) ?? new Date();

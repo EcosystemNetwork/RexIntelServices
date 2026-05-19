@@ -4,13 +4,26 @@ import { detectVideoEmbed } from "@/lib/media-embed";
 
 /**
  * Hero block for an intel article. Picks video over image when both set so
- * an in-house breakdown clip beats a static thumbnail. Falls back gracefully
- * to nothing — pages without hero render the headline at the top as before.
+ * an in-house breakdown clip beats a static thumbnail. When neither is set,
+ * falls back to the dynamic /intel/[publicId]/hero.svg stat-card so every
+ * approved article carries a hero image without curator effort.
  */
-export function IntelHero({ payload }: { payload: IntelPayload }) {
+export function IntelHero({
+  payload,
+  publicId,
+}: {
+  payload: IntelPayload;
+  publicId?: string;
+}) {
   const hasVideo = !!payload.heroVideoUrl;
   const hasImage = !!payload.heroImageUrl;
-  if (!hasVideo && !hasImage) return null;
+  // Fallback to the auto-rendered stat-card SVG so every story has a hero
+  // image. Skip when no publicId is supplied (preview surfaces that don't
+  // know the row id) or when the curator explicitly set their own.
+  const fallbackImage = !hasVideo && !hasImage && publicId
+    ? `/intel/${publicId}/hero.svg`
+    : null;
+  if (!hasVideo && !hasImage && !fallbackImage) return null;
 
   return (
     <figure className="mb-8 -mx-4 sm:mx-0">
@@ -35,7 +48,7 @@ export function IntelHero({ payload }: { payload: IntelPayload }) {
           />
         ) : (
           <img
-            src={payload.heroImageUrl!}
+            src={payload.heroImageUrl ?? fallbackImage!}
             alt={payload.heroAlt ?? payload.headline}
             loading="eager"
             className="absolute inset-0 w-full h-full object-contain"
