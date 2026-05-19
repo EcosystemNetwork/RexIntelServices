@@ -486,7 +486,16 @@ export default async function Dashboard() {
                 {recent.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <div className="font-medium text-white">{c.name}</div>
+                      <Link
+                        href={
+                          c.status === "draft" || c.status === "scheduled"
+                            ? `/campaigns/new?id=${c.id}`
+                            : `/campaigns/${c.id}`
+                        }
+                        className="font-medium text-white hover:text-[var(--rex-accent)]"
+                      >
+                        {c.name}
+                      </Link>
                       <div
                         className="text-xs mt-0.5"
                         style={{ color: "var(--rex-text-dim)" }}

@@ -15,6 +15,7 @@ import { investigationDrop } from "./investigation-drop";
 import { communityBounty } from "./community-bounty";
 import { welcome } from "./welcome";
 import { weeklyDigest } from "./weekly-digest";
+import { newsletterLaunch } from "./newsletter-launch";
 import { blank } from "./blank";
 
 export interface NewsletterTemplate {
@@ -28,6 +29,7 @@ export interface NewsletterTemplate {
 }
 
 export const TEMPLATES: NewsletterTemplate[] = [
+  newsletterLaunch,
   intelBriefing,
   incidentAlert,
   investigationDrop,

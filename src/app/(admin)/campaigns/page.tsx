@@ -139,7 +139,11 @@ export default function CampaignsPage() {
                 <tr key={c.id}>
                   <td>
                     <Link
-                      href={`/campaigns/new?id=${c.id}`}
+                      href={
+                        c.status === "draft" || c.status === "scheduled"
+                          ? `/campaigns/new?id=${c.id}`
+                          : `/campaigns/${c.id}`
+                      }
                       className="font-medium text-white hover:text-[var(--rex-accent)]"
                     >
                       {c.name}
