@@ -28,7 +28,13 @@ export function VoteButton({
 }) {
   const [count, setCount] = useState(initialCount);
   const [phase, setPhase] = useState<
-    "idle" | "needs-email" | "check-email" | "voted" | "loading" | "error"
+    | "idle"
+    | "needs-email"
+    | "check-email"
+    | "voted"
+    | "loading"
+    | "error"
+    | "cap-reached"
   >(initialVoted ? "voted" : "idle");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
@@ -37,14 +43,24 @@ export function VoteButton({
 
   // If the page loaded with ?voted=1 from the confirm-redirect, refresh
   // the count optimistically so the user sees their vote land instantly.
+  // ?vote=cap is the confirm-redirect status when the magic-link path
+  // hit the monthly cap — render the cap-reached state instead.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    let mutated = false;
     if (params.get("voted") === "1" && phase !== "voted") {
       setCount((c) => c + 1);
       setPhase("voted");
-      // Strip the param so a refresh doesn't keep counting.
       params.delete("voted");
+      mutated = true;
+    }
+    if (params.get("vote") === "cap" && phase !== "cap-reached") {
+      setPhase("cap-reached");
+      params.delete("vote");
+      mutated = true;
+    }
+    if (mutated) {
       const url =
         window.location.pathname +
         (params.toString() ? `?${params.toString()}` : "") +
@@ -78,6 +94,10 @@ export function VoteButton({
         return;
       }
       const data = await res.json().catch(() => ({}));
+      if (res.status === 429 && data?.capReached) {
+        setPhase("cap-reached");
+        return;
+      }
       setErrorMsg(data.error ?? "Vote failed.");
       setPhase("error");
     } catch {
@@ -136,6 +156,14 @@ export function VoteButton({
               style={{ color: "var(--rex-accent)" }}
             >
               ✓ Vote recorded. Thanks for the signal.
+            </div>
+          ) : phase === "cap-reached" ? (
+            <div
+              className="text-sm"
+              style={{ color: "var(--rex-text-muted)" }}
+            >
+              Monthly vote limit reached (3/month). Resets at the start of
+              next month UTC.
             </div>
           ) : phase === "check-email" ? (
             <div className="text-sm" style={{ color: "var(--rex-accent)" }}>

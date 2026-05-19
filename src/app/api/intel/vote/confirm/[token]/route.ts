@@ -19,6 +19,7 @@ import {
   buildVoterCookie,
 } from "@/lib/voter-cookie";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
+import { MONTHLY_VOTE_CAP, countMonthlyVotes } from "@/lib/voting";
 
 /**
  * GET /api/intel/vote/confirm/[token]
@@ -136,6 +137,48 @@ export async function GET(
       })
       .returning({ id: subscribers.id });
     subscriberId = created.id;
+  }
+
+  // Monthly cap — token is already consumed by the atomic UPDATE above, so
+  // a cap-hit user pays one token but doesn't get a vote. That matches the
+  // failure semantics of every other gate in this route (banned submitter,
+  // un-approved intel) and keeps the magic-link path from being a bypass of
+  // the cookie path's cap check. Skip if the (submissionId, subscriberId)
+  // row already exists — re-clicking your own confirm link shouldn't count.
+  const [existingVote] = await db
+    .select({ submissionId: intelVotes.submissionId })
+    .from(intelVotes)
+    .where(
+      and(
+        eq(intelVotes.submissionId, claimed.submissionId),
+        eq(intelVotes.subscriberId, subscriberId),
+      ),
+    )
+    .limit(1);
+  if (!existingVote) {
+    const monthlyVotes = await countMonthlyVotes(subscriberId);
+    if (monthlyVotes >= MONTHLY_VOTE_CAP) {
+      // Still set the voter cookie — they're a confirmed identity, future
+      // months they should one-click vote again — but bounce with a cap
+      // status so the intel page can surface the right message.
+      const headlineForCap =
+        (intel.payload as IntelPayload).headline ?? "intel";
+      const target = absoluteUrl(
+        `${detailHref("/intel", intel.publicId, headlineForCap)}?vote=cap`,
+      );
+      const cookie = buildVoterCookie(subscriberId);
+      const res = NextResponse.redirect(target, 302);
+      if (cookie) {
+        res.cookies.set(VOTER_COOKIE_NAME, cookie, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          maxAge: VOTER_COOKIE_MAX_AGE_SEC,
+        });
+      }
+      return res;
+    }
   }
 
   // Insert the vote. onConflictDoNothing handles the case where the same

@@ -13,6 +13,7 @@ import { verifyVoterCookie, VOTER_COOKIE_NAME } from "@/lib/voter-cookie";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { SUBMISSIONS_TAG } from "@/lib/cache";
 import { siteUrl } from "@/lib/site-url";
+import { MONTHLY_VOTE_CAP, countMonthlyVotes } from "@/lib/voting";
 
 /**
  * POST /api/intel/vote/cast
@@ -178,6 +179,21 @@ export async function POST(req: NextRequest) {
 
   if (existingVote) {
     return NextResponse.json({ ok: true, alreadyVoted: true });
+  }
+
+  // Monthly cap — counted AFTER the already-voted check so re-clicking an
+  // intel you already voted on never costs a quota slot. UTC month window;
+  // see lib/voting.ts.
+  const monthlyVotes = await countMonthlyVotes(subscriberId);
+  if (monthlyVotes >= MONTHLY_VOTE_CAP) {
+    return NextResponse.json(
+      {
+        error: `Monthly vote limit reached (${MONTHLY_VOTE_CAP}/month). Resets at the start of next month UTC.`,
+        capReached: true,
+        cap: MONTHLY_VOTE_CAP,
+      },
+      { status: 429 },
+    );
   }
 
   await db
