@@ -38,6 +38,51 @@ export default function ForensicLandingPage() {
           <ForensicSubmitForm />
         </section>
 
+        <section className="rex-card p-4 sm:p-5 space-y-3">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-accent)]">
+            ● MCP server · for SIFT Workstation, Claude Desktop, any MCP client
+          </div>
+          <p className="text-[12px] text-[var(--rex-text-muted)] leading-relaxed">
+            The same five tools are exposed at{" "}
+            <code className="font-mono text-[var(--rex-text)]">
+              POST /api/mcp
+            </code>{" "}
+            as a Model Context Protocol server (JSON-RPC 2.0 over HTTP, protocol
+            version 2024-11-05). Plug any MCP-aware agent — Claude Desktop, Claude
+            Code, the SANS Protocol SIFT layer — directly into RexIntel&apos;s
+            attribution graph + intel + on-chain trace runner. No glue code.
+          </p>
+          <details className="text-[12px]">
+            <summary className="cursor-pointer text-[var(--rex-text-muted)] hover:text-[var(--rex-text)]">
+              Claude Desktop config (click to expand)
+            </summary>
+            <pre className="whitespace-pre-wrap font-mono text-[11px] text-[var(--rex-text-muted)] bg-black/20 p-2 rounded mt-2 overflow-x-auto">
+{`{
+  "mcpServers": {
+    "rexintel-forensic": {
+      "transport": "http",
+      "url": "https://rexintelservices.com/api/mcp"
+    }
+  }
+}`}
+            </pre>
+          </details>
+          <details className="text-[12px]">
+            <summary className="cursor-pointer text-[var(--rex-text-muted)] hover:text-[var(--rex-text)]">
+              Raw JSON-RPC probe (click to expand)
+            </summary>
+            <pre className="whitespace-pre-wrap font-mono text-[11px] text-[var(--rex-text-muted)] bg-black/20 p-2 rounded mt-2 overflow-x-auto">
+{`curl -X POST https://rexintelservices.com/api/mcp \\
+  -H 'Content-Type: application/json' \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`}
+            </pre>
+          </details>
+          <p className="text-[11px] text-[var(--rex-text-dim)] font-mono">
+            GET /api/mcp returns the same tool catalog as HTML-friendly JSON for
+            judges who want to see the surface without an MCP client.
+          </p>
+        </section>
+
         <section className="rex-card p-4 sm:p-5 text-[12px] text-[var(--rex-text-muted)] space-y-3 leading-relaxed">
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--rex-text-dim)]">
             How v1 works

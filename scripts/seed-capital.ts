@@ -770,6 +770,19 @@ const funds: CapitalPayload[] = [
     pitchUrl: "https://castleisland.vc/",
     tags: ["castle-island", "bitcoin", "stablecoins", "infra"],
   },
+  {
+    name: "LvlUp Ventures — First Check Fund",
+    organization: "LvlUp Ventures",
+    organizationUrl: "https://www.lvlup.vc/",
+    description:
+      "Idea-stage / pre-formation rolling fund. Writes $1k–$10k cash checks plus a ~$10M perk stack (cloud credits, tooling, network access) as a founder's first institutional capital. Industry-agnostic and global — no entity required, no data room required. Stated goal of 1,000 investments in 2026; LvlUp claims Pitchbook's #7 Most Active VC Firm Globally ranking on the strength of that volume. Public funding-application portal; decision in under a week. Pairs with LvlUp's accelerator and direct-investment vehicles for follow-on.",
+    stage: "Idea → Pre-seed",
+    checkSize: "$1k–$10k cash + ~$10M in perks",
+    focus: "Generalist · idea-stage first money",
+    pitchUrl: "https://www.lvlup.vc/apply/funding-application",
+    decisionWindow: "Decision in <1 week",
+    tags: ["lvlup", "first-check", "idea-stage", "pre-seed", "generalist", "perks"],
+  },
 ];
 
 async function upsert(payload: CapitalPayload) {
