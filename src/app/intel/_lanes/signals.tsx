@@ -110,11 +110,15 @@ const getSignalsRows = unstable_cache(
 // next time the page revalidates.
 const getHackedCryptoStats = unstable_cache(
   async () => {
-    // REKT-imported rows are excluded: they use peak-price valuations
-    // (e.g. Mt. Gox at $14.85B at peak vs. the curated $450M time-of-loss
-    // entry) and broadly duplicate DefiLlama coverage. The remaining rows
-    // — DefiLlama, Gemini-editor postmortems, and hand-curated incident
-    // seeds — give the realised-loss number every reader expects.
+    // Counter sums realised loss across approved incident rows but excludes
+    // two harvesters that duplicate the authoritative corpus:
+    //   * 'rekt' — peak-price valuations (e.g. Mt. Gox at $14.85B at peak
+    //     vs. the curated $450M time-of-loss entry).
+    //   * 'gemini-editor' — the daily cron drafts editorial articles for
+    //     the same DefiLlama hacks already counted under the null-source
+    //     corpus, double-counting Coincheck/Cetus/Euler/BitMart/etc.
+    // What remains: DefiLlama imports + hand-curated incident seeds — the
+    // realised-loss number every reader expects.
     const rows = await db
       .select({
         totalUsd: sql<string>`coalesce(sum((${submissions.payload}->>'lossUsd')::numeric), 0)`,
@@ -128,7 +132,7 @@ const getHackedCryptoStats = unstable_cache(
           sql`${submissions.payload}->>'kind' = 'incident'`,
           sql`(${submissions.payload}->>'lossUsd') IS NOT NULL`,
           sql`(${submissions.payload}->>'lossUsd')::numeric > 0`,
-          sql`coalesce(${submissions.payload}->>'sourceHarvester', '') <> 'rekt'`,
+          sql`coalesce(${submissions.payload}->>'sourceHarvester', '') NOT IN ('rekt', 'gemini-editor')`,
         ),
       );
     const row = rows[0];
@@ -137,7 +141,7 @@ const getHackedCryptoStats = unstable_cache(
       incidentCount: Number(row?.n ?? 0),
     };
   },
-  ["intel-hacked-crypto-counter-v3"],
+  ["intel-hacked-crypto-counter-v4"],
   { tags: [SUBMISSIONS_TAG], revalidate: LISTING_REVALIDATE_SEC },
 );
 
